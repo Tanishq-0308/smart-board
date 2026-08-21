@@ -1,0 +1,56 @@
+[
+  {
+    "id": "m-001",
+    "teacherId": "t-001",
+    "classId": "c-001",
+    "title": "Chapter 4 - Linear Equations",
+    "kind": "PDF",
+    "assetFile": "sample_chapter.pdf",
+    "remoteId": "ERP-MAT-30001"
+  },
+  {
+    "id": "m-002",
+    "teacherId": "t-001",
+    "classId": "c-001",
+    "title": "Worksheet - Practice Problems",
+    "kind": "PDF",
+    "assetFile": "sample_worksheet.pdf",
+    "remoteId": "ERP-MAT-30002"
+  },
+  {
+    "id": "m-003",
+    "teacherId": "t-001",
+    "classId": "c-003",
+    "title": "Science Textbook - Unit 2",
+    "kind": "BOOK",
+    "assetFile": "sample_chapter.pdf",
+    "remoteId": "ERP-MAT-30003"
+  },
+  {
+    "id": "m-004",
+    "teacherId": "t-002",
+    "classId": "c-004",
+    "title": "Physics - Laws of Motion",
+    "kind": "PDF",
+    "assetFile": "sample_chapter.pdf",
+    "remoteId": "ERP-MAT-30004"
+  },
+  {
+    "id": "m-005",
+    "teacherId": "t-003",
+    "classId": "c-005",
+    "title": "Grade 7 Maths - Fractions",
+    "kind": "PDF",
+    "assetFile": "sample_chapter.pdf",
+    "remoteId": "ERP-MAT-30005"
+  },
+  {
+    "id": "m-006",
+    "teacherId": "t-003",
+    "classId": "c-006",
+    "title": "Grade 7 Science - The Solar System",
+    "kind": "PDF",
+    "assetFile": "sample_worksheet.pdf",
+    "remoteId": "ERP-MAT-30006"
+  }
+]

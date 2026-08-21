@@ -1,0 +1,26 @@
+[
+  {
+    "id": "t-001",
+    "username": "asharma",
+    "displayName": "Aditi Sharma",
+    "password": "board123",
+    "email": "aditi.sharma@school.edu",
+    "remoteId": "ERP-TCH-10241"
+  },
+  {
+    "id": "t-002",
+    "username": "rmehta",
+    "displayName": "Rohan Mehta",
+    "password": "board123",
+    "email": "rohan.mehta@school.edu",
+    "remoteId": "ERP-TCH-10242"
+  },
+  {
+    "id": "t-003",
+    "username": "demo",
+    "displayName": "Demo Teacher",
+    "password": "demo",
+    "email": "demo@school.edu",
+    "remoteId": "ERP-TCH-10999"
+  }
+]

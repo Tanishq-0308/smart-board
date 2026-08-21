@@ -1,0 +1,24 @@
+# Secrets — MUST stay out of version control.
+# local.properties holds sdk.dir AND OPENAI_API_KEY.
+local.properties
+
+# Build output
+/build
+.gradle
+/captures
+*.apk
+*.aab
+*.ap_
+*.dex
+/app/build
+/app/release
+
+# Signing
+*.jks
+*.keystore
+keystore.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store

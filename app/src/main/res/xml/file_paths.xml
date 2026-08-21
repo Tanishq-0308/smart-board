@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+      ONLY the lookup-crop directory is exposed. Notes, imported PDFs and
+      backgrounds stay unreachable to other apps: a share intent should be
+      able to read the one region a teacher deliberately shared, and nothing
+      else the app holds.
+    -->
+    <cache-path name="lookup_crops" path="lookup-crops/" />
+</paths>

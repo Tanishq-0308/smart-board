@@ -1,0 +1,19 @@
+# Copy this file to `local.properties` and fill in real values.
+# `local.properties` is gitignored and must NEVER be committed.
+
+# Path to your Android SDK (Android Studio usually writes this automatically).
+# Forward slashes work on Windows and avoid the backslash-escaping trap that
+# Java .properties files impose.
+sdk.dir=C:/Users/<you>/AppData/Local/Android/Sdk
+
+# OpenAI API key used by the board snapshot -> notes feature.
+#
+# SECURITY NOTE (Phase 1): this key is compiled into BuildConfig and therefore
+# ships inside the APK, where it is trivially extractable. R8 does not hide
+# string constants. Use a DEDICATED key with a hard monthly spend cap and usage
+# alerts, scoped to nothing else, and rotate it if the APK is distributed widely.
+# Phase 2 moves this behind a server proxy on the ERP backend.
+#
+# The app builds and runs without this key; the snapshot feature will simply
+# report that AI notes are not configured.
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

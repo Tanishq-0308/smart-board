@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Board content and notes are device-local working data; do not back up. -->
+    <exclude domain="file" path="notes/" />
+    <exclude domain="file" path="imports/" />
+    <exclude domain="file" path="backgrounds/" />
+    <exclude domain="database" path="smartboard.db" />
+</full-backup-content>

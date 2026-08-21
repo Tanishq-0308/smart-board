@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="board_surface">#FFFFFFFF</color>
+    <color name="board_chrome">#FF1C2530</color>
+</resources>

@@ -1,0 +1,225 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 758 >>
+stream
+BT
+/F1 22 Tf
+1 0 0 1 60 780 Tm
+(Chapter 4 - Linear Equations) Tj
+/F1 12 Tf
+1 0 0 1 60 740 Tm
+(4.1  Introduction) Tj
+1 0 0 1 60 720 Tm
+() Tj
+1 0 0 1 60 700 Tm
+(An equation is a statement that two expressions are equal.) Tj
+1 0 0 1 60 680 Tm
+(A linear equation in one variable has the general form:) Tj
+1 0 0 1 60 660 Tm
+() Tj
+1 0 0 1 60 640 Tm
+(        ax + b = 0        where a is not equal to 0) Tj
+1 0 0 1 60 620 Tm
+() Tj
+1 0 0 1 60 600 Tm
+(The value of x that satisfies the equation is called its) Tj
+1 0 0 1 60 580 Tm
+(solution or root.) Tj
+1 0 0 1 60 560 Tm
+() Tj
+1 0 0 1 60 540 Tm
+(Example 1:  Solve  3x + 5 = 20) Tj
+1 0 0 1 60 520 Tm
+(            3x = 20 - 5) Tj
+1 0 0 1 60 500 Tm
+(            3x = 15) Tj
+1 0 0 1 60 480 Tm
+(             x = 5) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 743 >>
+stream
+BT
+/F1 22 Tf
+1 0 0 1 60 780 Tm
+(4.2  Solving Equations) Tj
+/F1 12 Tf
+1 0 0 1 60 740 Tm
+(To solve a linear equation we perform the same operation) Tj
+1 0 0 1 60 720 Tm
+(on both sides until the variable stands alone.) Tj
+1 0 0 1 60 700 Tm
+() Tj
+1 0 0 1 60 680 Tm
+(Rules:) Tj
+1 0 0 1 60 660 Tm
+(  1. Add or subtract the same number on both sides.) Tj
+1 0 0 1 60 640 Tm
+(  2. Multiply or divide both sides by the same non-zero number.) Tj
+1 0 0 1 60 620 Tm
+() Tj
+1 0 0 1 60 600 Tm
+(Example 2:  Solve  2\(x - 3\) = 10) Tj
+1 0 0 1 60 580 Tm
+(            2x - 6 = 10) Tj
+1 0 0 1 60 560 Tm
+(            2x = 16) Tj
+1 0 0 1 60 540 Tm
+(             x = 8) Tj
+1 0 0 1 60 520 Tm
+() Tj
+1 0 0 1 60 500 Tm
+(Check:  2\(8 - 3\) = 2\(5\) = 10   Correct.) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 684 >>
+stream
+BT
+/F1 22 Tf
+1 0 0 1 60 780 Tm
+(4.3  Word Problems) Tj
+/F1 12 Tf
+1 0 0 1 60 740 Tm
+(Many real problems become linear equations once we name) Tj
+1 0 0 1 60 720 Tm
+(the unknown quantity.) Tj
+1 0 0 1 60 700 Tm
+() Tj
+1 0 0 1 60 680 Tm
+(Example 3:) Tj
+1 0 0 1 60 660 Tm
+(The sum of two consecutive numbers is 47. Find them.) Tj
+1 0 0 1 60 640 Tm
+() Tj
+1 0 0 1 60 620 Tm
+(   Let the first number be x.) Tj
+1 0 0 1 60 600 Tm
+(   Then the next number is x + 1.) Tj
+1 0 0 1 60 580 Tm
+(   x + \(x + 1\) = 47) Tj
+1 0 0 1 60 560 Tm
+(   2x + 1 = 47) Tj
+1 0 0 1 60 540 Tm
+(   2x = 46) Tj
+1 0 0 1 60 520 Tm
+(   x = 23) Tj
+1 0 0 1 60 500 Tm
+() Tj
+1 0 0 1 60 480 Tm
+(The numbers are 23 and 24.) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 623 >>
+stream
+BT
+/F1 22 Tf
+1 0 0 1 60 780 Tm
+(4.4  Practice Exercises) Tj
+/F1 12 Tf
+1 0 0 1 60 740 Tm
+(Solve for x:) Tj
+1 0 0 1 60 720 Tm
+() Tj
+1 0 0 1 60 700 Tm
+(  1.  x + 7 = 15) Tj
+1 0 0 1 60 680 Tm
+(  2.  4x = 36) Tj
+1 0 0 1 60 660 Tm
+(  3.  2x - 9 = 11) Tj
+1 0 0 1 60 640 Tm
+(  4.  5\(x + 2\) = 40) Tj
+1 0 0 1 60 620 Tm
+(  5.  3x + 4 = x + 18) Tj
+1 0 0 1 60 600 Tm
+() Tj
+1 0 0 1 60 580 Tm
+(Word problems:) Tj
+1 0 0 1 60 560 Tm
+() Tj
+1 0 0 1 60 540 Tm
+(  6.  A number multiplied by 4 gives 52. Find it.) Tj
+1 0 0 1 60 520 Tm
+(  7.  The perimeter of a square is 64 cm.) Tj
+1 0 0 1 60 500 Tm
+(      Find the length of one side.) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 524 >>
+stream
+BT
+/F1 22 Tf
+1 0 0 1 60 780 Tm
+(4.5  Summary) Tj
+/F1 12 Tf
+1 0 0 1 60 740 Tm
+(Key points from this chapter:) Tj
+1 0 0 1 60 720 Tm
+() Tj
+1 0 0 1 60 700 Tm
+(  - A linear equation has the form ax + b = 0.) Tj
+1 0 0 1 60 680 Tm
+(  - The highest power of the variable is 1.) Tj
+1 0 0 1 60 660 Tm
+(  - Whatever is done to one side must be done to the other.) Tj
+1 0 0 1 60 640 Tm
+(  - Always verify the answer by substitution.) Tj
+1 0 0 1 60 620 Tm
+() Tj
+1 0 0 1 60 600 Tm
+(Next chapter: Linear Equations in Two Variables.) Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 12 0 R >>
+endobj
+xref
+0 14
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000141 00000 n 
+0000000211 00000 n 
+0000001019 00000 n 
+0000001145 00000 n 
+0000001938 00000 n 
+0000002064 00000 n 
+0000002798 00000 n 
+0000002924 00000 n 
+0000003598 00000 n 
+0000003726 00000 n 
+0000004301 00000 n 
+trailer
+<< /Size 14 /Root 1 0 R >>
+startxref
+4429
+%%EOF
