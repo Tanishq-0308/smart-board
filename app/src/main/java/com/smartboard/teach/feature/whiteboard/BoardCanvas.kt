@@ -25,12 +25,19 @@ import com.smartboard.teach.domain.model.DrawTool
 import com.smartboard.teach.domain.model.Stroke
 import com.smartboard.teach.domain.model.TextBox
 import com.smartboard.teach.feature.whiteboard.container.ContainerHitTest
+import com.smartboard.teach.feature.whiteboard.instruments.COMPASS_LEG_CM
+import com.smartboard.teach.feature.whiteboard.instruments.compassNeedleTip
+import com.smartboard.teach.feature.whiteboard.instruments.hasSweep
+import com.smartboard.teach.feature.whiteboard.instruments.compassRadius
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentDrag
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentGeometry
 import com.smartboard.teach.feature.whiteboard.instruments.instrumentHitAt
 import com.smartboard.teach.feature.whiteboard.instruments.hasRulingEdge
 import kotlin.math.abs
+import kotlin.math.asin
+import kotlin.math.cos
 import kotlin.math.atan2
+import kotlin.math.sin
 import kotlin.math.hypot
 
 /**
@@ -399,6 +406,36 @@ private fun handlePress(
     val worldX = camera.screenToWorldX(change.position.x)
     val worldY = camera.screenToWorldY(change.position.y)
 
+    // Touching the BOARD commits any open text edit. The canvas has to do this
+    // itself: it consumes the press before the text field could ever see it
+    // lose focus, so without this the editor stays open forever. A press on a
+    // text box is excluded — that press is what opens the editor, and clearing
+    // here would close it in the same frame.
+    if (Selection.textBoxAt(state.textBoxes, worldX, worldY) == null) {
+        state.editingTextBoxId = null
+    }
+
+    // Is this press ON an instrument? If so it moves or turns it rather than
+    // drawing, selecting or panning. Handled HERE rather than in a competing
+    // pointer layer: the canvas is the single owner of pointer input, and a
+    // second full-screen handler above it would win every hit-test and make
+    // the board undrawable.
+    //
+    // Ahead of the mode switch, because an instrument is board furniture: a
+    // teacher reaching for the ruler's pivot expects to turn it whatever tool
+    // happens to be selected. Behind the switch it was grabbable only while
+    // drawing, so with Select active the press fell through to the marquee and
+    // the instrument simply would not rotate.
+    if (state.instruments.isNotEmpty()) {
+        val hit = instrumentHitAt(state, change.position)
+        if (hit != null) {
+            state.instrumentDragMode = hit.mode
+            state.draggedInstrumentId = hit.id
+            state.dragState = DragState.None
+            return
+        }
+    }
+
     when (state.mode) {
         BoardMode.Pan -> {
             state.dragState = DragState.Panning
@@ -550,20 +587,6 @@ private fun handlePress(
     state.tappedCell = cell?.takeIf {
         val kind = state.containerById(it.containerId)?.kind
         kind == ContainerKind.MINDMAP || kind == ContainerKind.VIDEO
-    }
-
-    // Is this press ON the instrument? If so it moves or turns it rather than
-    // drawing. Handled HERE rather than in a competing pointer layer: the
-    // canvas is the single owner of pointer input, and a second full-screen
-    // handler above it would win every hit-test and make the board undrawable.
-    if (state.instruments.isNotEmpty()) {
-        val hit = instrumentHitAt(state, change.position)
-        if (hit != null) {
-            state.instrumentDragMode = hit.mode
-            state.draggedInstrumentId = hit.id
-            state.dragState = DragState.None
-            return
-        }
     }
 
     // Does this stroke rule against the instrument? Decided ONCE at press, so
@@ -798,6 +821,13 @@ private fun handleRelease(
         }
 
         else -> Unit
+    }
+
+    // A finished sweep becomes ordinary ink, so it undoes, saves and exports
+    // like anything else drawn on the board — the compass is the tool, not the
+    // owner of what it drew.
+    if (state.instrumentDragMode == InstrumentDrag.SWEEP) {
+        commitCompassArc(state, onStrokeFinished)
     }
 
     state.dragState = DragState.None
@@ -1099,6 +1129,83 @@ private fun snapPoint(state: BoardState, worldX: Float, worldY: Float): FloatArr
     return InstrumentGeometry.projectOntoEdge(edge, worldX, worldY)
 }
 
+/**
+ * Turns the compass's swept arc into a stroke and clears the sweep.
+ *
+ * Sampled at a fixed angular step rather than a fixed point count, so a small
+ * arc does not carry the cost of a full circle and a full circle does not come
+ * out as a visible polygon.
+ */
+private fun commitCompassArc(state: BoardState, onStrokeFinished: (Stroke) -> Unit) {
+    val instrument = state.instrumentById(state.draggedInstrumentId) ?: return
+    if (!instrument.hasSweep) return
+
+    val camera = state.camera
+    val needleScreen = compassNeedleTip(instrument, camera)
+    val cx = camera.screenToWorldX(needleScreen.x)
+    val cy = camera.screenToWorldY(needleScreen.y)
+    val radius = instrument.compassRadius
+
+    val from = instrument.sweepStart
+    val total = instrument.sweepEnd - instrument.sweepStart
+    val steps = (abs(total) / ARC_STEP_RAD).toInt().coerceIn(2, MAX_ARC_POINTS)
+
+    // Flagged so shape recognition leaves it alone: the arc is already exact
+    // geometry at the radius the teacher set, and snapping it to the
+    // recogniser's idea of a circle would quietly change that radius.
+    state.suppressShapeSnap = true
+    val builder = state.beginStroke(DrawTool.PEN, initialPressure = 1f)
+    for (i in 0..steps) {
+        val angle = from + total * (i.toFloat() / steps)
+        builder.addPoint(
+            cx + cos(angle) * radius,
+            cy + sin(angle) * radius,
+            1f,
+            // Smoothing is for a wobbling hand; these points are already
+            // exactly on the circle and averaging them would flatten it.
+            applySmoothing = false,
+        )
+    }
+    state.endStroke()?.let(onStrokeFinished)
+    state.suppressShapeSnap = false
+
+    // The arc is ink now, so the tool stops showing its own copy of it.
+    state.replaceInstrument(instrument.copy(sweepStart = 0f, sweepEnd = 0f))
+}
+
+/** Roughly three degrees per sample: smooth at any radius a board can show. */
+private const val ARC_STEP_RAD = 0.05f
+private const val MAX_ARC_POINTS = 512
+
+/** A point rotated about another, in world units. */
+private fun rotateAbout(px: Float, py: Float, cx: Float, cy: Float, angle: Float): FloatArray {
+    val c = cos(angle)
+    val s = sin(angle)
+    val dx = px - cx
+    val dy = py - cy
+    return floatArrayOf(cx + dx * c - dy * s, cy + dx * s + dy * c)
+}
+
+/**
+ * An angle step folded into (-pi, pi].
+ *
+ * atan2 wraps at the half turn, so a pencil crossing that seam reports a step
+ * of nearly a full turn in the wrong direction. Without this the arc would
+ * jump backwards every time a teacher swept past it.
+ */
+private fun normaliseAngle(angle: Float): Float {
+    var a = angle
+    while (a > PI) a -= (PI * 2).toFloat()
+    while (a <= -PI) a += (PI * 2).toFloat()
+    return a
+}
+
+private const val PI = Math.PI.toFloat()
+
+/** How far the legs may open: closed enough to be useless, wide enough to splay. */
+private const val MIN_SPREAD_RAD = 0.12f
+private const val MAX_SPREAD_RAD = 2.4f
+
 /** Moves, turns or resizes the instrument for this pointer sample. */
 private fun applyInstrumentDrag(state: BoardState, change: PointerInputChange) {
     val current = state.instrumentById(state.draggedInstrumentId) ?: return
@@ -1121,10 +1228,56 @@ private fun applyInstrumentDrag(state: BoardState, change: PointerInputChange) {
             rotation = atan2(change.position.y - ay, change.position.x - ax),
         )
 
-        InstrumentDrag.RADIUS -> current.copy(
-            radiusWorld = (hypot(change.position.x - ax, change.position.y - ay) / camera.zoom)
-                .coerceAtLeast(20f),
-        )
+        // Opening the legs. Measured from the hinge, so the spread follows the
+        // hand the way the real hinge does.
+        InstrumentDrag.SPREAD -> {
+            val legPx = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
+            val reach = hypot(change.position.x - ax, change.position.y - ay)
+            // The hand is on ONE leg, half the spread off the centre line.
+            val half = asin((reach / legPx).coerceIn(0f, 1f))
+            current.copy(
+                spreadRad = (half * 2f).coerceIn(MIN_SPREAD_RAD, MAX_SPREAD_RAD),
+                // A resized compass starts its arc afresh: the old sweep was
+                // drawn at a different radius and would not join up.
+                sweepStart = 0f,
+                sweepEnd = 0f,
+            )
+        }
+
+        // Sweeping the pencil round the needle. The compass ROTATES about the
+        // needle rather than the hinge, which is what keeps the needle — and
+        // so the circle's centre — still while the arc is drawn.
+        InstrumentDrag.SWEEP -> {
+            val needle = compassNeedleTip(current, camera)
+            val angle = atan2(change.position.y - needle.y, change.position.x - needle.x)
+            val previous = atan2(
+                change.previousPosition.y - needle.y,
+                change.previousPosition.x - needle.x,
+            )
+            // Unwrapped, so a sweep past the 180-degree seam keeps counting up
+            // instead of jumping to a huge negative arc.
+            val step = normaliseAngle(angle - previous)
+
+            val startedSweep = !current.hasSweep
+            val sweepEnd = if (startedSweep) previous + step else current.sweepEnd + step
+
+            // Turning the tool by the same step keeps the pencil under the
+            // hand while the needle stays put.
+            val hinge = rotateAbout(
+                px = current.x,
+                py = current.y,
+                cx = camera.screenToWorldX(needle.x),
+                cy = camera.screenToWorldY(needle.y),
+                angle = step,
+            )
+            current.copy(
+                x = hinge[0],
+                y = hinge[1],
+                rotation = current.rotation + step,
+                sweepStart = if (startedSweep) previous else current.sweepStart,
+                sweepEnd = sweepEnd,
+            )
+        }
 
         InstrumentDrag.NONE -> current
     }

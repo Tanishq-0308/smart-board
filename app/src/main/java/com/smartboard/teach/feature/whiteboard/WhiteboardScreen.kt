@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +43,7 @@ import com.smartboard.teach.domain.model.DrawTool
 import com.smartboard.teach.domain.model.Stroke
 import com.smartboard.teach.domain.model.TextBox
 import com.smartboard.teach.feature.notes.SnapshotDialog
+import com.smartboard.teach.data.ink.RecognizerState
 import com.smartboard.teach.feature.shell.LocalHideClock
 import com.smartboard.teach.feature.shell.LocalOpenBoardMenu
 import com.smartboard.teach.feature.whiteboard.container.MindmapChrome
@@ -72,6 +74,9 @@ fun WhiteboardScreen(
     val backgroundBitmap by viewModel.backgroundBitmap.collectAsStateWithLifecycle()
     val inputSettings by viewModel.inputSettings.collectAsStateWithLifecycle()
     val density = LocalDensity.current
+    // Text boxes are sized in sp but bounded in world pixels; Selection needs
+    // the conversion to hit-test and bound them at their real height.
+    Selection.spToWorldPx = with(density) { 1.sp.toPx() }
     val context = LocalContext.current
     val dimens = SmartBoardTheme.dimens
     val openMenu = LocalOpenBoardMenu.current
@@ -81,6 +86,22 @@ fun WhiteboardScreen(
     LaunchedEffect(Unit) {
         InstrumentGeometry.setDisplayDensity(context.resources.displayMetrics.xdpi)
     }
+    // Downloading the ~20MB handwriting model is deferred until the teacher
+    // actually picks the text nib, so panels that never use it never pay.
+    val recognizerState by viewModel.recognizerState.collectAsStateWithLifecycle()
+    LaunchedEffect(state.penType) {
+        if (state.penType.isTextPen) {
+            viewModel.prepareTextPen()
+        } else {
+            // Switching away mid-pause must not convert what is now ordinary
+            // ink into text a second later.
+            viewModel.cancelTextConversion()
+            state.pendingTextStrokes.clear()
+            state.lastTextBoxId = null
+            state.lastTextInkRight = 0f
+        }
+    }
+
     var debugInfo by remember { mutableStateOf<PointerDebugInfo?>(null) }
 
     val imagePicker = rememberLauncherForActivityResult(
@@ -351,13 +372,30 @@ fun WhiteboardScreen(
                 // undo removes the shape in one step rather than revealing
                 // the original ink underneath — a teacher who did not want
                 // the snap presses undo once and the board is clear.
-                val stroke = maybeSnapToShape(state, drawn)
+                // Text-pen ink is NOT shape-snapped: a handwritten "O" would
+                // become a circle before it ever reached the recognizer.
+                val stroke = if (state.penType.isTextPen) drawn else maybeSnapToShape(state, drawn)
                 state.strokes.add(stroke)
                 renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
                 state.markCommittedDirty()
                 state.history.record(BoardCommand.AddStroke(stroke))
                 state.refreshHistoryFlags()
                 persist()
+
+                if (state.penType.isTextPen) {
+                    state.pendingTextStrokes.add(stroke)
+                    // Handed to the recognizer in SCREEN coordinates: the model
+                    // was trained on writing at a natural on-screen size, so
+                    // world coordinates from a zoomed board would present
+                    // handwriting at a scale it has never seen.
+                    viewModel.scheduleTextConversion(
+                        state.pendingTextStrokes,
+                        toScreen = { st -> Selection.scaleStrokeToScreen(st, state.camera) },
+                    ) { text, consumed ->
+                        replaceInkWithText(state, renderer, text, consumed, density)
+                        persist()
+                    }
+                }
             },
             onStrokesErased = { erased ->
                 state.history.record(BoardCommand.EraseStrokes(erased))
@@ -436,6 +474,15 @@ fun WhiteboardScreen(
 
         // Instruments sit above the ink they rule, and below the chrome.
         InstrumentLayer(state = state)
+
+        // A one-off download and a hard failure both need saying: silence
+        // would read as the text pen simply not working.
+        (recognizerState as? RecognizerState.Downloading)?.let {
+            StatusPill("Preparing handwriting…", Modifier.align(Alignment.TopCenter))
+        }
+        (recognizerState as? RecognizerState.Unavailable)?.let { unavailable ->
+            StatusPill(unavailable.message, Modifier.align(Alignment.TopCenter))
+        }
 
         if (showLessonMenu) {
             LessonMenu(
@@ -580,7 +627,18 @@ fun WhiteboardScreen(
                 // set square grows DOWN from its anchor and a protractor grows
                 // UP, so a single fixed drop point puts one of them off the
                 // board. Anchor from the size the instrument will actually be.
-                val anchor = Instrument(kind = kind, x = 0f, y = 0f)
+                // The compass hangs from its hinge, so it drops pointing DOWN;
+                // every other instrument lies flat along the board.
+                val anchor = Instrument(
+                    kind = kind,
+                    x = 0f,
+                    y = 0f,
+                    rotation = if (kind == InstrumentKind.COMPASS) {
+                        (Math.PI / 2).toFloat()
+                    } else {
+                        0f
+                    },
+                )
                 val extentPx = anchor.lengthCm * InstrumentGeometry.pxPerCm
                 val topBias = if (kind == InstrumentKind.PROTRACTOR) 0.72f else 0.30f
                 // ADDS rather than replaces: teachers routinely work with two
@@ -1008,6 +1066,17 @@ internal fun performUndo(state: BoardState, renderer: BoardRenderer) {
             state.textBoxes.removeAll { b -> command.boxes.any { it.id == b.id } }
         }
 
+        is BoardCommand.ConvertInkToText -> {
+            // Ink back, text gone — the board returns to what was written.
+            state.textBoxes.removeAll { it.id == command.box.id }
+            command.replaced?.let(state.textBoxes::add)
+            state.strokes.addAll(command.strokes)
+            // The merge target is gone, so the next conversion must not try to
+            // continue it.
+            state.lastTextBoxId = null
+            state.lastTextInkRight = 0f
+        }
+
         is BoardCommand.AddContainer ->
             state.containers.removeAll { it.id == command.container.id }
 
@@ -1064,6 +1133,14 @@ internal fun performRedo(state: BoardState, renderer: BoardRenderer) {
         is BoardCommand.DuplicateSelection -> {
             state.strokes.addAll(command.strokes)
             state.textBoxes.addAll(command.boxes)
+        }
+
+        is BoardCommand.ConvertInkToText -> {
+            state.strokes.removeAll { s -> command.strokes.any { it === s } }
+            command.replaced?.let { old -> state.textBoxes.removeAll { it.id == old.id } }
+            state.textBoxes.add(command.box)
+            state.lastTextBoxId = null
+            state.lastTextInkRight = 0f
         }
 
         is BoardCommand.AddContainer -> state.containers.add(command.container)
@@ -1161,6 +1238,132 @@ private fun replaceTextBox(state: BoardState, from: TextBox, to: TextBox) {
 }
 
 /** Swaps a container in place, keeping its position in the z-order. */
+/**
+ * Swaps recognised handwriting for a text box.
+ *
+ * The text lands where the ink was, at a size matched to how large the
+ * teacher wrote — recognised text that appeared at a fixed size would jump
+ * off a small annotation or swamp a heading.
+ *
+ * Recorded as ONE undoable step (a delete plus an add), so a teacher who did
+ * not want the conversion presses undo once and their handwriting is back —
+ * the same contract shape-snapping already uses.
+ */
+private fun replaceInkWithText(
+    state: BoardState,
+    renderer: BoardRenderer,
+    text: String,
+    consumed: List<Stroke>,
+    density: Density,
+) {
+    // Strokes may already be gone: the teacher can erase or undo during the
+    // pause before conversion runs.
+    val present = consumed.filter { stroke -> state.strokes.any { it === stroke } }
+    if (present.isEmpty()) {
+        state.pendingTextStrokes.clear()
+        return
+    }
+
+    val bounds = Selection.boundsOf(present, emptyList())
+    if (Selection.isEmpty(bounds)) {
+        state.pendingTextStrokes.clear()
+        return
+    }
+
+    val heightWorld = bounds[3] - bounds[1]
+    // Cap height is roughly 70% of a font's point size, so scaling by the
+    // written height directly would render text noticeably smaller than the
+    // handwriting it replaced.
+    val fontSizePx = (heightWorld / CAP_HEIGHT_RATIO).coerceIn(MIN_TEXT_PX, MAX_TEXT_PX)
+    val fontSizeSp = with(density) { fontSizePx.toSp().value }
+
+    // Writing that continues the last conversion extends that box instead of
+    // starting a new one. A teacher writing "hello" who pauses after the "h"
+    // gets two conversions, and two boxes would leave "h" and "ello" sitting
+    // apart on the board.
+    val previous = state.lastTextBoxId
+        ?.let { id -> state.textBoxes.firstOrNull { it.id == id } }
+        ?.takeIf { continuesFrom(it, state.lastTextInkRight, bounds, fontSizePx) }
+
+    // Width is the point the text WRAPS at, not the width it occupies, so it
+    // needs room to keep growing: sized to the ink it replaced, the next word
+    // appended to this box would wrap onto its own line.
+    val wrapWidth = (bounds[2] - bounds[0] + fontSizePx * WRAP_HEADROOM)
+        .coerceAtLeast(fontSizePx * MIN_WRAP_CHARS)
+
+    val box = if (previous != null) {
+        // Keeps the earlier box's origin: the teacher wrote one word, so it
+        // should read as one word set the way the word started.
+        previous.copy(
+            text = previous.text + text,
+            widthPx = (bounds[2] - previous.x + fontSizePx * WRAP_HEADROOM)
+                .coerceAtLeast(previous.widthPx),
+        )
+    } else {
+        TextBox(
+            id = java.util.UUID.randomUUID().toString(),
+            x = bounds[0],
+            // Text boxes are positioned by their TOP, and the ink's top edge is
+            // the top of its tallest letter, so they line up.
+            y = bounds[1],
+            widthPx = wrapWidth,
+            text = text,
+            colorArgb = state.currentStyle().colorArgb,
+            fontSizeSp = fontSizeSp,
+        )
+    }
+
+    state.strokes.removeAll { stroke -> present.any { it === stroke } }
+    if (previous != null) state.textBoxes.removeAll { it.id == previous.id }
+    state.textBoxes.add(box)
+    state.pendingTextStrokes.clear()
+    state.lastTextBoxId = box.id
+    state.lastTextInkRight = bounds[2]
+
+    state.history.record(
+        BoardCommand.ConvertInkToText(strokes = present, box = box, replaced = previous),
+    )
+    state.refreshHistoryFlags()
+    renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+    state.markCommittedDirty()
+}
+
+/**
+ * Whether fresh ink continues [box] rather than starting a new word.
+ *
+ * Two tests, both needed: the ink must sit on the same line (vertical overlap)
+ * and follow closely enough to be the same word. Distance is measured in font
+ * sizes rather than pixels so the rule holds at any zoom or handwriting size.
+ * Ink written to the LEFT fails the gap test, so going back to annotate
+ * earlier work correctly starts something new. [inkRight] is where the previous
+ * handwriting ENDED, which is not the box's right edge — see BoardState.
+ */
+internal fun continuesFrom(
+    box: TextBox,
+    inkRight: Float,
+    bounds: FloatArray,
+    fontSizePx: Float,
+): Boolean {
+    val boxBottom = box.y + fontSizePx
+    val overlaps = bounds[1] < boxBottom && bounds[3] > box.y
+    val gap = bounds[0] - inkRight
+    return overlaps && gap > -fontSizePx * 0.5f && gap < fontSizePx * CONTINUE_GAP_RATIO
+}
+
+/** How far past a box new ink may start and still count as the same word. */
+internal const val CONTINUE_GAP_RATIO = 1.5f
+
+/** Extra room past the ink, in font sizes, before recognised text wraps. */
+private const val WRAP_HEADROOM = 8f
+
+/** Narrowest a converted box may be, in font sizes. */
+private const val MIN_WRAP_CHARS = 10f
+
+/** Cap height as a fraction of font size, for matching text to handwriting. */
+private const val CAP_HEIGHT_RATIO = 0.7f
+private const val MIN_TEXT_PX = 14f
+private const val MAX_TEXT_PX = 160f
+
 private fun replaceContainer(state: BoardState, container: Container) {
     val index = state.containers.indexOfFirst { it.id == container.id }
     if (index >= 0) state.containers[index] = container
@@ -1307,6 +1510,8 @@ internal fun applyLoadedPage(
  */
 internal fun maybeSnapToShape(state: BoardState, drawn: Stroke): Stroke {
     if (!state.shapeRecognition) return drawn
+    // Geometry an instrument produced is already exact.
+    if (state.suppressShapeSnap) return drawn
     // Only freehand pen strokes are candidates. The highlighter is for
     // marking up, and the shape tools already produce exact geometry.
     if (drawn.tool != DrawTool.PEN) return drawn
@@ -1357,3 +1562,18 @@ private const val LOOKUP_PADDING_WORLD = 16f
 
 /** Offset between stacked instruments, so each stays grabbable. */
 private const val STACK_OFFSET_PX = 150f
+
+/** Brief status message, centred at the top of the board. */
+@Composable
+private fun StatusPill(message: String, modifier: Modifier = Modifier) {
+    com.smartboard.teach.core.ui.component.FloatingIsland(
+        modifier = modifier.padding(top = 12.dp),
+    ) {
+        Text(
+            text = message,
+            color = com.smartboard.teach.core.ui.theme.TextOnChrome,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+        )
+    }
+}

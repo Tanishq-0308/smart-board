@@ -34,7 +34,28 @@ object Selection {
     /** Empty bounds sentinel: left > right. */
     fun emptyBounds(): FloatArray = floatArrayOf(1f, 1f, -1f, -1f)
 
+    /** Typical line spacing as a multiple of font size. */
+    private const val LINE_HEIGHT = 1.3f
+
+    private const val LINE_BREAK = '\n'
+
     fun isEmpty(bounds: FloatArray): Boolean = bounds[2] < bounds[0] || bounds[3] < bounds[1]
+
+    /**
+     * How many world pixels one sp is, set once from the composition.
+     *
+     * Text boxes store their size in sp but live in a world-pixel coordinate
+     * space, so every bound and hit test has to convert. Treating sp as px
+     * directly made a box's rect roughly a third of its real height: taps
+     * below the first line missed it, and fit-to-content cropped the text.
+     */
+    var spToWorldPx: Float = 1f
+
+    /** World-space height of a text box, including every wrapped line. */
+    fun textBoxHeight(box: TextBox): Float {
+        val lines = box.text.count { it == LINE_BREAK } + 1
+        return box.fontSizeSp * spToWorldPx * LINE_HEIGHT * lines
+    }
 
     /**
      * Union bounds of the given strokes and text boxes, in world space.
@@ -56,8 +77,7 @@ object Selection {
         }
 
         textBoxes.forEach { box ->
-            val lines = box.text.count { it == '\n' } + 1
-            val height = box.fontSizeSp * 1.3f * lines
+            val height = textBoxHeight(box)
             minX = min(minX, box.x); minY = min(minY, box.y)
             maxX = max(maxX, box.x + box.widthPx); maxY = max(maxY, box.y + height)
         }
@@ -91,8 +111,7 @@ object Selection {
 
     fun textBoxesInMarquee(textBoxes: List<TextBox>, marquee: FloatArray): List<TextBox> =
         textBoxes.filter { box ->
-            val lines = box.text.count { it == '\n' } + 1
-            val height = box.fontSizeSp * 1.3f * lines
+            val height = textBoxHeight(box)
             rectsIntersect(
                 floatArrayOf(box.x, box.y, box.x + box.widthPx, box.y + height),
                 marquee,
@@ -110,8 +129,7 @@ object Selection {
 
     fun textBoxAt(textBoxes: List<TextBox>, x: Float, y: Float): TextBox? =
         textBoxes.lastOrNull { box ->
-            val lines = box.text.count { it == '\n' } + 1
-            val height = box.fontSizeSp * 1.3f * lines
+            val height = textBoxHeight(box)
             pointInRect(x, y, floatArrayOf(box.x, box.y, box.x + box.widthPx, box.y + height))
         }
 
@@ -165,6 +183,22 @@ object Selection {
         abs(x - tx) <= radius && abs(y - ty) <= radius
 
     // --- Transforms -------------------------------------------------------
+
+    /**
+     * A copy of [stroke] with its points in SCREEN coordinates.
+     *
+     * Used only to feed the handwriting recognizer, which expects writing at
+     * a natural on-screen size — the same words written on a board zoomed to
+     * 30%% would otherwise arrive a third as large as at 100%%.
+     */
+    fun scaleStrokeToScreen(stroke: Stroke, camera: Camera): Stroke {
+        val points = stroke.points.copyOf()
+        for (i in 0 until stroke.pointCount) {
+            points[i * Stroke.STRIDE] = camera.worldToScreenX(stroke.x(i))
+            points[i * Stroke.STRIDE + 1] = camera.worldToScreenY(stroke.y(i))
+        }
+        return stroke.copyWith(points = points)
+    }
 
     fun translateStroke(stroke: Stroke, dx: Float, dy: Float): Stroke {
         val points = stroke.points.copyOf()

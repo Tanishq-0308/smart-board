@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -41,6 +42,7 @@ import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
 import com.smartboard.teach.feature.whiteboard.BoardState
 import kotlin.math.atan2
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
@@ -76,7 +78,12 @@ fun InstrumentLayer(
                     InstrumentKind.SET_SQUARE_45, InstrumentKind.SET_SQUARE_30 ->
                         drawSetSquare(instrument, sx, sy, zoom, measurer)
                     InstrumentKind.PROTRACTOR -> drawProtractor(instrument, sx, sy, zoom, measurer)
-                    InstrumentKind.COMPASS -> drawCompass(instrument, sx, sy, zoom)
+                    InstrumentKind.COMPASS -> drawCompass(instrument, camera)
+                }
+                // The compass already turns by its own arm; every other
+                // instrument needs somewhere visible to grab.
+                if (instrument.kind != InstrumentKind.COMPASS) {
+                    drawPivot(sx, sy)
                 }
             }
         }
@@ -116,7 +123,19 @@ private fun InstrumentControls(state: BoardState, instrument: Instrument) {
             }
         }
         ControlButton(Icons.Filled.Refresh, "Reset angle") {
-            state.replaceInstrument(instrument.copy(rotation = 0f))
+            // A compass's rest angle is hanging down, not lying flat, and
+            // resetting also drops a part-drawn arc that no longer lines up.
+            state.replaceInstrument(
+                if (instrument.kind == InstrumentKind.COMPASS) {
+                    instrument.copy(
+                        rotation = (Math.PI / 2).toFloat(),
+                        sweepStart = 0f,
+                        sweepEnd = 0f,
+                    )
+                } else {
+                    instrument.copy(rotation = 0f)
+                },
+            )
         }
     }
 }
@@ -141,11 +160,24 @@ private fun controlAnchor(
         camera.worldToScreenY(instrument.y) - PROTRACTOR_RADIUS_CM * InstrumentGeometry.pxPerCm,
     )
 
-    InstrumentKind.COMPASS -> Offset(
-        camera.worldToScreenX(instrument.x) + instrument.radiusWorld * camera.zoom +
-            CONTROL_GAP_PX,
-        camera.worldToScreenY(instrument.y) - instrument.radiusWorld * camera.zoom,
-    )
+    // Clear to the RIGHT of the hinge and level with it. Stacking them above
+    // meant guessing the button column's height, and the guess put the bottom
+    // button straight on top of the hinge — which is the grab that moves the
+    // whole compass, so it could not be moved at all.
+    // BEHIND the hinge, opposite the legs, and following them as the compass
+    // turns. The buttons are a Compose layer above the canvas, so wherever
+    // they sit is a press the canvas never sees: parked at a fixed side they
+    // eventually covered the hinge or a leg, and whichever they covered
+    // stopped responding. Behind the hinge is the one direction the tool
+    // never occupies.
+    InstrumentKind.COMPASS -> {
+        val back = instrument.rotation + PI_F
+        val reach = compassGrabRadius(camera) + COMPASS_CONTROL_CLEARANCE_PX
+        Offset(
+            camera.worldToScreenX(instrument.x) + cos(back) * reach,
+            camera.worldToScreenY(instrument.y) + sin(back) * reach - HINGE_DRAW_PX,
+        )
+    }
 }
 
 @Composable
@@ -213,22 +245,21 @@ internal fun dragModeFor(
     offset: Offset,
 ): InstrumentDrag {
     val camera = state.camera
+
+    // The compass answers for itself, BEFORE the shared pivot test. Its hinge
+    // sits exactly where that test looks, so falling through to it reported
+    // every hinge press as ROTATE — and a compass that rotates instead of
+    // moving cannot be repositioned at all.
+    if (instrument.kind == InstrumentKind.COMPASS) {
+        return compassDragFor(instrument, camera, offset)
+    }
+
     val ax = camera.worldToScreenX(instrument.x)
     val ay = camera.worldToScreenY(instrument.y)
     val distance = hypot(offset.x - ax, offset.y - ay)
 
     // The pivot turns the instrument, and wins even over the edge.
     if (distance < ANCHOR_RADIUS_PX) return InstrumentDrag.ROTATE
-
-    if (instrument.kind == InstrumentKind.COMPASS) {
-        // Only near its own circle, or a compass would swallow the board.
-        val r = instrument.radiusWorld * camera.zoom
-        return if (kotlin.math.abs(distance - r) < ANCHOR_RADIUS_PX) {
-            InstrumentDrag.RADIUS
-        } else {
-            InstrumentDrag.NONE
-        }
-    }
 
     // The drawing band along the ruling edge belongs to the ink.
     if (instrument.kind.hasRulingEdge) {
@@ -240,6 +271,95 @@ internal fun dragModeFor(
     }
 
     return if (isOnBody(instrument, camera, offset)) InstrumentDrag.MOVE else InstrumentDrag.NONE
+}
+
+/**
+ * Which part of the compass a press landed on.
+ *
+ * The tool has three grabs and they must not overlap: the pencil leg sweeps
+ * the arc, the needle leg opens the spread, and the hinge moves the whole
+ * thing. A press anywhere else is not the compass's — the legs are thin, and
+ * claiming the space between them would make the board undrawable inside
+ * every circle a teacher draws.
+ */
+internal fun compassDragFor(
+    instrument: Instrument,
+    camera: com.smartboard.teach.feature.whiteboard.Camera,
+    offset: Offset,
+): InstrumentDrag {
+    val grab = compassGrabRadius(camera)
+
+    val hinge = compassHinge(instrument, camera)
+    val pencil = compassPencilTip(instrument, camera)
+    val needle = compassNeedleTip(instrument, camera)
+
+    val toHinge = hypot(offset.x - hinge.x, offset.y - hinge.y)
+    val toPencil = hypot(offset.x - pencil.x, offset.y - pencil.y)
+    val toNeedle = hypot(offset.x - needle.x, offset.y - needle.y)
+
+    val nearest = minOf(toHinge, toPencil, toNeedle)
+    if (nearest > grab) return InstrumentDrag.NONE
+
+    // NEAREST part wins, rather than a fixed order. Zoomed out the tool is
+    // only a few hundred pixels across and a touch-sized grab on each part
+    // makes all three overlap; testing in a fixed order then hands every
+    // press to whichever happens to be checked first, and the parts behind it
+    // become unreachable.
+    return when (nearest) {
+        toHinge -> InstrumentDrag.MOVE
+        toPencil -> InstrumentDrag.SWEEP
+        else -> InstrumentDrag.SPREAD
+    }
+}
+
+/**
+ * How close a press must be to a compass part to take hold of it.
+ *
+ * Scales with the tool so the grabs stay proportional as the board zooms, but
+ * never drops below a fingertip: zoomed out, a strictly proportional grab
+ * would be a few pixels wide and the compass would be untouchable.
+ */
+internal fun compassGrabRadius(
+    camera: com.smartboard.teach.feature.whiteboard.Camera,
+): Float {
+    val legPx = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
+    return (legPx * GRAB_FRACTION_OF_LEG).coerceIn(MIN_GRAB_PX, MAX_GRAB_PX)
+}
+
+/** Screen position of the hinge the legs hang from. */
+internal fun compassHinge(
+    instrument: Instrument,
+    camera: com.smartboard.teach.feature.whiteboard.Camera,
+): Offset = Offset(
+    camera.worldToScreenX(instrument.x),
+    camera.worldToScreenY(instrument.y),
+)
+
+/**
+ * Screen position of the needle tip — the centre of the circle.
+ *
+ * The needle stays put while the pencil sweeps, which is what makes the arc a
+ * circle rather than a smear.
+ */
+internal fun compassNeedleTip(
+    instrument: Instrument,
+    camera: com.smartboard.teach.feature.whiteboard.Camera,
+): Offset {
+    val hinge = compassHinge(instrument, camera)
+    val legPx = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
+    val angle = instrument.rotation - instrument.spreadRad / 2f
+    return Offset(hinge.x + cos(angle) * legPx, hinge.y + sin(angle) * legPx)
+}
+
+/** Screen position of the pencil tip — where the arc is drawn. */
+internal fun compassPencilTip(
+    instrument: Instrument,
+    camera: com.smartboard.teach.feature.whiteboard.Camera,
+): Offset {
+    val hinge = compassHinge(instrument, camera)
+    val legPx = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
+    val angle = instrument.rotation + instrument.spreadRad / 2f
+    return Offset(hinge.x + cos(angle) * legPx, hinge.y + sin(angle) * legPx)
 }
 
 /** Is this screen point over the instrument's painted area? */
@@ -284,6 +404,31 @@ internal fun isOnBody(
 }
 
 // --- drawing --------------------------------------------------------------
+
+/**
+ * The rotation grip, drawn at the instrument's pivot.
+ *
+ * Without it the pivot is a 40px circle of nothing: the instrument does turn
+ * when dragged there, but there is no way to know that, so it reads as an
+ * instrument that cannot be rotated at all.
+ */
+private fun DrawScope.drawPivot(sx: Float, sy: Float) {
+    // Filled so it reads as a grip rather than a decorative ring, and ringed
+    // in white so it stays visible against ink drawn underneath.
+    drawCircle(color = Color.White, radius = PIVOT_RADIUS_PX, center = Offset(sx, sy))
+    drawCircle(
+        color = Accent,
+        radius = PIVOT_RADIUS_PX,
+        center = Offset(sx, sy),
+        style = Stroke(width = 2.5f),
+    )
+    drawCircle(color = Accent, radius = PIVOT_RADIUS_PX * 0.45f, center = Offset(sx, sy))
+}
+
+/** Drawn size of the pivot. Smaller than its touch target, which is fine —
+ *  a grip that filled its whole 40px slop would cover the ruler's zero mark. */
+private const val PIVOT_RADIUS_PX = 11f
+
 
 private fun DrawScope.drawRuler(
     instrument: Instrument,
@@ -502,43 +647,126 @@ private fun DrawScope.drawProtractor(
     }
 }
 
+/**
+ * A two-legged compass, drawn as the physical tool.
+ *
+ * A hinge with a needle leg and a pencil leg, matching the instrument a
+ * teacher already knows how to use: the needle stays on the centre, the
+ * pencil sweeps the arc, and how far the legs are opened IS the radius. The
+ * earlier version drew a ring with one arm, which told a class nothing about
+ * how a circle is actually constructed.
+ */
 private fun DrawScope.drawCompass(
     instrument: Instrument,
-    sx: Float,
-    sy: Float,
-    zoom: Float,
+    camera: com.smartboard.teach.feature.whiteboard.Camera,
 ) {
-    val radius = instrument.radiusWorld * zoom
-    // The circle the compass would draw, previewed faintly so a teacher can
-    // size it before committing ink.
+    val hinge = compassHinge(instrument, camera)
+    val needle = compassNeedleTip(instrument, camera)
+    val pencil = compassPencilTip(instrument, camera)
+    val radius = instrument.compassRadius * camera.zoom
+
+    // The circle this spread would draw, so the size is clear BEFORE any ink
+    // is committed — the whole reason to preview rather than just draw.
     drawCircle(
-        color = Accent.copy(alpha = 0.35f),
+        color = Accent.copy(alpha = 0.25f),
         radius = radius,
-        center = Offset(sx, sy),
-        style = Stroke(width = 2f),
+        center = needle,
+        style = Stroke(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(9f, 9f))),
     )
-    // Pivot point.
-    drawCircle(color = Accent, radius = 7f, center = Offset(sx, sy))
-    // The arm, from pivot out to the pencil.
-    val armX = sx + cos(instrument.rotation) * radius
-    val armY = sy + sin(instrument.rotation) * radius
+
+    // The arc swept so far, solid, so a part-drawn circle reads as progress
+    // rather than as a broken preview.
+    if (instrument.hasSweep) {
+        val from = minOf(instrument.sweepStart, instrument.sweepEnd)
+        val sweep = abs(instrument.sweepEnd - instrument.sweepStart)
+        drawArc(
+            color = Accent,
+            startAngle = Math.toDegrees(from.toDouble()).toFloat(),
+            sweepAngle = Math.toDegrees(sweep.toDouble()).toFloat(),
+            useCenter = false,
+            topLeft = Offset(needle.x - radius, needle.y - radius),
+            size = androidx.compose.ui.geometry.Size(radius * 2f, radius * 2f),
+            style = Stroke(width = 3f, cap = StrokeCap.Round),
+        )
+    }
+
+    drawCompassLeg(hinge, needle, isPencil = false)
+    drawCompassLeg(hinge, pencil, isPencil = true)
+
+    // The hinge sits on top of both legs, as it does on the real tool.
+    drawCircle(color = HINGE_FILL, radius = HINGE_DRAW_PX, center = hinge)
+    drawCircle(
+        color = Color.White,
+        radius = HINGE_DRAW_PX * 0.34f,
+        center = hinge,
+        style = Stroke(width = 2.5f),
+    )
+}
+
+/**
+ * One leg: a tapered shaft ending in a needle point or a pencil nib.
+ *
+ * The two are drawn differently on purpose — which leg is which decides where
+ * the circle's centre is, and a teacher has to be able to tell at a glance.
+ */
+private fun DrawScope.drawCompassLeg(hinge: Offset, tip: Offset, isPencil: Boolean) {
     drawLine(
-        color = ARM_COLOR,
-        start = Offset(sx, sy),
-        end = Offset(armX, armY),
-        strokeWidth = 6f,
+        color = LEG_COLOR,
+        start = hinge,
+        end = tip,
+        strokeWidth = LEG_WIDTH_PX,
         cap = StrokeCap.Round,
     )
-    drawCircle(color = Accent, radius = 9f, center = Offset(armX, armY))
+
+    // Direction along the leg, for the last stretch down to the point.
+    val dx = tip.x - hinge.x
+    val dy = tip.y - hinge.y
+    val length = hypot(dx, dy).coerceAtLeast(1f)
+    val ux = dx / length
+    val uy = dy / length
+    val nibStart = Offset(tip.x - ux * NIB_LENGTH_PX, tip.y - uy * NIB_LENGTH_PX)
+
+    drawLine(
+        color = if (isPencil) Accent else NEEDLE_COLOR,
+        start = nibStart,
+        end = tip,
+        strokeWidth = if (isPencil) LEG_WIDTH_PX * 0.75f else LEG_WIDTH_PX * 0.45f,
+        cap = StrokeCap.Round,
+    )
+
+    // The grab badge, so both legs read as handles rather than decoration.
+    // Centred ON the tip, which is where the grab is. Offset back along the
+    // leg, the badge advertised a target 34px from the one that actually
+    // responded.
+    val badge = Offset(tip.x, tip.y)
+    drawCircle(color = HINGE_FILL, radius = BADGE_RADIUS_PX, center = badge)
+    drawCircle(
+        color = if (isPencil) Accent else Color.White,
+        radius = BADGE_RADIUS_PX * 0.38f,
+        center = badge,
+    )
 }
 
 /** What a drag on the instrument is currently doing. */
-enum class InstrumentDrag { NONE, MOVE, ROTATE, RADIUS }
+enum class InstrumentDrag {
+    NONE,
+    MOVE,
+    ROTATE,
+
+    /** Compass: opening or closing the legs, which sets the radius. */
+    SPREAD,
+
+    /** Compass: sweeping the pencil leg round to draw an arc. */
+    SWEEP,
+}
 
 private val BODY_FILL = Color(0x2233608F)
 private val BODY_EDGE = Color(0x8833608F)
 private val TICK_COLOR = Color(0xCC26384B)
 private val ARM_COLOR = Color(0xCC4A5A6B)
+private val LEG_COLOR = Color(0xE53F4A57)
+private val HINGE_FILL = Color(0xF2333C47)
+private val NEEDLE_COLOR = Color(0xFFE8ECF1)
 
 private const val RULER_BODY_CM = 2.2f
 private const val PROTRACTOR_RADIUS_CM = 4f
@@ -547,6 +775,24 @@ private const val TICK_MEDIUM_PX = 11f
 private const val TICK_MINOR_PX = 6f
 private const val MIN_TICK_SPACING_PX = 3f
 private const val ANCHOR_RADIUS_PX = 40f
+
+/** A grab this size relative to the legs keeps the three parts distinct. */
+private const val GRAB_FRACTION_OF_LEG = 0.14f
+
+/** Never smaller than a fingertip, never so large the parts merge. */
+private const val MIN_GRAB_PX = 40f
+private const val MAX_GRAB_PX = 64f
+
+/** Gap between the hinge's grab and the control column behind it. */
+private const val COMPASS_CONTROL_CLEARANCE_PX = 34f
+
+private const val PI_F = Math.PI.toFloat()
+
+private const val HINGE_DRAW_PX = 19f
+private const val LEG_WIDTH_PX = 13f
+private const val NIB_LENGTH_PX = 26f
+private const val BADGE_RADIUS_PX = 11f
+
 private const val CONTROL_GAP_PX = 12f
 
 /** Screen rect covering an instrument's grabbable body. */
@@ -574,7 +820,9 @@ private fun grabBoxFor(
         InstrumentKind.RULER, InstrumentKind.SET_SQUARE_45, InstrumentKind.SET_SQUARE_30 ->
             instrument.lengthCm * InstrumentGeometry.pxPerCm
         InstrumentKind.PROTRACTOR -> PROTRACTOR_RADIUS_CM * InstrumentGeometry.pxPerCm
-        InstrumentKind.COMPASS -> instrument.radiusWorld * camera.zoom
+        // The legs, not the circle: a nearly-closed compass draws a tiny
+        // circle but its legs still reach their full length.
+        InstrumentKind.COMPASS -> COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
     } + ANCHOR_RADIUS_PX
     return GrabBox(sx - reach, sy - reach, reach * 2f, reach * 2f)
 }

@@ -128,6 +128,33 @@ val NibHighlighterIcon: ImageVector = nib("NibHighlighter") {
     }
 }
 
+/**
+ * The text pen: a fine nib with an "A" beside it.
+ *
+ * Deliberately NOT just another tip shape. The other five differ only in how
+ * ink is laid down; this one changes what the ink BECOMES, and a teacher has
+ * to be able to tell that apart at a glance.
+ */
+val NibTextIcon: ImageVector = nib("NibText") {
+    // Fine tip, like the pen.
+    path(fill = SolidColor(Color.White)) {
+        moveTo(12f, 21f); lineTo(10.8f, 14f); lineTo(13.2f, 14f); close()
+    }
+    // A small "A" to the right of the barrel.
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 1.5f,
+        strokeLineJoin = StrokeJoin.Round,
+        strokeLineCap = StrokeCap.Round,
+    ) {
+        moveTo(17.2f, 10f)
+        lineTo(19.4f, 4.6f)
+        lineTo(21.6f, 10f)
+        moveTo(18f, 8f)
+        lineTo(20.8f, 8f)
+    }
+}
+
 /** Split fountain nib with its slit. */
 val NibFountainIcon: ImageVector = nib("NibFountain") {
     path(fill = SolidColor(Color.White)) {

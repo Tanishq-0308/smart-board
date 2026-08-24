@@ -45,7 +45,19 @@ enum class PenType(
     ),
 
     /** Soft and slightly transparent, for shading rather than writing. */
-    BRUSH("Brush", DrawTool.PEN, defaultWidth = 18f, defaultAlpha = 0.75f, pressureSensitive = true);
+    BRUSH("Brush", DrawTool.PEN, defaultWidth = 18f, defaultAlpha = 0.75f, pressureSensitive = true),
+
+    /**
+     * Writes ink that becomes TEXT a moment after the pen stops.
+     *
+     * Still an ordinary PEN stroke while being written — recognition happens
+     * after the fact, so nothing about drawing, erasing or undo changes. Only
+     * what the strokes turn INTO is different.
+     */
+    TEXT("Text", DrawTool.PEN, defaultWidth = 5f, defaultAlpha = 1f, pressureSensitive = true);
 
     val isHighlighter: Boolean get() = this == HIGHLIGHTER
+
+    /** True for the nib whose ink is converted to text after a pause. */
+    val isTextPen: Boolean get() = this == TEXT
 }

@@ -57,6 +57,24 @@ sealed interface BoardCommand {
         val boxes: List<TextBox>,
     ) : BoardCommand
 
+    /**
+     * Handwriting replaced by recognised text.
+     *
+     * One command rather than a delete plus an add, so undo restores the ink
+     * in a single press — a teacher who did not want the conversion should not
+     * have to press undo twice and see a half-converted board in between.
+     */
+    data class ConvertInkToText(
+        val strokes: List<Stroke>,
+        val box: TextBox,
+        /**
+         * The box this one grew out of, when the writing continued an earlier
+         * conversion. Undo puts it back, so continuing a word and undoing it
+         * is still a single press.
+         */
+        val replaced: TextBox? = null,
+    ) : BoardCommand
+
     /** Inserting a table or mindmap. */
     data class AddContainer(val container: Container) : BoardCommand
 

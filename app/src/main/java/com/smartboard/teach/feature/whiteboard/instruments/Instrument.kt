@@ -64,12 +64,28 @@ data class Instrument(
     /** World position of the instrument's anchor (see [InstrumentGeometry]). */
     val x: Float,
     val y: Float,
-    /** Radians, clockwise. */
+    /**
+     * Radians, clockwise, with zero pointing right.
+     *
+     * For the compass this is the direction the LEGS hang, so it defaults to a
+     * quarter turn: a compass sits point-down on the board, not sideways.
+     */
     val rotation: Float = 0f,
     /** Length in cm for the ruler; leg length for the set square. */
     val lengthCm: Float = 10f,
-    /** Compass only: radius in world units, and where the sweep has reached. */
-    val radiusWorld: Float = 240f,
+    /**
+     * Compass only: how far the legs are opened, in radians.
+     *
+     * The radius follows from this and the leg length, exactly as on a real
+     * compass — opening the legs wider draws a bigger circle. Stored rather
+     * than the radius so the drawn tool and the circle it makes can never
+     * disagree.
+     */
+    val spreadRad: Float = 0.42f,
+    /**
+     * Compass only: the arc swept so far, in radians, measured from the
+     * needle. Equal values mean nothing has been swept yet.
+     */
     val sweepStart: Float = 0f,
     val sweepEnd: Float = 0f,
     /** Mirrored, for the flip control on the ruler and set square. */
@@ -82,6 +98,24 @@ data class Instrument(
      */
     val id: String = java.util.UUID.randomUUID().toString(),
 )
+
+/** Length of a compass leg, in cm — the physical tool it models. */
+const val COMPASS_LEG_CM = 11f
+
+/**
+ * The radius this compass would draw.
+ *
+ * Half the distance between the two leg tips: opening the hinge by `spread`
+ * puts each leg `spread / 2` off the centre line, so the tips sit
+ * `legLength * sin(spread / 2)` either side of it. This is why the drawn tool
+ * and the circle always agree — there is only one number behind both.
+ */
+val Instrument.compassRadius: Float
+    get() = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * sin(spreadRad / 2f)
+
+/** True once the compass has been swept far enough to have drawn something. */
+val Instrument.hasSweep: Boolean
+    get() = abs(sweepEnd - sweepStart) > 0.01f
 
 /**
  * The maths behind the instruments.

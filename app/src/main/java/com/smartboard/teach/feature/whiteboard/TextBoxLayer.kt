@@ -1,43 +1,36 @@
 package com.smartboard.teach.feature.whiteboard
 
-import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.smartboard.teach.core.ui.theme.Accent
-import com.smartboard.teach.core.ui.theme.SmartBoardTheme
 import com.smartboard.teach.domain.model.TextBox
 import java.util.UUID
 
@@ -59,7 +52,6 @@ fun TextBoxLayer(
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
-    var editingId by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = modifier
@@ -91,7 +83,7 @@ fun TextBoxLayer(
                                     state.textBoxes.add(box)
                                     state.history.record(BoardCommand.AddTextBox(box))
                                     state.refreshHistoryFlags()
-                                    editingId = box.id
+                                    state.editingTextBoxId = box.id
                                     onPlacementConsumed()
                                     onChanged()
                                 }
@@ -104,40 +96,60 @@ fun TextBoxLayer(
             ),
     ) {
         state.textBoxes.forEach { box ->
-            TextBoxItem(
-                box = box,
-                camera = state.camera,
-                isEditing = editingId == box.id,
-                onStartEdit = { if (!isPlacementMode) editingId = box.id },
-                onTextChanged = { newText ->
-                    val index = state.textBoxes.indexOfFirst { it.id == box.id }
-                    if (index >= 0) state.textBoxes[index] = box.copy(text = newText)
-                },
-                onCommit = { before ->
-                    editingId = null
-                    val after = state.textBoxes.firstOrNull { it.id == box.id }
-                    if (after != null && after.text != before.text) {
-                        state.history.record(BoardCommand.EditTextBox(before, after))
-                        state.refreshHistoryFlags()
-                    }
-                    // An empty box left behind is clutter, not content.
-                    if (after != null && after.text.isBlank()) {
-                        state.textBoxes.remove(after)
-                    }
-                    onChanged()
-                },
-                onDelete = {
-                    state.textBoxes.remove(box)
-                    state.history.record(BoardCommand.DeleteTextBox(box))
-                    state.refreshHistoryFlags()
-                    editingId = null
-                    onChanged()
-                },
-            )
+            // Keyed by id, not list position. Without this a box edited into a
+            // new instance is torn down and rebuilt, which disposes the open
+            // editor and commits it the instant editing starts.
+            key(box.id) {
+                TextBoxItem(
+                    box = box,
+                    camera = state.camera,
+                    isEditing = state.editingTextBoxId == box.id,
+                    onStartEdit = { if (!isPlacementMode) state.editingTextBoxId = box.id },
+                    onTextChanged = { newText ->
+                        val index = state.textBoxes.indexOfFirst { it.id == box.id }
+                        if (index >= 0) state.textBoxes[index] = box.copy(text = newText)
+                    },
+                    onCommit = { before ->
+                        val after = state.textBoxes.firstOrNull { it.id == box.id }
+                        when {
+                            after == null -> Unit
+
+                            // Emptying a box deletes it — that IS the delete
+                            // gesture, so there is no trash button to aim at.
+                            after.text.isBlank() -> {
+                                state.textBoxes.remove(after)
+                                state.history.record(BoardCommand.DeleteTextBox(after))
+                                state.refreshHistoryFlags()
+                            }
+
+                            after.text != before.text -> {
+                                state.history.record(BoardCommand.EditTextBox(before, after))
+                                state.refreshHistoryFlags()
+                            }
+                        }
+                        onChanged()
+                    },
+                    onClose = {
+                        if (state.editingTextBoxId == box.id) state.editingTextBoxId = null
+                    },
+                )
+            }
         }
     }
 }
 
+/**
+ * One text box, editing in place.
+ *
+ * The editor is deliberately invisible — no card, no border, no buttons. It is
+ * styled identically to the committed text and sits at the same offset, so
+ * entering and leaving edit mode does not move or restyle a single glyph; the
+ * only thing that appears is a caret. A bordered white field floating over a
+ * whiteboard reads as a form, not as writing on the board.
+ *
+ * Width is a wrap point, not a frame: the box is as wide as its longest line
+ * up to [TextBox.widthPx], so short text does not sit in a wide empty strip.
+ */
 @Composable
 private fun TextBoxItem(
     box: TextBox,
@@ -146,10 +158,9 @@ private fun TextBoxItem(
     onStartEdit: () -> Unit,
     onTextChanged: (String) -> Unit,
     onCommit: (TextBox) -> Unit,
-    onDelete: () -> Unit,
+    onClose: () -> Unit,
 ) {
     val density = LocalDensity.current
-    val dimens = SmartBoardTheme.dimens
     val focusRequester = remember { FocusRequester() }
     // Captured when editing starts so the undo command has a real "before".
     val snapshotOnEdit = remember(isEditing) { box }
@@ -157,66 +168,59 @@ private fun TextBoxItem(
     // World -> screen, so a text box pans and zooms with the ink it annotates.
     val xDp = with(density) { camera.worldToScreenX(box.x).toDp() }
     val yDp = with(density) { camera.worldToScreenY(box.y).toDp() }
-    val widthDp = with(density) { (box.widthPx * camera.zoom).toDp() }
+    val maxWidthDp = with(density) { (box.widthPx * camera.zoom).toDp() }
     val fontSize = box.fontSizeSp * camera.zoom
 
-    LaunchedEffect(isEditing) {
-        if (isEditing) focusRequester.requestFocus()
+    // Identical for the editor and the committed text: any difference here
+    // shows up as the text shifting the moment editing starts or ends.
+    val textStyle = TextStyle(
+        color = Color(box.colorArgb),
+        fontSize = fontSize.sp,
+    )
+
+    // Commit when the editor CLOSES, whoever closed it — clicking away, the
+    // canvas taking a press, Escape, or the box being deleted. Hanging it off
+    // focus loss alone missed the canvas case, because the canvas consumes the
+    // press before the field is ever told it lost focus.
+    val commit by rememberUpdatedState { onCommit(snapshotOnEdit) }
+    if (isEditing) {
+        DisposableEffect(box.id) {
+            focusRequester.requestFocus()
+            onDispose { commit() }
+        }
     }
 
     Box(Modifier.offset(x = xDp, y = yDp)) {
         if (isEditing) {
-            Box(
-                Modifier
-                    .width(widthDp)
-                    .background(Color.White.copy(alpha = 0.92f), RoundedCornerShape(6.dp))
-                    .border(2.dp, Accent, RoundedCornerShape(6.dp))
-                    .padding(8.dp),
-            ) {
-                BasicTextField(
-                    value = box.text,
-                    onValueChange = onTextChanged,
-                    textStyle = TextStyle(
-                        color = Color(box.colorArgb),
-                        fontSize = fontSize.sp,
-                    ),
-                    cursorBrush = SolidColor(Accent),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .focusRequester(focusRequester),
-                )
-            }
-
-            // Confirm / delete sit just below the box so they never cover the
-            // text being typed.
-            Row(
-                Modifier.offset(y = widthDp * 0f + 4.dp).padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { onCommit(snapshotOnEdit) }) {
-                    Icon(
-                        Icons.Filled.Check,
-                        contentDescription = "Done editing",
-                        tint = Accent,
-                        modifier = Modifier.size(dimens.iconSize),
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Filled.DeleteOutline,
-                        contentDescription = "Delete text box",
-                        tint = Color(0xFFC8382F),
-                        modifier = Modifier.size(dimens.iconSize),
-                    )
-                }
-            }
+            BasicTextField(
+                value = box.text,
+                onValueChange = onTextChanged,
+                textStyle = textStyle,
+                cursorBrush = SolidColor(Color(box.colorArgb)),
+                modifier = Modifier
+                    // widthIn, not width: the field is as wide as the text and
+                    // wraps at the box width, rather than always occupying it.
+                    .widthIn(max = maxWidthDp)
+                    .focusRequester(focusRequester)
+                    // NOTE: deliberately no onFocusChanged listener. It fires
+                    // once with isFocused=false before requestFocus lands,
+                    // which closed the editor the instant it opened. Tapping
+                    // away is handled by the canvas, which owns that press.
+                    .onPreviewKeyEvent { event ->
+                        if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                            onClose()
+                            true
+                        } else {
+                            false
+                        }
+                    },
+            )
         } else if (box.text.isNotBlank()) {
             Text(
                 text = box.text,
-                color = Color(box.colorArgb),
-                fontSize = fontSize.sp,
+                style = textStyle,
                 modifier = Modifier
-                    .width(widthDp)
+                    .widthIn(max = maxWidthDp)
                     .pointerInput(box.id) {
                         awaitPointerEventScope {
                             while (true) {

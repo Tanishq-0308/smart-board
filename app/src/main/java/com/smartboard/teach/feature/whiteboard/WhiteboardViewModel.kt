@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartboard.teach.core.util.AppResult
 import com.smartboard.teach.data.file.BoardExportStore
+import com.smartboard.teach.data.ink.HandwritingRecognizer
+import com.smartboard.teach.data.ink.RecognizerState
 import com.smartboard.teach.data.file.PdfPageRenderer
 import com.smartboard.teach.data.file.SafImporter
 import com.smartboard.teach.data.file.posterPathFor
@@ -70,6 +72,7 @@ class WhiteboardViewModel @Inject constructor(
     private val explainRegion: ExplainBoardRegionUseCase,
     private val lookupCropStore: LookupCropStore,
     private val safImporter: SafImporter,
+    private val handwriting: HandwritingRecognizer,
     private val exportStore: BoardExportStore,
     private val pdfPageRenderer: PdfPageRenderer,
     private val aiService: NotesAiService,
@@ -664,6 +667,75 @@ class WhiteboardViewModel @Inject constructor(
         viewModelScope.launch { writeNow() }
     }
 
+    // --- Text pen (handwriting to text) ---
+
+    private val _recognizerState = MutableStateFlow<RecognizerState>(RecognizerState.Idle)
+    val recognizerState: StateFlow<RecognizerState> = _recognizerState.asStateFlow()
+
+    /** In-flight conversion, so more writing cancels and restarts the wait. */
+    private var convertJob: Job? = null
+
+    /**
+     * Downloads the handwriting model if needed.
+     *
+     * Called when the teacher picks the text nib rather than at startup: the
+     * model is ~20MB, and a panel where the text pen is never touched should
+     * never pay for it.
+     */
+    fun prepareTextPen() {
+        if (_recognizerState.value is RecognizerState.Ready) return
+        viewModelScope.launch {
+            _recognizerState.value = RecognizerState.Downloading
+            _recognizerState.value = when (val result = handwriting.prepare()) {
+                is AppResult.Success -> RecognizerState.Ready
+                is AppResult.Failure -> RecognizerState.Unavailable(
+                    result.error.message ?: "Handwriting recognition is unavailable.",
+                )
+            }
+        }
+    }
+
+    /**
+     * Schedules a conversion of the buffered text-pen strokes.
+     *
+     * Restarted on every stroke, so writing continuously keeps extending the
+     * same word and only the PAUSE triggers recognition — converting per
+     * stroke would read a two-stroke letter as two characters.
+     */
+    fun scheduleTextConversion(
+        strokes: List<Stroke>,
+        toScreen: (Stroke) -> Stroke,
+        onConverted: (text: String, consumed: List<Stroke>) -> Unit,
+    ) {
+        convertJob?.cancel()
+        if (strokes.isEmpty()) return
+        convertJob = viewModelScope.launch {
+            delay(TEXT_CONVERT_DELAY_MS)
+            // Snapshot AFTER the wait: strokes added during it belong to this
+            // same word, and the caller's list is live.
+            val batch = strokes.toList()
+            if (batch.isEmpty()) return@launch
+
+            when (val result = handwriting.recognize(batch.map(toScreen))) {
+                is AppResult.Success -> {
+                    val text = result.data.trim()
+                    // Empty means the model could not read it. Leaving the ink
+                    // alone is the right failure: a teacher keeps what they
+                    // wrote rather than watching it vanish into nothing.
+                    if (text.isNotEmpty()) onConverted(text, batch)
+                }
+
+                is AppResult.Failure -> Unit
+            }
+        }
+    }
+
+    /** Drops any scheduled conversion, e.g. when the nib changes. */
+    fun cancelTextConversion() {
+        convertJob?.cancel()
+        convertJob = null
+    }
+
     // --- Split view (second pane) ---
 
     /**
@@ -1219,6 +1291,14 @@ class WhiteboardViewModel @Inject constructor(
          * that an unexpected power-off loses at most a second of ink.
          */
         const val SAVE_DEBOUNCE_MS = 1_000L
+
+        /**
+         * How long the pen must be still before handwriting converts.
+         *
+         * Long enough to cross a t or dot an i without the word breaking
+         * up, short enough that it still feels immediate.
+         */
+        const val TEXT_CONVERT_DELAY_MS = 900L
 
         /** How long adoptBackground waits for the board session to exist. */
         private const val ADOPT_TIMEOUT_MS = 3_000

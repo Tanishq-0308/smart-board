@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -79,7 +80,10 @@ fun PenPopover(
 
             PanelDivider(horizontal = true)
 
-            Row(Modifier.height(dimens.penPanelHeight)) {
+            // Height comes from the tallest column, not a constant: the nib
+            // list grows as pen types are added, and a fixed height silently
+            // clipped the last one off the bottom.
+            Row(Modifier.height(IntrinsicSize.Min)) {
                 ColorColumn(
                     selected = color,
                     onPick = { state.setColorFor(nib, it) },

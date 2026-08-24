@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.smartboard.teach.core.ui.component.BoardEraserIcon
 import com.smartboard.teach.core.ui.component.NibBrushIcon
+import com.smartboard.teach.core.ui.component.NibTextIcon
 import com.smartboard.teach.core.ui.component.NibFountainIcon
 import com.smartboard.teach.core.ui.component.NibHighlighterIcon
 import com.smartboard.teach.core.ui.component.NibMarkerIcon
@@ -430,6 +431,7 @@ internal fun PenType.nibIcon() = when (this) {
     PenType.HIGHLIGHTER -> NibHighlighterIcon
     PenType.FOUNTAIN -> NibFountainIcon
     PenType.BRUSH -> NibBrushIcon
+    PenType.TEXT -> NibTextIcon
 }
 
 /**

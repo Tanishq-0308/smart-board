@@ -40,7 +40,6 @@ data class Dimens(
     val chromeIcon: Dp,
     /** Pen panel: three columns of controls plus a preview footer. */
     val penPanelWidth: Dp,
-    val penPanelHeight: Dp,
     val swatchSize: Dp,
     val gutter: Dp,
     val gutterSmall: Dp,
@@ -99,7 +98,6 @@ fun dimensFor(smallestScreenWidthDp: Int): Dimens {
         chromeButton = (36 * s).dp,
         chromeIcon = (19 * s).dp,
         penPanelWidth = (300 * s).dp,
-        penPanelHeight = (210 * s).dp,
         swatchSize = (26 * s).dp,
         gutter = (16 * s).dp,
         gutterSmall = (8 * s).dp,

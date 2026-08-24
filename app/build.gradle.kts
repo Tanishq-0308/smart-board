@@ -109,6 +109,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(libs.okhttp)
+    implementation(libs.mlkit.digital.ink)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
