@@ -108,6 +108,7 @@ fun ToolPalette(
     onInsertVideo: () -> Unit,
     onShowTimer: () -> Unit,
     onWebSearch: () -> Unit,
+    onLabs: () -> Unit,
     onBackgroundSettings: () -> Unit,
     onLessons: () -> Unit,
     onInsertImage: () -> Unit,
@@ -157,6 +158,7 @@ fun ToolPalette(
                         onPdf = { panel = OpenPanel.NONE; onInsertPdf() },
                         onVideo = { panel = OpenPanel.NONE; onInsertVideo() },
                         onWeb = { panel = OpenPanel.NONE; onWebSearch() },
+                        onLabs = { panel = OpenPanel.NONE; onLabs() },
                         onTimer = { panel = OpenPanel.NONE; onShowTimer() },
                         onText = {
                             panel = OpenPanel.NONE
@@ -174,6 +176,7 @@ fun ToolPalette(
                         videoEnabled = true,
                         timerEnabled = true,
                         webEnabled = true,
+                        labsEnabled = true,
                     )
                     OpenPanel.NONE -> Unit
                 }

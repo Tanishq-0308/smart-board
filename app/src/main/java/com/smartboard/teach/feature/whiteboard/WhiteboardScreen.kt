@@ -190,16 +190,24 @@ fun WhiteboardScreen(
     /** Whether the web search pane is docked. */
     var showWebSearch by remember { mutableStateOf(false) }
 
+    /** Whether the labs pane is docked. */
+    var showLabs by remember { mutableStateOf(false) }
+
     // Right-edge chrome shifts left by the pane's width while it is docked,
     // rather than sitting under it. The pane is an overlay, so nothing moves
     // it out of their way automatically.
-    val rightInset = if (showWebSearch) WEB_PANE_WIDTH else 0.dp
+    val rightInset = when {
+        showLabs -> LAB_PANE_WIDTH
+        showWebSearch -> WEB_PANE_WIDTH
+        else -> 0.dp
+    }
 
     // The clock is drawn above this screen, so it would paint over the pane's
     // header however opaque the pane is; it has to stand down instead.
     val hideClock = LocalHideClock.current
-    DisposableEffect(showWebSearch) {
-        hideClock.value = showWebSearch
+    val paneDocked = showWebSearch || showLabs
+    DisposableEffect(paneDocked) {
+        hideClock.value = paneDocked
         onDispose { hideClock.value = false }
     }
 
@@ -529,6 +537,18 @@ fun WhiteboardScreen(
             )
         }
 
+        // Docked to the same edge as the search pane, so only one is ever up.
+        if (showLabs) {
+            LabsPane(
+                onClose = { showLabs = false },
+                // The snapshot arrives as a base64 `data:` URL, which
+                // insertWebImage already decodes — so a lab diagram reaches
+                // the board by exactly the path a searched-for image does.
+                onSnapshot = { dataUrl -> viewModel.insertWebImage(dataUrl, ::placeMedia) },
+                modifier = Modifier.align(Alignment.CenterEnd),
+            )
+        }
+
         // Top-centre by default, clear of the toolbar and the page strip;
         // the teacher drags it wherever the lesson needs it.
         if (showTimer) {
@@ -606,7 +626,8 @@ fun WhiteboardScreen(
             onInsertPdf = { insertPdfPicker.launch(arrayOf("application/pdf")) },
             onInsertVideo = { insertVideoPicker.launch(arrayOf("video/*")) },
             onShowTimer = { showTimer = true },
-            onWebSearch = { showWebSearch = true },
+            onWebSearch = { showLabs = false; showWebSearch = true },
+            onLabs = { showWebSearch = false; showLabs = true },
             onBackgroundSettings = { showBackgroundSettings = true },
             onLessons = {
                 // Refreshed on open rather than observed: the list only

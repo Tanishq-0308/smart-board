@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Icon
@@ -64,6 +65,7 @@ fun InsertTray(
     onPdf: () -> Unit,
     onVideo: () -> Unit,
     onWeb: () -> Unit,
+    onLabs: () -> Unit,
     onTimer: () -> Unit,
     onText: () -> Unit,
     onSnapshot: () -> Unit,
@@ -75,6 +77,7 @@ fun InsertTray(
     pdfEnabled: Boolean = false,
     videoEnabled: Boolean = false,
     webEnabled: Boolean = false,
+    labsEnabled: Boolean = false,
     timerEnabled: Boolean = false,
 ) {
     val dimens = SmartBoardTheme.dimens
@@ -86,6 +89,7 @@ fun InsertTray(
             InsertItem(SetSquare45Icon, "Geometry", geometryEnabled, onGeometry),
             InsertItem(Icons.Filled.TextFields, "Text", true, onText),
             InsertItem(Icons.Filled.AccountTree, "Mindmap", mindmapEnabled, onMindmap),
+            InsertItem(Icons.Filled.Science, "Labs", labsEnabled, onLabs),
         ),
         listOf(
             InsertItem(Icons.Filled.PictureAsPdf, "PDF", pdfEnabled, onPdf),
