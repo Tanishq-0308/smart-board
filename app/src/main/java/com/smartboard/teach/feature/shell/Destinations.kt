@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -26,6 +27,7 @@ sealed class Dest(
     val requiresAuth: Boolean,
 ) {
     data object Whiteboard : Dest("whiteboard", "Whiteboard", Icons.Filled.Draw, false)
+    data object Maths3D : Dest("maths3d", "3D Maths", Icons.Filled.ViewInAr, false)
     data object Notes : Dest("notes", "Notes", Icons.Filled.Description, false)
     data object Classes : Dest("classes", "My Classes", Icons.Filled.Groups, true)
     data object Attendance : Dest("attendance", "Attendance", Icons.Filled.HowToReg, true)
@@ -36,7 +38,7 @@ sealed class Dest(
     companion object {
         /** Items rendered in the sidebar, in order. */
         val sidebarItems: List<Dest> = listOf(
-            Whiteboard, Notes, Classes, Attendance, Material,
+            Whiteboard, Maths3D, Notes, Classes, Attendance, Material,
         )
 
         // Strip both the path arg and any query string, so
@@ -46,6 +48,7 @@ sealed class Dest(
             route?.substringBefore('/')?.substringBefore('?')
         ) {
             Whiteboard.route -> Whiteboard
+            Maths3D.route -> Maths3D
             Notes.route -> Notes
             Classes.route -> Classes
             Attendance.route -> Attendance
@@ -79,6 +82,13 @@ object DetailRoutes {
      */
     const val WHITEBOARD_WITH_BACKGROUND = "whiteboard?backgroundId={backgroundId}"
     const val ARG_BACKGROUND_ID = "backgroundId"
+
+    /**
+     * SavedStateHandle key on the whiteboard's back stack entry. 3D Maths
+     * puts a snapshot PNG path here and pops back; the board imports it as an
+     * image object and clears the key.
+     */
+    const val INSERT_IMAGE_KEY = "insertImagePath"
 
     fun whiteboardWithBackground(backgroundId: String) = "whiteboard?backgroundId=$backgroundId"
 }

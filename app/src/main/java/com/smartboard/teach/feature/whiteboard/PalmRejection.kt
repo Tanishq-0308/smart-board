@@ -53,8 +53,23 @@ class PalmRejection(
      * @param pointerId stable id for this contact
      * @param isStylus true for stylus or eraser tool types
      * @param nowMs monotonic event time
+     * @param othersDown whether any OTHER contact is on the glass right now
      */
-    fun shouldAcceptDown(pointerId: Long, isStylus: Boolean, nowMs: Long): Boolean {
+    fun shouldAcceptDown(
+        pointerId: Long,
+        isStylus: Boolean,
+        nowMs: Long,
+        othersDown: Boolean = true,
+    ): Boolean {
+        // Nothing else is touching, so nothing can still be drawing. Any
+        // pointer or pen we think is down lost its up-event (it ended on a
+        // popover, a dialog, or was cancelled by the system) — and left
+        // standing, it rejected every later touch: "I write but nothing
+        // appears" until the app was restarted.
+        if (!othersDown) {
+            activeDrawingPointerId = null
+            stylusInContact = false
+        }
         if (isStylus) {
             stylusInContact = true
             lastStylusSeenAtMs = nowMs

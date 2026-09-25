@@ -155,6 +155,23 @@ val NibTextIcon: ImageVector = nib("NibText") {
     }
 }
 
+/** The shape pen: a fine nib with a small triangle beside it, the "A" of the text pen's cousin. */
+val NibShapeIcon: ImageVector = nib("NibShape") {
+    path(fill = SolidColor(Color.White)) {
+        moveTo(12f, 21f); lineTo(10.8f, 14f); lineTo(13.2f, 14f); close()
+    }
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 1.5f,
+        strokeLineJoin = StrokeJoin.Round,
+    ) {
+        moveTo(19.4f, 4.6f)
+        lineTo(22f, 10f)
+        lineTo(16.8f, 10f)
+        close()
+    }
+}
+
 /** Split fountain nib with its slit. */
 val NibFountainIcon: ImageVector = nib("NibFountain") {
     path(fill = SolidColor(Color.White)) {

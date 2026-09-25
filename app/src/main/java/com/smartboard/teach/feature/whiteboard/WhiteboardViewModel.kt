@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.ui.graphics.toArgb
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -25,6 +26,7 @@ import com.smartboard.teach.domain.model.ContainerKind
 import com.smartboard.teach.domain.model.Stroke
 import com.smartboard.teach.domain.model.TextBox
 import com.smartboard.teach.domain.repository.BoardRepository
+import com.smartboard.teach.domain.repository.PageContent
 import com.smartboard.teach.domain.repository.NotesAiService
 import com.smartboard.teach.data.file.LookupCropStore
 import com.smartboard.teach.domain.usecase.ExplainBoardRegionUseCase
@@ -76,8 +78,17 @@ class WhiteboardViewModel @Inject constructor(
     private val exportStore: BoardExportStore,
     private val pdfPageRenderer: PdfPageRenderer,
     private val aiService: NotesAiService,
-    inputSettingsStore: InputSettingsStore,
+    private val inputSettingsStore: InputSettingsStore,
 ) : ViewModel() {
+
+    /** Keeps a colour mixed in the pen's picker in its Extras row. */
+    fun addCustomPenColor(color: androidx.compose.ui.graphics.Color) {
+        viewModelScope.launch { inputSettingsStore.addCustomPenColor(color.toArgb()) }
+    }
+
+    fun removeCustomPenColor(color: androidx.compose.ui.graphics.Color) {
+        viewModelScope.launch { inputSettingsStore.removeCustomPenColor(color.toArgb()) }
+    }
 
     /** Input toggles from Settings, applied live to the canvas. */
     val inputSettings: StateFlow<InputSettings> = inputSettingsStore.settings.stateIn(
@@ -124,12 +135,40 @@ class WhiteboardViewModel @Inject constructor(
     private var pendingCamera: CameraState = CameraState()
     private var pendingCanvasStyle: BoardCanvasStyle = BoardCanvasStyle()
 
-    fun onCanvasSized(widthPx: Int, heightPx: Int, onPageReady: (PageContentSnapshot) -> Unit) {
+    /** The screen-side board state this ViewModel last fed a page to. */
+    private var attachedBoard: Any? = null
+
+    /**
+     * @param board the screen's own board state. The ViewModel outlives it:
+     *   navigating to another destination and back rebuilds the screen with
+     *   an EMPTY board, so a new [board] means the current page must be fed
+     *   to it again — otherwise the next save would write the empty page
+     *   over the teacher's work.
+     */
+    fun onCanvasSized(
+        widthPx: Int,
+        heightPx: Int,
+        board: Any,
+        onPageReady: (PageContentSnapshot) -> Unit,
+    ) {
         if (widthPx <= 0 || heightPx <= 0) return
         val firstSizing = boardWidthPx == 0
+        val reattached = attachedBoard != null && attachedBoard !== board
+        attachedBoard = board
         boardWidthPx = widthPx
         boardHeightPx = heightPx
-        if (firstSizing) restoreOrCreateSession(onPageReady)
+        if (firstSizing) {
+            restoreOrCreateSession(onPageReady)
+        } else if (reattached) {
+            val pageId = _state.value.currentPageId ?: return
+            viewModelScope.launch {
+                // A debounced save may still be pending; land it before
+                // reading the page back.
+                saveJob?.cancel()
+                writeNow()
+                loadPage(pageId, onPageReady)
+            }
+        }
     }
 
     /**
@@ -214,12 +253,12 @@ class WhiteboardViewModel @Inject constructor(
      */
     fun flush() {
         saveJob?.cancel()
-        secondarySaveJob?.cancel()
+        paneSlots.forEach { it.saveJob?.cancel() }
         viewModelScope.launch {
             writeNow()
-            // The second pane holds real page content; losing it on a lid
-            // close would lose half the lesson.
-            writeSecondaryNow()
+            // Every extra pane holds real page content; losing them on a lid
+            // close would lose most of the lesson.
+            paneSlots.forEach { writePaneNow(it) }
         }
     }
 
@@ -277,7 +316,10 @@ class WhiteboardViewModel @Inject constructor(
         }
     }
 
-    fun deleteCurrentPage(onPageReady: (PageContentSnapshot) -> Unit) {
+    fun deleteCurrentPage(
+        onPaneReloaded: (Int, PageContentSnapshot) -> Unit = { _, _ -> },
+        onPageReady: (PageContentSnapshot) -> Unit,
+    ) {
         val current = _state.value
         val pageId = current.currentPageId ?: return
         // Never leave the board with zero pages.
@@ -285,12 +327,64 @@ class WhiteboardViewModel @Inject constructor(
 
         viewModelScope.launch {
             saveJob?.cancel()
+            // A pane showing the doomed page must stop saving BEFORE it is
+            // deleted, or its debounced write lands afterwards and resurrects
+            // the page the teacher just removed.
+            paneSlots.filter { it.pageId == pageId }.forEach { it.saveJob?.cancel() }
+
             boardRepository.deletePage(pageId)
             val remaining = current.pages.filterNot { it.id == pageId }
             val next = remaining.firstOrNull() ?: return@launch
             _state.update { it.copy(pages = remaining, currentPageId = next.id) }
+            rehomePanes(remaining, next.id, onPaneReloaded)
             loadPage(next.id, onPageReady)
         }
+    }
+
+    /**
+     * Points every pane at a page that still exists, closing the ones that
+     * cannot have a page of their own.
+     *
+     * Deleting pages under an open split is the case this exists for: a pane
+     * left on a deleted page shows nothing and would write it back on its next
+     * save, and there is no sensible pane to show when the lesson has fewer
+     * pages than open panes — so the surplus panes close.
+     */
+    private suspend fun rehomePanes(
+        remaining: List<BoardPage>,
+        primaryId: String,
+        onPaneReloaded: (Int, PageContentSnapshot) -> Unit = { _, _ -> },
+    ) {
+        if (paneSlots.isEmpty()) return
+
+        // One pane per page, primary included: the panes that no longer have a
+        // distinct page to show are the ones that go.
+        val keep = panesForPages(remaining.size)
+        if (keep < paneSlots.size) {
+            paneSlots.subList(keep, paneSlots.size).forEach { it.saveJob?.cancel() }
+            paneSlots.subList(keep, paneSlots.size).clear()
+        }
+
+        val taken = mutableSetOf(primaryId)
+        paneSlots.forEachIndexed { index, slot ->
+            val stillThere = remaining.any { it.id == slot.pageId } && slot.pageId !in taken
+            if (stillThere) {
+                taken.add(slot.pageId)
+                return@forEachIndexed
+            }
+            // Moved to the first free page rather than left dangling. The
+            // canvas is reloaded too, so it shows the page it now points at
+            // instead of the deleted page's ink.
+            val free = remaining.firstOrNull { it.id !in taken } ?: return@forEachIndexed
+            taken.add(free.id)
+            slot.pageId = free.id
+            boardRepository.loadPage(free.id)?.let { content ->
+                fillSlot(slot, content)
+                onPaneReloaded(index, content.toSnapshot())
+            }
+        }
+
+        _secondaryPageIds.value = paneSlots.map { it.pageId }
     }
 
     fun onBackgroundChanged(background: BoardBackground?) {
@@ -736,48 +830,55 @@ class WhiteboardViewModel @Inject constructor(
         convertJob = null
     }
 
-    // --- Split view (second pane) ---
+    // --- Split view (extra panes) ---
 
     /**
-     * The page shown in the second pane, or null when the board is not split.
+     * Pending content for one extra pane, kept apart from the primary's.
      *
-     * A SEPARATE page of the same lesson, so both panes are real board pages:
-     * ink drawn in either saves to its own page and is there when the lesson
-     * is reopened, split or not.
+     * One of these per open pane, so each pane saves to its OWN page rather
+     * than the panes racing each other into a single set of fields.
      */
-    private val _secondaryPageId = MutableStateFlow<String?>(null)
-    val secondaryPageId: StateFlow<String?> = _secondaryPageId.asStateFlow()
-
-    /** Pending content for the second pane, kept apart from the primary's. */
-    private var secondaryStrokes: List<Stroke> = emptyList()
-    private var secondaryTextBoxes: List<TextBox> = emptyList()
-    private var secondaryContainers: List<Container> = emptyList()
-    private var secondaryBackgroundId: String? = null
-    private var secondaryCamera: CameraState = CameraState()
-    private var secondaryCanvasStyle: BoardCanvasStyle = BoardCanvasStyle()
-    private var secondarySaveJob: Job? = null
+    private class PaneSlot(var pageId: String) {
+        var strokes: List<Stroke> = emptyList()
+        var textBoxes: List<TextBox> = emptyList()
+        var containers: List<Container> = emptyList()
+        var backgroundId: String? = null
+        var camera: CameraState = CameraState()
+        var canvasStyle: BoardCanvasStyle = BoardCanvasStyle()
+        var saveJob: Job? = null
+    }
 
     /**
-     * Opens the second pane on [pageId], or on a sensible neighbour.
+     * The pages shown in the extra panes, left to right. Empty when the board
+     * is not split.
      *
-     * Defaults to the NEXT page so splitting immediately shows two different
-     * things; falls back to the previous one on the last page, and creates a
-     * page when the lesson has only one — a split showing the same page twice
-     * would look broken.
+     * Each is a SEPARATE page of the same lesson, so every pane is a real board
+     * page: ink drawn in any of them saves to its own page and is there when
+     * the lesson is reopened, split or not.
      */
-    fun openSecondaryPane(pageId: String? = null, onLoaded: (PageContentSnapshot) -> Unit) {
+    private val _secondaryPageIds = MutableStateFlow<List<String>>(emptyList())
+    val secondaryPageIds: StateFlow<List<String>> = _secondaryPageIds.asStateFlow()
+
+    private val paneSlots = mutableListOf<PaneSlot>()
+
+    /**
+     * Adds one more pane, on the first page no other pane is showing.
+     *
+     * Picking an unused page means each added pane shows something different
+     * rather than a second copy of what is already on screen; a new page is
+     * created when the lesson has run out, since duplicate panes look broken.
+     */
+    fun addSecondaryPane(onLoaded: (PageContentSnapshot) -> Unit) {
         viewModelScope.launch {
             val current = _state.value
-            val explicit = pageId
-            if (explicit != null) {
-                loadSecondary(explicit, onLoaded)
-                return@launch
+            val taken = buildSet {
+                current.currentPageId?.let { add(it) }
+                addAll(_secondaryPageIds.value)
             }
 
-            val index = current.currentIndex
-            val neighbour = current.pages.getOrNull(index + 1) ?: current.pages.getOrNull(index - 1)
-            if (neighbour != null) {
-                loadSecondary(neighbour.id, onLoaded)
+            val free = current.pages.firstOrNull { it.id !in taken }
+            if (free != null) {
+                addPaneOn(free.id, onLoaded)
                 return@launch
             }
 
@@ -789,47 +890,64 @@ class WhiteboardViewModel @Inject constructor(
                 heightPx = boardHeightPx,
             )
             _state.update { it.copy(pages = it.pages + page) }
-            loadSecondary(page.id, onLoaded)
+            addPaneOn(page.id, onLoaded)
         }
     }
 
-    /** Closes the second pane, flushing whatever it holds. */
-    fun closeSecondaryPane() {
-        viewModelScope.launch {
-            writeSecondaryNow()
-            _secondaryPageId.value = null
-        }
-    }
-
-    fun loadSecondaryPage(pageId: String, onLoaded: (PageContentSnapshot) -> Unit) {
-        viewModelScope.launch {
-            writeSecondaryNow()
-            loadSecondary(pageId, onLoaded)
-        }
-    }
-
-    private suspend fun loadSecondary(pageId: String, onLoaded: (PageContentSnapshot) -> Unit) {
+    private suspend fun addPaneOn(pageId: String, onLoaded: (PageContentSnapshot) -> Unit) {
         val content = boardRepository.loadPage(pageId) ?: return
-        _secondaryPageId.value = pageId
-        secondaryStrokes = content.strokes
-        secondaryTextBoxes = content.textBoxes
-        secondaryContainers = content.containers
-        secondaryBackgroundId = content.background?.id
-        secondaryCanvasStyle = content.page.canvasStyle
-        onLoaded(
-            PageContentSnapshot(
-                strokes = content.strokes,
-                textBoxes = content.textBoxes,
-                background = content.background,
-                camera = content.page.camera,
-                containers = content.containers,
-                canvasStyle = content.page.canvasStyle,
-            ),
-        )
+        val slot = PaneSlot(pageId)
+        paneSlots.add(slot)
+        fillSlot(slot, content)
+        _secondaryPageIds.value = paneSlots.map { it.pageId }
+        onLoaded(content.toSnapshot())
     }
 
-    /** Debounced save for the second pane, mirroring [scheduleSave]. */
+    /** Closes every extra pane, flushing whatever they hold. */
+    fun closeSecondaryPanes() {
+        viewModelScope.launch {
+            paneSlots.forEach { writePaneNow(it) }
+            paneSlots.clear()
+            _secondaryPageIds.value = emptyList()
+        }
+    }
+
+    fun loadSecondaryPage(
+        paneIndex: Int,
+        pageId: String,
+        onLoaded: (PageContentSnapshot) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val slot = paneSlots.getOrNull(paneIndex) ?: return@launch
+            writePaneNow(slot)
+            val content = boardRepository.loadPage(pageId) ?: return@launch
+            slot.pageId = pageId
+            fillSlot(slot, content)
+            _secondaryPageIds.value = paneSlots.map { it.pageId }
+            onLoaded(content.toSnapshot())
+        }
+    }
+
+    private fun fillSlot(slot: PaneSlot, content: PageContent) {
+        slot.strokes = content.strokes
+        slot.textBoxes = content.textBoxes
+        slot.containers = content.containers
+        slot.backgroundId = content.background?.id
+        slot.canvasStyle = content.page.canvasStyle
+    }
+
+    private fun PageContent.toSnapshot() = PageContentSnapshot(
+        strokes = strokes,
+        textBoxes = textBoxes,
+        background = background,
+        camera = page.camera,
+        containers = containers,
+        canvasStyle = page.canvasStyle,
+    )
+
+    /** Debounced save for one extra pane, mirroring [scheduleSave]. */
     fun scheduleSecondarySave(
+        paneIndex: Int,
         strokes: List<Stroke>,
         textBoxes: List<TextBox>,
         backgroundId: String?,
@@ -837,41 +955,41 @@ class WhiteboardViewModel @Inject constructor(
         containers: List<Container> = emptyList(),
         canvasStyle: BoardCanvasStyle? = null,
     ) {
-        secondaryStrokes = strokes
-        secondaryTextBoxes = textBoxes
-        secondaryContainers = containers
-        secondaryBackgroundId = backgroundId
-        camera?.let { secondaryCamera = CameraState(it.offsetX, it.offsetY, it.zoom) }
-        canvasStyle?.let { secondaryCanvasStyle = it }
+        val slot = paneSlots.getOrNull(paneIndex) ?: return
+        slot.strokes = strokes
+        slot.textBoxes = textBoxes
+        slot.containers = containers
+        slot.backgroundId = backgroundId
+        camera?.let { slot.camera = CameraState(it.offsetX, it.offsetY, it.zoom) }
+        canvasStyle?.let { slot.canvasStyle = it }
 
-        secondarySaveJob?.cancel()
-        secondarySaveJob = viewModelScope.launch {
+        slot.saveJob?.cancel()
+        slot.saveJob = viewModelScope.launch {
             delay(SAVE_DEBOUNCE_MS)
-            writeSecondaryNow()
+            writePaneNow(slot)
         }
     }
 
-    private suspend fun writeSecondaryNow() {
-        val pageId = _secondaryPageId.value ?: return
+    private suspend fun writePaneNow(slot: PaneSlot) {
         val sessionId = _state.value.sessionId ?: return
-        // Index comes from the page list, not the primary's index: the second
+        // Index comes from the page list, not the primary's index: an extra
         // pane is a different page and must not overwrite its neighbour's slot.
-        val index = _state.value.pages.indexOfFirst { it.id == pageId }.coerceAtLeast(0)
+        val index = _state.value.pages.indexOfFirst { it.id == slot.pageId }.coerceAtLeast(0)
 
         boardRepository.savePage(
             page = BoardPage(
-                id = pageId,
+                id = slot.pageId,
                 sessionId = sessionId,
                 pageIndex = index,
                 widthPx = boardWidthPx,
                 heightPx = boardHeightPx,
-                backgroundId = secondaryBackgroundId,
-                canvasStyle = secondaryCanvasStyle,
-                camera = secondaryCamera,
+                backgroundId = slot.backgroundId,
+                canvasStyle = slot.canvasStyle,
+                camera = slot.camera,
             ),
-            strokes = secondaryStrokes,
-            textBoxes = secondaryTextBoxes,
-            containers = secondaryContainers,
+            strokes = slot.strokes,
+            textBoxes = slot.textBoxes,
+            containers = slot.containers,
         )
     }
 

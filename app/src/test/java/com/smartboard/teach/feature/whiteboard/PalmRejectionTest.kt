@@ -158,4 +158,28 @@ class PalmRejectionTest {
         assertFalse(pr.shouldAcceptMove(10, TOUCH, 1_100))
         assertTrue(pr.shouldAcceptMove(11, PEN, 1_100))
     }
+
+    @Test
+    fun `a lost up-event does not block every later touch`() {
+        val palm = PalmRejection()
+        assertTrue(palm.shouldAcceptDown(1L, isStylus = false, nowMs = 1_000L, othersDown = false))
+        // Pointer 1's up never arrives. A fresh touch with nothing else down
+        // must still draw.
+        assertTrue(palm.shouldAcceptDown(2L, isStylus = false, nowMs = 5_000L, othersDown = false))
+    }
+
+    @Test
+    fun `a stuck pen does not lock out the finger`() {
+        val palm = PalmRejection()
+        palm.shouldAcceptDown(1L, isStylus = true, nowMs = 1_000L, othersDown = false)
+        // Pen up lost; well past the grace window, the finger is alone on the glass.
+        assertTrue(palm.shouldAcceptDown(2L, isStylus = false, nowMs = 5_000L, othersDown = false))
+    }
+
+    @Test
+    fun `a second contact while one is really down is still rejected`() {
+        val palm = PalmRejection()
+        palm.shouldAcceptDown(1L, isStylus = false, nowMs = 1_000L, othersDown = false)
+        assertFalse(palm.shouldAcceptDown(2L, isStylus = false, nowMs = 5_000L, othersDown = true))
+    }
 }

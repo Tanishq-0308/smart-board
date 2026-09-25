@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,7 +28,7 @@ import com.smartboard.teach.core.ui.theme.TextOnChromeMuted
 import com.smartboard.teach.domain.model.BoardPage
 
 /**
- * The right-hand pane of a split board.
+ * One extra pane of a split board.
  *
  * A full [BoardCanvas] with its OWN state and renderer, showing a DIFFERENT
  * page of the same lesson — so ink drawn here is real page content that saves
@@ -38,6 +37,9 @@ import com.smartboard.teach.domain.model.BoardPage
  * The pane carries only a page pager. Pen, colour and tool selection stay with
  * the single toolbar: a second full toolbar would double the chrome and leave
  * a teacher wondering which pen the one on the left was setting.
+ *
+ * Width is the caller's business — panes are laid out in a row and sized by
+ * weight, so two panes split the board in half and six split it in sixths.
  */
 @Composable
 fun SecondaryPane(
@@ -51,7 +53,7 @@ fun SecondaryPane(
 ) {
     val index = pages.indexOfFirst { it.id == currentPageId }
 
-    Row(modifier = modifier.fillMaxHeight().fillMaxWidth(0.5f)) {
+    Row(modifier = modifier.fillMaxHeight()) {
         // A hairline divider, so the two panes read as separate surfaces
         // rather than one board with a seam in the ink.
         Box(

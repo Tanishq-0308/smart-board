@@ -8,6 +8,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Icon
@@ -28,7 +32,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.smartboard.teach.core.ui.component.FloatingIsland
+import com.smartboard.teach.core.ui.theme.IslandSurface
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
+import com.smartboard.teach.core.ui.theme.TextOnChrome
 import com.smartboard.teach.core.ui.theme.TextOnChromeMuted
 import com.smartboard.teach.domain.model.AuthState
 
@@ -49,6 +55,8 @@ fun SidebarOverlay(
     onLogout: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    showHandle: Boolean = false,
+    onOpen: () -> Unit = {},
 ) {
     val dimens = SmartBoardTheme.dimens
 
@@ -100,6 +108,54 @@ fun SidebarOverlay(
                 )
             }
         }
+
+        // The board has no menu button of its own, so the handle IS its way
+        // in to navigation. It hides while the panel is open, where the
+        // scrim and the panel's own controls take over.
+        if (showHandle && !isOpen) {
+            SidebarHandle(
+                onOpen = onOpen,
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
+        }
+    }
+}
+
+/**
+ * The grab handle that pulls the navigation panel out from the left edge.
+ *
+ * Tapping opens it, and so does dragging it rightward — a teacher standing at
+ * the board reaches for the edge and pulls, which is the gesture the shape
+ * invites. It sits at mid-height, within reach without looking, rather than in
+ * a corner.
+ */
+@Composable
+private fun SidebarHandle(
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(width = 26.dp, height = 64.dp)
+            .clip(RoundedCornerShape(topEnd = 13.dp, bottomEnd = 13.dp))
+            .background(IslandSurface)
+            .draggable(
+                orientation = Orientation.Horizontal,
+                state = rememberDraggableState { },
+                // Opened on a deliberate rightward pull only, so a stray
+                // brush along the edge does not throw the panel open
+                // mid-sentence.
+                onDragStopped = { velocity -> if (velocity > 120f) onOpen() },
+            )
+            .clickable(onClick = onOpen),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = "Open menu",
+            tint = TextOnChrome,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 

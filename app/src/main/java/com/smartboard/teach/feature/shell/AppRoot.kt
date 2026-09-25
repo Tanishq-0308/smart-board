@@ -108,7 +108,15 @@ fun AppRoot(
             authState = authState,
             currentRoute = currentRoute,
             onNavigate = { dest ->
-                if (currentRoute != dest.route) {
+                val boardOnStack = runCatching {
+                    navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_BACKGROUND)
+                }.isSuccess
+                if (dest == Dest.Whiteboard && boardOnStack) {
+                    // The board is the root of the stack: go BACK to it. Navigating
+                    // with restoreState could bring back the stack just popped —
+                    // Notes opened from a snapshot — and leave the teacher on Notes.
+                    navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_BACKGROUND, inclusive = false)
+                } else if (currentRoute != dest.route) {
                     navController.navigate(dest.route) {
                         popUpTo(Dest.Whiteboard.route) { saveState = true }
                         launchSingleTop = true
@@ -123,6 +131,11 @@ fun AppRoot(
                 }
             },
             onDismiss = { menuOpen = false },
+            // The board dropped its ☰ from the page bar, so the edge handle
+            // is how a teacher reaches Notes, Classes and the rest from it.
+            // Other screens keep their top-left menu button.
+            showHandle = isBoard,
+            onOpen = { menuOpen = true },
         )
     }
 }

@@ -2,6 +2,8 @@ package com.smartboard.teach.feature.shell
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -13,6 +15,7 @@ import com.smartboard.teach.feature.attendance.AttendanceScreen
 import com.smartboard.teach.feature.auth.LoginScreen
 import com.smartboard.teach.feature.classes.ClassDetailScreen
 import com.smartboard.teach.feature.classes.ClassListScreen
+import com.smartboard.teach.feature.maths3d.Maths3DScreen
 import com.smartboard.teach.feature.material.MaterialListScreen
 import com.smartboard.teach.feature.material.MaterialViewerScreen
 import com.smartboard.teach.feature.notes.NoteDetailScreen
@@ -47,11 +50,38 @@ fun AppNavHost(
                 },
             ),
         ) { entry ->
+            val pendingInsertImage by entry.savedStateHandle
+                .getStateFlow<String?>(DetailRoutes.INSERT_IMAGE_KEY, null)
+                .collectAsState()
             WhiteboardScreen(
                 pendingBackgroundId = entry.arguments
                     ?.getString(DetailRoutes.ARG_BACKGROUND_ID),
+                pendingInsertImage = pendingInsertImage,
+                onInsertConsumed = { entry.savedStateHandle[DetailRoutes.INSERT_IMAGE_KEY] = null },
                 onOpenNotes = {
                     navController.navigate(Dest.Notes.route) { launchSingleTop = true }
+                },
+                // Same options as the sidebar, so the board stays at the root of
+                // the stack and 3D Maths can hand a snapshot back to it.
+                onOpenMaths3D = {
+                    navController.navigate(Dest.Maths3D.route) {
+                        popUpTo(Dest.Whiteboard.route) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+            )
+        }
+
+        composable(Dest.Maths3D.route) {
+            Maths3DScreen(
+                onInsert = { path ->
+                    // The board is always the root of the stack (sidebar
+                    // navigation pops up to it), so hand the snapshot to its
+                    // entry and return there.
+                    navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_BACKGROUND)
+                        .savedStateHandle[DetailRoutes.INSERT_IMAGE_KEY] = path
+                    navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_BACKGROUND, inclusive = false)
                 },
             )
         }

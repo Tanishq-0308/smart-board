@@ -108,6 +108,59 @@ object TableGrid {
     fun columnWidth(container: Container, col: Int): Float =
         container.cells.firstOrNull { it.col == col }?.width ?: DEFAULT_CELL_WIDTH
 
+    /**
+     * A copy of [container] with a row inserted at [insertAt].
+     *
+     * Rebuilds every rect from the surviving row heights and column widths
+     * rather than nudging the existing ones: a table whose rows were resized
+     * would otherwise drift a little further out of true with each insert.
+     *
+     * [insertAt] == rows appends at the bottom; 0 inserts above the first row.
+     */
+    fun withRowInserted(container: Container, insertAt: Int): Container {
+        val at = insertAt.coerceIn(0, container.rows)
+        val heights = (0 until container.rows).map { rowHeight(container, it) }.toMutableList()
+        heights.add(at, heights.getOrElse(at) { heights.lastOrNull() ?: DEFAULT_CELL_HEIGHT })
+        return rebuild(container, heights, columnWidths(container))
+    }
+
+    /** A copy of [container] with a column inserted at [insertAt]. */
+    fun withColumnInserted(container: Container, insertAt: Int): Container {
+        val at = insertAt.coerceIn(0, container.cols)
+        val widths = columnWidths(container).toMutableList()
+        widths.add(at, widths.getOrElse(at) { widths.lastOrNull() ?: DEFAULT_CELL_WIDTH })
+        return rebuild(container, (0 until container.rows).map { rowHeight(container, it) }, widths)
+    }
+
+    private fun columnWidths(container: Container): List<Float> =
+        (0 until container.cols).map { columnWidth(container, it) }
+
+    /** Lays out a grid of the given row heights and column widths at the container's origin. */
+    private fun rebuild(
+        container: Container,
+        heights: List<Float>,
+        widths: List<Float>,
+    ): Container {
+        val cells = ArrayList<ContainerCell>(heights.size * widths.size)
+        var top = container.y
+        for (row in heights.indices) {
+            var left = container.x
+            for (col in widths.indices) {
+                cells += ContainerCell(
+                    left = left,
+                    top = top,
+                    right = left + widths[col],
+                    bottom = top + heights[row],
+                    row = row,
+                    col = col,
+                )
+                left += widths[col]
+            }
+            top += heights[row]
+        }
+        return container.copy(rows = heights.size, cols = widths.size, cells = cells)
+    }
+
     /** Wide enough for a few handwritten words at a comfortable pen size. */
     const val DEFAULT_CELL_WIDTH = 260f
     const val DEFAULT_CELL_HEIGHT = 140f

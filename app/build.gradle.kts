@@ -49,6 +49,9 @@ android {
             isMinifyEnabled = false
         }
         release {
+            // ponytail: signed with the debug key so side-loaded test builds
+            // install. Swap for a real keystore before any store upload.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

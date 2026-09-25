@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
+import com.smartboard.teach.domain.model.Container
 import com.smartboard.teach.domain.model.ContainerKind
 import com.smartboard.teach.domain.model.DrawTool
 import com.smartboard.teach.domain.model.Stroke
@@ -183,7 +184,11 @@ fun BoardCanvas(
 
                             when (event.type) {
                                 PointerEventType.Press ->
-                                    if (palmRejection.shouldAcceptDown(pointerId, isStylus, nowMs)) {
+                                    if (palmRejection.shouldAcceptDown(
+                                            pointerId, isStylus, nowMs,
+                                            othersDown = pressed.any { it.id != change.id },
+                                        )
+                                    ) {
                                         change.consume()
                                         handlePress(
                                             state, renderer, change, effectiveTool,
@@ -329,15 +334,21 @@ fun BoardCanvas(
 private class TransformSnapshot {
     var strokes: List<Stroke> = emptyList()
     var textBoxes: List<TextBox> = emptyList()
+    var container: Container? = null
+    var containerStrokes: List<Stroke> = emptyList()
 
     fun capture(state: BoardState) {
         strokes = state.selectedStrokes()
         textBoxes = state.selectedTextBoxes()
+        container = state.selectedContainerId?.let(state::containerById)
+        containerStrokes = state.selectedContainerStrokes()
     }
 
     fun clear() {
         strokes = emptyList()
         textBoxes = emptyList()
+        container = null
+        containerStrokes = emptyList()
     }
 }
 
@@ -460,12 +471,18 @@ private fun handlePress(
                     (hb[0] + hb[2]) / 2f, (hb[1] + hb[3]) / 2f,
                     state.selectionRotation,
                 )
+                val container = state.selectedContainerId?.let(state::containerById)
                 val handle = Selection.handleAt(
                     hb, hx, hy, handleRadius,
                     rotateGapWorld = camera.screenToWorldDistance(
                         HANDLE_TOUCH_RADIUS_PX * Selection.ROTATE_HANDLE_GAP,
                     ),
-                )
+                ).takeUnless {
+                    // Containers have no rotation, and a mindmap's size belongs
+                    // to its layout — the chrome draws neither handle for them.
+                    container != null &&
+                        (it == Selection.Handle.ROTATE || container.kind == ContainerKind.MINDMAP)
+                }
                 if (handle != null) {
                     snapshot.capture(state)
                     val originalStrokes = state.selectedStrokes()
@@ -488,6 +505,8 @@ private fun handlePress(
                             handle, state.selectionBounds().copyOf(),
                             originalStrokes, originalBoxes,
                             if (state.backgroundSelected) state.background else null,
+                            originalContainer = container,
+                            originalContainerStrokes = state.selectedContainerStrokes(),
                         )
                     }
                     return
@@ -813,6 +832,21 @@ private fun handleRelease(
             if (snapshot.strokes.isNotEmpty() || snapshot.textBoxes.isNotEmpty()) {
                 onSelectionMoved(snapshot.strokes, snapshot.textBoxes)
             }
+            // A moved or resized container is one undo step, ink and all.
+            snapshot.container?.let { before ->
+                val after = state.containerById(before.id)
+                if (after != null && after != before) {
+                    state.history.record(
+                        BoardCommand.EditContainer(
+                            before = before,
+                            after = after,
+                            strokesBefore = snapshot.containerStrokes,
+                            strokesAfter = state.strokes.filter { it.containerId == before.id },
+                        ),
+                    )
+                    state.refreshHistoryFlags()
+                }
+            }
             snapshot.clear()
             state.dragState = DragState.None
             renderer.invalidateCache()
@@ -926,7 +960,7 @@ internal const val TAP_SLOP_PX = 6f
 
 // --- Helpers ----------------------------------------------------------------
 
-private fun translateSelection(state: BoardState, dx: Float, dy: Float) {
+internal fun translateSelection(state: BoardState, dx: Float, dy: Float) {
     state.selectedContainerId?.let { id ->
         val index = state.containers.indexOfFirst { it.id == id }
         if (index >= 0) {
@@ -1000,6 +1034,33 @@ private fun applyScaleFromOriginal(
         state.bumpSelection()
         return
     }
+    drag.originalContainer?.let { original ->
+        // A picture or video keeps its aspect ratio; the axis being dragged
+        // further from 1 decides, so edge handles still shrink and grow it.
+        // A table stretches freely, like the grid it is.
+        val keepAspect = original.kind == ContainerKind.IMAGE || original.kind == ContainerKind.VIDEO
+        val uniform = if (abs(scaleX - 1f) >= abs(scaleY - 1f)) scaleX else scaleY
+        val sx = (if (keepAspect) uniform else scaleX).coerceAtLeast(MIN_CONTAINER_SCALE)
+        val sy = (if (keepAspect) uniform else scaleY).coerceAtLeast(MIN_CONTAINER_SCALE)
+        fun mx(x: Float) = pivotX + (x - pivotX) * sx
+        fun my(y: Float) = pivotY + (y - pivotY) * sy
+        val index = state.containers.indexOfFirst { it.id == original.id }
+        if (index >= 0) {
+            state.containers[index] = original.copy(
+                x = mx(original.x),
+                y = my(original.y),
+                cells = original.cells.map {
+                    it.copy(left = mx(it.left), top = my(it.top), right = mx(it.right), bottom = my(it.bottom))
+                },
+            )
+        }
+        drag.originalContainerStrokes.forEach { stroke ->
+            val i = state.strokes.indexOfFirst { it.id == stroke.id }
+            if (i >= 0) state.strokes[i] = Selection.scaleStroke(stroke, pivotX, pivotY, sx, sy)
+        }
+        state.bumpSelection()
+        return
+    }
     drag.originalStrokes.forEach { original ->
         val index = state.strokes.indexOfFirst { it.id == original.id }
         if (index >= 0) {
@@ -1016,6 +1077,9 @@ private fun applyScaleFromOriginal(
     }
     state.bumpSelection()
 }
+
+/** Floor on a container resize, so a drag past the pivot cannot flip or erase it. */
+private const val MIN_CONTAINER_SCALE = 0.1f
 
 /** Total rotation applied to the originals, for the same reason. */
 private fun applyRotationFromOriginal(

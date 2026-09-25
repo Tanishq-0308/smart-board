@@ -3,6 +3,8 @@ package com.smartboard.teach.feature.whiteboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -45,7 +47,6 @@ import com.smartboard.teach.domain.model.TextBox
 import com.smartboard.teach.feature.notes.SnapshotDialog
 import com.smartboard.teach.data.ink.RecognizerState
 import com.smartboard.teach.feature.shell.LocalHideClock
-import com.smartboard.teach.feature.shell.LocalOpenBoardMenu
 import com.smartboard.teach.feature.whiteboard.container.MindmapChrome
 import com.smartboard.teach.feature.whiteboard.container.MindmapLayout
 import com.smartboard.teach.feature.whiteboard.container.TableGrid
@@ -53,13 +54,18 @@ import com.smartboard.teach.feature.whiteboard.instruments.Instrument
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentGeometry
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentKind
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentLayer
+import java.util.UUID
 
 @Composable
 fun WhiteboardScreen(
     modifier: Modifier = Modifier,
     /** Set when arriving from "Annotate on board" in the material viewer. */
     pendingBackgroundId: String? = null,
+    /** A PNG path handed back by 3D Maths "Insert on board". */
+    pendingInsertImage: String? = null,
+    onInsertConsumed: () -> Unit = {},
     onOpenNotes: () -> Unit = {},
+    onOpenMaths3D: () -> Unit = {},
     viewModel: WhiteboardViewModel = hiltViewModel(),
 ) {
     val state = remember { BoardState() }
@@ -79,7 +85,6 @@ fun WhiteboardScreen(
     Selection.spToWorldPx = with(density) { 1.sp.toPx() }
     val context = LocalContext.current
     val dimens = SmartBoardTheme.dimens
-    val openMenu = LocalOpenBoardMenu.current
 
     // The instruments measure in real centimetres, so they need the panel's
     // physical density rather than its logical one.
@@ -122,6 +127,36 @@ fun WhiteboardScreen(
         )
     }
 
+    /** Captures the whole board and hands it to the AI for notes. */
+    fun takeSnapshot() {
+        viewModel.captureAndSummarize {
+            // The renderer owns every layer, so the flattened export is
+            // composed here rather than screenshotting the View. On an
+            // infinite canvas this exports CONTENT bounds, not the
+            // viewport — a snapshot should capture the whole lesson.
+            renderer.exportBitmap(
+                strokes = state.strokes.toList(),
+                textBoxes = state.textBoxes.map { box ->
+                    TextBoxRender(
+                        x = box.x,
+                        y = box.y,
+                        text = box.text,
+                        colorArgb = box.colorArgb,
+                        fontSizePx = with(density) { box.fontSizeSp.sp.toPx() },
+                    )
+                },
+                // Background deliberately OMITTED. An imported photo or
+                // worksheet is reference material the teacher wrote
+                // ON TOP of, not lesson content they produced. Flattening
+                // it in made the AI summarise the source document
+                // instead of the teaching, so notes for a page annotated
+                // over a textbook scan came back describing the scan.
+                background = null,
+                containers = state.containers.toList(),
+            )
+        }
+    }
+
     /** Re-rasterizes the viewport cache once a pan or zoom has finished. */
     fun settleCamera() {
         renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
@@ -129,7 +164,11 @@ fun WhiteboardScreen(
         persist()
     }
 
+    /** True once a page has been fed into this composition's [state]. */
+    var pageApplied by remember { mutableStateOf(false) }
+
     fun applySnapshot(snapshot: PageContentSnapshot) {
+        pageApplied = true
         applyLoadedPage(
             state, renderer,
             snapshot.strokes, snapshot.textBoxes, snapshot.background, snapshot.containers,
@@ -157,28 +196,35 @@ fun WhiteboardScreen(
         uri?.let { viewModel.importPdfAsPages(it, ::applySnapshot) }
     }
 
-    // The second pane has its OWN state and renderer: they hold a page's
-    // strokes, camera and viewport cache, and sharing either would make both
+    // Every extra pane has its OWN state and renderer: they hold a page's
+    // strokes, camera and viewport cache, and sharing either would make the
     // panes show the same page at the same pan.
-    val secondaryState = remember { BoardState() }
-    val secondaryRenderer = remember { BoardRenderer() }
-    val secondaryPageId by viewModel.secondaryPageId.collectAsStateWithLifecycle()
-    val isSplit = secondaryPageId != null
+    //
+    // Allocated once for the maximum and reused as panes open and close, so a
+    // teacher cycling the split does not throw away a renderer's surface and
+    // rasterize every stroke again on the way back.
+    val paneStates = remember { List(MAX_PANES - 1) { BoardState() } }
+    val paneRenderers = remember { List(MAX_PANES - 1) { BoardRenderer() } }
+    val secondaryPageIds by viewModel.secondaryPageIds.collectAsStateWithLifecycle()
+    val isSplit = secondaryPageIds.isNotEmpty()
+    val paneCount = secondaryPageIds.size + 1
 
     // Tool selection lives on the TOOLBAR, which only knows the primary
     // state. Mirroring it means the pen a teacher picks writes in whichever
-    // pane they touch, rather than the second pane being stuck on its own
-    // defaults with no control that reaches it.
-    if (isSplit) {
-        secondaryState.tool = state.tool
-        secondaryState.mode = state.mode
-        secondaryState.penColor = state.penColor
-        secondaryState.penWidth = state.penWidth
-        secondaryState.highlighterColor = state.highlighterColor
-        secondaryState.highlighterWidth = state.highlighterWidth
-        secondaryState.eraserScreenRadius = state.eraserScreenRadius
-        secondaryState.stylusOnlyMode = state.stylusOnlyMode
-        secondaryState.honourEraserButton = state.honourEraserButton
+    // pane they touch, rather than the extra panes being stuck on their own
+    // defaults with no control that reaches them.
+    for (i in secondaryPageIds.indices) {
+        paneStates.getOrNull(i)?.let { pane ->
+            pane.tool = state.tool
+            pane.mode = state.mode
+            pane.penColor = state.penColor
+            pane.penWidth = state.penWidth
+            pane.highlighterColor = state.highlighterColor
+            pane.highlighterWidth = state.highlighterWidth
+            pane.eraserScreenRadius = state.eraserScreenRadius
+            pane.stylusOnlyMode = state.stylusOnlyMode
+            pane.honourEraserButton = state.honourEraserButton
+        }
     }
 
     /** Whether the lesson (New/Open/Save) menu is open. */
@@ -190,6 +236,16 @@ fun WhiteboardScreen(
     /** Whether the web search pane is docked. */
     var showWebSearch by remember { mutableStateOf(false) }
 
+    /** Whether the right-edge tools drawer is open. */
+    var showToolsDrawer by remember { mutableStateOf(false) }
+
+    // What the selection looked like when a chrome drag began, so the whole
+    // move is one undo step.
+    var moveStrokes by remember { mutableStateOf<List<Stroke>>(emptyList()) }
+    var moveBoxes by remember { mutableStateOf<List<TextBox>>(emptyList()) }
+    var moveContainer by remember { mutableStateOf<Container?>(null) }
+    var moveContainerStrokes by remember { mutableStateOf<List<Stroke>>(emptyList()) }
+
     // Right-edge chrome shifts left by the pane's width while it is docked,
     // rather than sitting under it. The pane is an overlay, so nothing moves
     // it out of their way automatically.
@@ -197,9 +253,14 @@ fun WhiteboardScreen(
 
     // The clock is drawn above this screen, so it would paint over the pane's
     // header however opaque the pane is; it has to stand down instead.
+    //
+    // Panes narrow enough to push their pager under the clock do the same: at
+    // four panes and up the rightmost pager lands in the clock's corner and
+    // the two render on top of each other, both unreadable.
+    val pagerUnderClock = paneCount >= 4
     val hideClock = LocalHideClock.current
-    DisposableEffect(showWebSearch) {
-        hideClock.value = showWebSearch
+    DisposableEffect(showWebSearch, pagerUnderClock) {
+        hideClock.value = showWebSearch || pagerUnderClock
         onDispose { hideClock.value = false }
     }
 
@@ -258,6 +319,16 @@ fun WhiteboardScreen(
         uri?.let { viewModel.insertImage(it, ::placeMedia) }
     }
 
+    // 3D Maths hands back a snapshot. Placed only once the page is loaded and
+    // sized: placeMedia centres on the viewport, and a page load landing after
+    // it would replace the containers list and drop the image.
+    LaunchedEffect(pendingInsertImage, pageApplied, state.viewportWidth > 0f) {
+        val path = pendingInsertImage ?: return@LaunchedEffect
+        if (!pageApplied || state.viewportWidth <= 0f) return@LaunchedEffect
+        onInsertConsumed()
+        viewModel.insertImage(android.net.Uri.fromFile(java.io.File(path)), ::placeMedia)
+    }
+
     // A freshly IMPORTED background (image or PDF page) has to reach
     // state.background, not just the drawn bitmap. Without this the record
     // stayed null, so the image rendered but could never be hit-tested,
@@ -291,7 +362,7 @@ fun WhiteboardScreen(
         state.pressureSensitivity = inputSettings.pressureSensitivity
         state.honourEraserButton = inputSettings.honourEraserButton
         state.showPointerDebug = inputSettings.showPointerDebug
-        state.shapeRecognition = inputSettings.shapeRecognition
+        state.customPenColors = inputSettings.customPenColors.map { Color(it) }
     }
 
     // Force a write when the board is backgrounded or switched off.
@@ -354,17 +425,18 @@ fun WhiteboardScreen(
         }
 
         BoardCanvas(
-            // Half width when split, so the primary pane's pointer handling
-            // and viewport cache match what it actually occupies. Leaving it
-            // full width would put its ink under the second pane.
-            modifier = if (isSplit) Modifier.fillMaxWidth(0.5f) else Modifier,
+            // An equal share of the width when split, so the primary pane's
+            // pointer handling and viewport cache match what it actually
+            // occupies. Leaving it full width would put its ink under the
+            // other panes.
+            modifier = if (isSplit) Modifier.fillMaxWidth(1f / paneCount) else Modifier,
             state = state,
             renderer = renderer,
             backgroundBitmap = backgroundBitmap,
             onSized = { w, h ->
                 state.viewportWidth = w.toFloat()
                 state.viewportHeight = h.toFloat()
-                viewModel.onCanvasSized(w, h, ::applySnapshot)
+                viewModel.onCanvasSized(w, h, state, ::applySnapshot)
             },
             onStrokeFinished = { drawn ->
                 // Snap rough freehand to a clean shape when confident.
@@ -439,28 +511,44 @@ fun WhiteboardScreen(
         )
 
         if (isSplit) {
-            SecondaryPane(
-                state = secondaryState,
-                renderer = secondaryRenderer,
-                onPersist = {
-                    viewModel.scheduleSecondarySave(
-                        strokes = secondaryState.strokes.toList(),
-                        textBoxes = secondaryState.textBoxes.toList(),
-                        backgroundId = secondaryState.background?.id,
-                        camera = secondaryState.camera,
-                        containers = secondaryState.containers.toList(),
-                        canvasStyle = secondaryState.canvasStyle,
+            // The extra panes share the board's remaining width evenly, so
+            // three panes are thirds and six are sixths. The Row is sized to
+            // everything the primary canvas left over.
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .fillMaxWidth((paneCount - 1f) / paneCount),
+            ) {
+                secondaryPageIds.forEachIndexed { paneIndex, pageId ->
+                    val paneState = paneStates[paneIndex]
+                    val paneRenderer = paneRenderers[paneIndex]
+
+                    SecondaryPane(
+                        state = paneState,
+                        renderer = paneRenderer,
+                        onPersist = {
+                            viewModel.scheduleSecondarySave(
+                                paneIndex = paneIndex,
+                                strokes = paneState.strokes.toList(),
+                                textBoxes = paneState.textBoxes.toList(),
+                                backgroundId = paneState.background?.id,
+                                camera = paneState.camera,
+                                containers = paneState.containers.toList(),
+                                canvasStyle = paneState.canvasStyle,
+                            )
+                        },
+                        pages = uiState.pages,
+                        currentPageId = pageId,
+                        onSelectPage = { selected ->
+                            viewModel.loadSecondaryPage(paneIndex, selected) { snapshot ->
+                                applyToPane(paneState, paneRenderer, snapshot)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
                     )
-                },
-                pages = uiState.pages,
-                currentPageId = secondaryPageId,
-                onSelectPage = { pageId ->
-                    viewModel.loadSecondaryPage(pageId) { snapshot ->
-                        applyToPane(secondaryState, secondaryRenderer, snapshot)
-                    }
-                },
-                modifier = Modifier.align(Alignment.CenterEnd),
-            )
+                }
+            }
         }
 
         // Text boxes sit above the ink so they stay selectable and editable;
@@ -529,6 +617,20 @@ fun WhiteboardScreen(
             )
         }
 
+        // Right-edge drawer, mirroring navigation on the left. Its handle is
+        // stood down while the web pane is docked, since the pane covers the
+        // very edge the handle lives on.
+        if (!showWebSearch) {
+            ToolsDrawer(
+                isOpen = showToolsDrawer,
+                onOpen = { showToolsDrawer = true },
+                onDismiss = { showToolsDrawer = false },
+                onWebSearch = { showWebSearch = true },
+                onSnapshot = ::takeSnapshot,
+                onMaths3D = onOpenMaths3D,
+            )
+        }
+
         // Top-centre by default, clear of the toolbar and the page strip;
         // the teacher drags it wherever the lesson needs it.
         if (showTimer) {
@@ -559,8 +661,85 @@ fun WhiteboardScreen(
             },
         )
 
+        ObjectChrome(
+            state = state,
+            // Captured at the START of the drag so undo can restore it; the
+            // running move overwrites the live objects frame by frame.
+            onMoveStart = {
+                moveStrokes = state.selectedStrokes()
+                moveBoxes = state.selectedTextBoxes()
+                moveContainer = state.selectedContainerId?.let(state::containerById)
+                moveContainerStrokes = state.selectedContainerStrokes()
+            },
+            onMove = { dx, dy ->
+                translateSelection(state, dx, dy)
+                renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+                state.markCommittedDirty()
+            },
+            // One history entry per completed drag, not per frame: undo after
+            // a move should put the object back where it started, rather than
+            // walking it back a pixel at a time.
+            onMoveFinished = {
+                // A container move is recorded as a container edit, so undo
+                // puts the picture or table back along with its ink.
+                val before = moveContainer
+                val after = before?.let { state.containerById(it.id) }
+                if (before != null && after != null && after != before) {
+                    state.history.record(
+                        BoardCommand.EditContainer(
+                            before = before,
+                            after = after,
+                            strokesBefore = moveContainerStrokes,
+                            strokesAfter = state.selectedContainerStrokes(),
+                        ),
+                    )
+                } else if (before == null) {
+                    state.history.record(
+                        BoardCommand.TransformSelection(
+                            strokesBefore = moveStrokes,
+                            strokesAfter = state.selectedStrokes(),
+                            boxesBefore = moveBoxes,
+                            boxesAfter = state.selectedTextBoxes(),
+                        ),
+                    )
+                }
+                state.refreshHistoryFlags()
+                persist()
+            },
+            onDuplicate = {
+                duplicateSelection(state, renderer)
+                persist()
+            },
+            onDelete = {
+                deleteSelection(state, renderer)
+                persist()
+            },
+            onInsertRow = { at ->
+                val cols = state.selectedContainerId
+                    ?.let(state::containerById)?.cols ?: return@ObjectChrome
+                editTable(
+                    state,
+                    renderer,
+                    reindex = { TableGrid.reindexAfterRowInsert(it, at, cols) },
+                ) { TableGrid.withRowInserted(it, at) }
+                persist()
+            },
+            onInsertColumn = { at ->
+                val cols = state.selectedContainerId
+                    ?.let(state::containerById)?.cols ?: return@ObjectChrome
+                editTable(
+                    state,
+                    renderer,
+                    reindex = { TableGrid.reindexAfterColumnInsert(it, at, cols) },
+                ) { TableGrid.withColumnInserted(it, at) }
+                persist()
+            },
+        )
+
         ToolPalette(
             state = state,
+            onAddCustomColor = viewModel::addCustomPenColor,
+            onRemoveCustomColor = viewModel::removeCustomPenColor,
             onUndo = {
                 performUndo(state, renderer)
                 persist()
@@ -574,39 +753,10 @@ fun WhiteboardScreen(
                 viewModel.onBackgroundChanged(null)
                 persist()
             },
-            onSnapshot = {
-                viewModel.captureAndSummarize {
-                    // The renderer owns every layer, so the flattened export is
-                    // composed here rather than screenshotting the View. On an
-                    // infinite canvas this exports CONTENT bounds, not the
-                    // viewport — a snapshot should capture the whole lesson.
-                    renderer.exportBitmap(
-                        strokes = state.strokes.toList(),
-                        textBoxes = state.textBoxes.map { box ->
-                            TextBoxRender(
-                                x = box.x,
-                                y = box.y,
-                                text = box.text,
-                                colorArgb = box.colorArgb,
-                                fontSizePx = with(density) { box.fontSizeSp.sp.toPx() },
-                            )
-                        },
-                        // Background deliberately OMITTED. An imported photo or
-                        // worksheet is reference material the teacher wrote
-                        // ON TOP of, not lesson content they produced. Flattening
-                        // it in made the AI summarise the source document
-                        // instead of the teaching, so notes for a page annotated
-                        // over a textbook scan came back describing the scan.
-                        background = null,
-                        containers = state.containers.toList(),
-                    )
-                }
-            },
             onImportBackground = viewModel::openBackgroundSheet,
             onInsertPdf = { insertPdfPicker.launch(arrayOf("application/pdf")) },
             onInsertVideo = { insertVideoPicker.launch(arrayOf("video/*")) },
             onShowTimer = { showTimer = true },
-            onWebSearch = { showWebSearch = true },
             onBackgroundSettings = { showBackgroundSettings = true },
             onLessons = {
                 // Refreshed on open rather than observed: the list only
@@ -661,19 +811,35 @@ fun WhiteboardScreen(
                     ),
                 )
             },
-            onInsertTable = {
+            onInsertTable = { rows, cols ->
                 // Dropped at the viewport centre rather than at a tap: that
                 // would need a placement mode and a second pointer path, and
                 // the teacher drags it where they want anyway.
-                val cols = 2
-                val rows = 2
-                val worldW = TableGrid.DEFAULT_CELL_WIDTH * cols
-                val worldH = TableGrid.DEFAULT_CELL_HEIGHT * rows
+                //
+                // Cells shrink for a large grid so the whole table lands on
+                // screen: ten default-width columns are wider than the board,
+                // and a table you have to go looking for reads as a bug. They
+                // never GROW past the default — a 1x1 stays a normal cell.
+                val visibleW = state.camera.screenToWorldX(state.viewportWidth) -
+                    state.camera.screenToWorldX(0f)
+                val visibleH = state.camera.screenToWorldY(state.viewportHeight) -
+                    state.camera.screenToWorldY(0f)
+                val fit = minOf(
+                    1f,
+                    visibleW * 0.8f / (TableGrid.DEFAULT_CELL_WIDTH * cols),
+                    visibleH * 0.8f / (TableGrid.DEFAULT_CELL_HEIGHT * rows),
+                )
+                val cellW = TableGrid.DEFAULT_CELL_WIDTH * fit
+                val cellH = TableGrid.DEFAULT_CELL_HEIGHT * fit
+                val worldW = cellW * cols
+                val worldH = cellH * rows
                 val table = TableGrid.create(
                     x = state.camera.screenToWorldX(state.viewportWidth / 2f) - worldW / 2f,
                     y = state.camera.screenToWorldY(state.viewportHeight / 2f) - worldH / 2f,
                     rows = rows,
                     cols = cols,
+                    cellWidth = cellW,
+                    cellHeight = cellH,
                 )
                 state.containers.add(table)
                 state.history.record(BoardCommand.AddContainer(table))
@@ -816,18 +982,30 @@ fun WhiteboardScreen(
             currentPageId = uiState.currentPageId,
             onSelectPage = { viewModel.switchToPage(it, ::applySnapshot) },
             onAddPage = { viewModel.addPage(::applySnapshot) },
-            onDeletePage = { viewModel.deleteCurrentPage(::applySnapshot) },
-            onOpenMenu = openMenu,
-            isSplit = isSplit,
-            onToggleSplit = {
-                if (isSplit) {
-                    viewModel.closeSecondaryPane()
-                } else {
-                    viewModel.openSecondaryPane { snapshot ->
-                        applyToPane(secondaryState, secondaryRenderer, snapshot)
+            onDeletePage = {
+                viewModel.deleteCurrentPage(
+                    onPaneReloaded = { index, snapshot ->
+                        paneStates.getOrNull(index)?.let { paneState ->
+                            applyToPane(paneState, paneRenderers[index], snapshot)
+                        }
+                    },
+                    onPageReady = ::applySnapshot,
+                )
+            },
+            paneCount = paneCount,
+            // One tap adds a pane; the tap past the last one closes the split
+            // and returns the board to a single full-width canvas.
+            onCycleSplit = {
+                if (splitTapAddsPane(paneCount)) {
+                    val next = secondaryPageIds.size
+                    viewModel.addSecondaryPane { snapshot ->
+                        applyToPane(paneStates[next], paneRenderers[next], snapshot)
                     }
+                } else {
+                    viewModel.closeSecondaryPanes()
                 }
             },
+            onCloseSplit = { viewModel.closeSecondaryPanes() },
             // BOTTOM-RIGHT, opposite the toolbar, as on the reference panel.
             // Page navigation is a between-topics action, not a mid-sentence
             // one, so it sits at the far end from the tools.
@@ -1077,8 +1255,10 @@ internal fun performUndo(state: BoardState, renderer: BoardRenderer) {
             state.lastTextInkRight = 0f
         }
 
-        is BoardCommand.AddContainer ->
+        is BoardCommand.AddContainer -> {
             state.containers.removeAll { it.id == command.container.id }
+            state.strokes.removeAll { s -> command.strokes.any { it.id == s.id } }
+        }
 
         is BoardCommand.DeleteContainer -> {
             state.containers.add(command.container)
@@ -1143,7 +1323,10 @@ internal fun performRedo(state: BoardState, renderer: BoardRenderer) {
             state.lastTextInkRight = 0f
         }
 
-        is BoardCommand.AddContainer -> state.containers.add(command.container)
+        is BoardCommand.AddContainer -> {
+            state.containers.add(command.container)
+            state.strokes.addAll(command.strokes)
+        }
 
         is BoardCommand.DeleteContainer -> {
             state.containers.removeAll { it.id == command.container.id }
@@ -1191,6 +1374,24 @@ internal fun performClear(state: BoardState, renderer: BoardRenderer) {
 
 internal fun deleteSelection(state: BoardState, renderer: BoardRenderer) {
     if (!state.hasSelection) return
+    val container = state.selectedContainerId?.let(state::containerById)
+    if (container != null) {
+        // The ink written inside goes with it, and comes back with it on undo.
+        val inside = state.selectedContainerStrokes()
+        state.history.record(BoardCommand.DeleteContainer(container, inside))
+        state.containers.removeAll { it.id == container.id }
+        state.strokes.removeAll(inside)
+    } else if (state.backgroundSelected) {
+        state.history.record(BoardCommand.SetBackground(state.background, null))
+        state.background = null
+    }
+    if (container != null || state.backgroundSelected) {
+        state.clearSelection()
+        renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+        state.markCommittedDirty()
+        state.refreshHistoryFlags()
+        return
+    }
     val strokes = state.selectedStrokes()
     val boxes = state.selectedTextBoxes()
 
@@ -1205,6 +1406,10 @@ internal fun deleteSelection(state: BoardState, renderer: BoardRenderer) {
 
 internal fun duplicateSelection(state: BoardState, renderer: BoardRenderer) {
     if (!state.hasSelection) return
+    state.selectedContainerId?.let(state::containerById)?.let { original ->
+        duplicateContainer(state, renderer, original)
+        return
+    }
     val newStrokes = Selection.duplicateStrokes(state.selectedStrokes())
     val newBoxes = Selection.duplicateTextBoxes(state.selectedTextBoxes())
 
@@ -1213,6 +1418,39 @@ internal fun duplicateSelection(state: BoardState, renderer: BoardRenderer) {
     state.history.record(BoardCommand.DuplicateSelection(newStrokes, newBoxes))
     // Leave the copy selected: the next action is almost always to move it.
     state.selectOnly(newStrokes.map { it.id }, newBoxes.map { it.id })
+    renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+    state.markCommittedDirty()
+    state.refreshHistoryFlags()
+}
+
+/**
+ * Copies a picture, table or video beside the original, with its ink.
+ *
+ * The copy shares the original's media file: nothing ever deletes media
+ * files, and the board's bitmap cache is keyed by container id, so the copy
+ * just gets its own entry pointing at the same decoded bitmap.
+ */
+private fun duplicateContainer(state: BoardState, renderer: BoardRenderer, original: Container) {
+    val offset = Selection.DUPLICATE_OFFSET
+    val copyId = UUID.randomUUID().toString()
+    val copy = original.copy(
+        id = copyId,
+        x = original.x + offset,
+        y = original.y + offset,
+        cells = original.cells.map {
+            it.copy(left = it.left + offset, top = it.top + offset, right = it.right + offset, bottom = it.bottom + offset)
+        },
+    )
+    val ink = Selection.duplicateStrokes(state.selectedContainerStrokes(), offset)
+        .map { it.copyWith(containerId = copyId) }
+    state.containers.add(copy)
+    state.strokes.addAll(ink)
+    state.mediaBitmaps[original.id]?.let { state.putMedia(copyId, it) }
+    state.history.record(BoardCommand.AddContainer(copy, ink))
+    // Leave the copy selected, as ink duplicates are: the next move is to drag it.
+    state.clearSelection()
+    state.selectedContainerId = copyId
+    state.bumpSelection()
     renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
     state.markCommittedDirty()
     state.refreshHistoryFlags()
@@ -1378,6 +1616,56 @@ private fun replaceContainer(state: BoardState, container: Container) {
  * single container-wide offset: adding one child pushes different branches by
  * different amounts.
  */
+/**
+ * Inserts a row or column into the selected table, carrying its ink with it.
+ *
+ * Contained strokes must be RETAGGED as well as moved: an insert renumbers
+ * every cell after it, so a stroke that kept its old index would silently jump
+ * into a different cell — a corruption only visible after a save and reload.
+ * [reindex] maps an old cell index to its new one for the edit being made.
+ */
+private fun editTable(
+    state: BoardState,
+    renderer: BoardRenderer,
+    reindex: (oldIndex: Int) -> Int,
+    edit: (Container) -> Container,
+) {
+    val id = state.selectedContainerId ?: return
+    val before = state.containerById(id) ?: return
+    if (before.kind != ContainerKind.TABLE) return
+
+    val after = edit(before)
+    if (after === before) return
+
+    val strokesBefore = state.strokes.filter { it.containerId == id }
+    val strokesAfter = strokesBefore.map { stroke ->
+        val newIndex = reindex(stroke.cellIndex)
+        val old = before.cellAt(stroke.cellIndex)
+        val new = after.cellAt(newIndex)
+        if (old == null || new == null) {
+            stroke
+        } else {
+            Selection.translateStroke(stroke, new.left - old.left, new.top - old.top)
+                .copyWith(cellIndex = newIndex)
+        }
+    }
+
+    state.history.record(
+        BoardCommand.EditContainer(
+            before = before,
+            after = after,
+            strokesBefore = strokesBefore,
+            strokesAfter = strokesAfter,
+        ),
+    )
+    replaceContainer(state, after)
+    restoreStrokes(state, strokesAfter)
+    state.bumpSelection()
+    state.refreshHistoryFlags()
+    renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+    state.markCommittedDirty()
+}
+
 private fun editMindmap(
     state: BoardState,
     renderer: BoardRenderer,
@@ -1499,7 +1787,7 @@ internal fun applyLoadedPage(
 /**
  * Replaces a rough freehand stroke with a clean shape, when confident.
  *
- * Returns the original stroke untouched if recognition is off, the tool is
+ * Returns the original stroke untouched unless the Shape pen drew it, the tool is
  * not the pen, or the recognizer declined. Leaving ink alone is always the
  * safe outcome — wrongly "correcting" a deliberate squiggle is far more
  * annoying than failing to tidy a rough circle.
@@ -1509,7 +1797,8 @@ internal fun applyLoadedPage(
  * they just drew.
  */
 internal fun maybeSnapToShape(state: BoardState, drawn: Stroke): Stroke {
-    if (!state.shapeRecognition) return drawn
+    // Only the Shape pen snaps; every other nib leaves ink exactly as drawn.
+    if (!state.penType.isShapePen) return drawn
     // Geometry an instrument produced is already exact.
     if (state.suppressShapeSnap) return drawn
     // Only freehand pen strokes are candidates. The highlighter is for

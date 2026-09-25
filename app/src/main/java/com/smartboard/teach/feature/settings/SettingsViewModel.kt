@@ -51,8 +51,6 @@ class SettingsViewModel @Inject constructor(
     fun setEraserButton(value: Boolean) = viewModelScope.launch { store.setHonourEraserButton(value) }
     fun setPointerDebug(value: Boolean) = viewModelScope.launch { store.setPointerDebug(value) }
     fun set24HourClock(value: Boolean) = viewModelScope.launch { store.setUse24HourClock(value) }
-    fun setShapeRecognition(value: Boolean) =
-        viewModelScope.launch { store.setShapeRecognition(value) }
 
     /**
      * Clears board pages, strokes and backgrounds.

@@ -87,14 +87,6 @@ fun SettingsScreen(
                     onCheckedChange = viewModel::setEraserButton,
                 )
                 SettingRow(
-                    title = "Snap shapes",
-                    detail = "Turn rough freehand circles, rectangles and lines into clean " +
-                        "shapes when you lift the pen. Turn off to keep your ink exactly " +
-                        "as drawn.",
-                    checked = settings.shapeRecognition,
-                    onCheckedChange = viewModel::setShapeRecognition,
-                )
-                SettingRow(
                     title = "Pointer debug overlay",
                     detail = "Show live pointer type, pressure and contact count on the " +
                         "board. Use this when setting up new hardware.",

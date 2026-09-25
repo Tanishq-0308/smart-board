@@ -54,10 +54,22 @@ enum class PenType(
      * after the fact, so nothing about drawing, erasing or undo changes. Only
      * what the strokes turn INTO is different.
      */
-    TEXT("Text", DrawTool.PEN, defaultWidth = 5f, defaultAlpha = 1f, pressureSensitive = true);
+    TEXT("Text", DrawTool.PEN, defaultWidth = 5f, defaultAlpha = 1f, pressureSensitive = true),
+
+    /**
+     * Draws rough circles, rectangles, lines and polygons as clean shapes.
+     *
+     * A nib of its own rather than a behaviour of the pen: snapping ordinary
+     * writing surprised teachers ("0" became a circle, a tick became a line),
+     * so plain ink is now always left exactly as drawn.
+     */
+    SHAPE("Shape", DrawTool.PEN, defaultWidth = 5f, defaultAlpha = 1f, pressureSensitive = false);
 
     val isHighlighter: Boolean get() = this == HIGHLIGHTER
 
     /** True for the nib whose ink is converted to text after a pause. */
     val isTextPen: Boolean get() = this == TEXT
+
+    /** True for the nib whose strokes are snapped to clean shapes. */
+    val isShapePen: Boolean get() = this == SHAPE
 }

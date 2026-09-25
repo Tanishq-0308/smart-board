@@ -87,25 +87,28 @@ internal fun DrawScope.drawSelectionChrome(state: BoardState) {
         return@rotate
     }
 
-    // Rotate handle, on a stalk above the box.
-    val rotateY = top - HANDLE_TOUCH_RADIUS_PX * Selection.ROTATE_HANDLE_GAP
-    drawLine(
-        color = SELECTION_ACCENT,
-        start = Offset(midX, top),
-        end = Offset(midX, rotateY),
-        strokeWidth = 2f,
-    )
-    drawCircle(
-        color = Color.White,
-        radius = HANDLE_DRAW_RADIUS,
-        center = Offset(midX, rotateY),
-    )
-    drawCircle(
-        color = SELECTION_ACCENT,
-        radius = HANDLE_DRAW_RADIUS,
-        center = Offset(midX, rotateY),
-        style = DrawStroke(width = 2.5f),
-    )
+    // Rotate handle, on a stalk above the box. Not for containers: they have
+    // no rotation, and a handle that does nothing reads as broken.
+    if (state.selectedContainerId == null) {
+        val rotateY = top - HANDLE_TOUCH_RADIUS_PX * Selection.ROTATE_HANDLE_GAP
+        drawLine(
+            color = SELECTION_ACCENT,
+            start = Offset(midX, top),
+            end = Offset(midX, rotateY),
+            strokeWidth = 2f,
+        )
+        drawCircle(
+            color = Color.White,
+            radius = HANDLE_DRAW_RADIUS,
+            center = Offset(midX, rotateY),
+        )
+        drawCircle(
+            color = SELECTION_ACCENT,
+            radius = HANDLE_DRAW_RADIUS,
+            center = Offset(midX, rotateY),
+            style = DrawStroke(width = 2.5f),
+        )
+    }
 
     // Corner handles are square, edge handles smaller — the shape difference
     // tells a teacher which will scale both axes before they commit to a drag.

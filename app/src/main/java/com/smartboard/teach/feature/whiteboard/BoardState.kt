@@ -53,6 +53,10 @@ sealed interface DragState {
         val originalBoxes: List<TextBox>,
         /** Placement at press, when the background is what is being resized. */
         val originalBackground: BoardBackground? = null,
+        /** The container at press, when a picture/table/video is being resized. */
+        val originalContainer: Container? = null,
+        /** Ink written inside [originalContainer], which scales with it. */
+        val originalContainerStrokes: List<Stroke> = emptyList(),
     ) : DragState
 
     /** Rotation in progress; also rebuilds from the originals each frame. */
@@ -202,7 +206,8 @@ class BoardState {
     var pressureSensitivity by mutableStateOf(true)
     var honourEraserButton by mutableStateOf(true)
     var showPointerDebug by mutableStateOf(false)
-    var shapeRecognition by mutableStateOf(true)
+    /** The teacher's own pen colours from the picker, newest first (from Settings). */
+    var customPenColors by mutableStateOf<List<androidx.compose.ui.graphics.Color>>(emptyList())
 
     // --- Page content, all in WORLD coordinates ---
     val strokes: SnapshotStateList<Stroke> = emptyList<Stroke>().toMutableStateList()

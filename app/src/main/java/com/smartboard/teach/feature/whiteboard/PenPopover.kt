@@ -3,6 +3,7 @@ package com.smartboard.teach.feature.whiteboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +22,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,12 +60,28 @@ import com.smartboard.teach.domain.model.PenType
 @Composable
 fun PenPopover(
     state: BoardState,
+    onAddCustomColor: (Color) -> Unit,
+    onRemoveCustomColor: (Color) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val dimens = SmartBoardTheme.dimens
     val nib = state.penType
     val color = state.colorFor(nib)
     val width = state.widthFor(nib)
+    var picking by remember { mutableStateOf(false) }
+
+    if (picking) {
+        ColorPickerDialog(
+            initial = color,
+            onPick = {
+                // Used straight away AND kept in Extras for next time.
+                state.setColorFor(nib, it)
+                onAddCustomColor(it)
+                picking = false
+            },
+            onDismiss = { picking = false },
+        )
+    }
 
     FloatingIsland(modifier = modifier, contentPadding = PaddingValues(0.dp)) {
         Column(Modifier.width(dimens.penPanelWidth)) {
@@ -86,7 +109,10 @@ fun PenPopover(
             Row(Modifier.height(IntrinsicSize.Min)) {
                 ColorColumn(
                     selected = color,
+                    extras = state.customPenColors,
                     onPick = { state.setColorFor(nib, it) },
+                    onCustom = { picking = true },
+                    onRemove = onRemoveCustomColor,
                     modifier = Modifier.weight(1.1f),
                 )
                 PanelDivider(horizontal = false)
@@ -133,7 +159,10 @@ fun PenPopover(
 @Composable
 private fun ColorColumn(
     selected: Color,
+    extras: List<Color>,
     onPick: (Color) -> Unit,
+    onCustom: () -> Unit,
+    onRemove: (Color) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val dimens = SmartBoardTheme.dimens
@@ -154,11 +183,40 @@ private fun ColorColumn(
                 }
             }
         }
+        // The teacher's own colours, then + to mix another. Null marks the + cell.
+        Text(
+            "Extras",
+            color = TextOnChromeMuted,
+            fontSize = dimens.labelSize,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        // Holding is the delete gesture: a tap must stay "use this colour".
+        if (extras.isNotEmpty()) {
+            Text("Hold to remove", color = TextOnChromeMuted, fontSize = dimens.labelSize * 0.75f)
+        }
+        Column(
+            Modifier.padding(top = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            (extras + listOf<Color?>(null)).chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { c ->
+                        if (c == null) AddSwatch(onCustom)
+                        else Swatch(c, selected = c == selected, onLongClick = { onRemove(c) }) { onPick(c) }
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun Swatch(color: Color, selected: Boolean, onClick: () -> Unit) {
+private fun Swatch(
+    color: Color,
+    selected: Boolean,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     val dimens = SmartBoardTheme.dimens
     Box(
         Modifier
@@ -172,8 +230,29 @@ private fun Swatch(color: Color, selected: Boolean, onClick: () -> Unit) {
                 color = if (selected) Accent else ChromeBorder,
                 shape = CircleShape,
             )
-            .clickable(onClick = onClick),
+            .combinedClickable(onLongClick = onLongClick, onClick = onClick),
     )
+}
+
+/** Opens the colour picker. Same size as a swatch so the grid stays even. */
+@Composable
+private fun AddSwatch(onClick: () -> Unit) {
+    val dimens = SmartBoardTheme.dimens
+    Box(
+        Modifier
+            .size(dimens.swatchSize)
+            .clip(CircleShape)
+            .border(1.dp, ChromeBorder, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Filled.Add,
+            contentDescription = "Custom colour",
+            tint = TextOnChrome,
+            modifier = Modifier.size(dimens.swatchSize * 0.6f),
+        )
+    }
 }
 
 @Composable

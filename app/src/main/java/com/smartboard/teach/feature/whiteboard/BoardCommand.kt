@@ -75,8 +75,11 @@ sealed interface BoardCommand {
         val replaced: TextBox? = null,
     ) : BoardCommand
 
-    /** Inserting a table or mindmap. */
-    data class AddContainer(val container: Container) : BoardCommand
+    /** Inserting a container; [strokes] is ink it arrived with (a duplicate's). */
+    data class AddContainer(
+        val container: Container,
+        val strokes: List<Stroke> = emptyList(),
+    ) : BoardCommand
 
     /** Removing one, along with every stroke written inside it. */
     data class DeleteContainer(

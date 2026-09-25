@@ -1,6 +1,7 @@
 package com.smartboard.teach.feature.whiteboard
 
 import com.smartboard.teach.domain.model.DrawTool
+import com.smartboard.teach.domain.model.PenType
 import com.smartboard.teach.domain.model.Stroke
 import com.smartboard.teach.domain.model.StrokeStyle
 import org.junit.Assert.assertEquals
@@ -31,8 +32,9 @@ class ShapeSnapIntegrationTest {
         return Stroke("original-id", tool, StrokeStyle(colour, width), pts)
     }
 
-    private fun stateWith(recognition: Boolean) = BoardState().apply {
-        shapeRecognition = recognition
+    /** [shapePen] true arms the Shape pen, the only nib that snaps. */
+    private fun stateWith(shapePen: Boolean) = BoardState().apply {
+        selectPenType(if (shapePen) PenType.SHAPE else PenType.PEN)
     }
 
     @Test
@@ -44,7 +46,7 @@ class ShapeSnapIntegrationTest {
     }
 
     @Test
-    fun `snapping is skipped when the setting is off`() {
+    fun `the normal pen never snaps`() {
         val original = circleStroke()
         val result = maybeSnapToShape(stateWith(false), original)
         assertSame("must return the very same stroke untouched", original, result)

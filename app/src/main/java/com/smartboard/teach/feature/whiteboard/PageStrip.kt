@@ -13,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.Icon
@@ -26,14 +26,44 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import androidx.compose.ui.graphics.Color
 import com.smartboard.teach.core.ui.theme.Accent
-import com.smartboard.teach.core.ui.theme.ChromeBorder
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
 import com.smartboard.teach.core.ui.theme.TextOnChrome
 import com.smartboard.teach.core.ui.theme.TextOnChromeMuted
 import com.smartboard.teach.domain.model.BoardPage
+
+/**
+ * Most panes the board will show at once, primary included.
+ *
+ * Six is the ceiling because a landscape tablet gives each pane roughly a
+ * finger's width of board beyond that — enough to glance at, not to write on.
+ */
+const val MAX_PANES = 6
+
+/**
+ * What one tap of the split button does at [paneCount] panes.
+ *
+ * True adds a pane, false closes the split. Pulled out of the click handler so
+ * the wrap-around is one testable rule rather than a condition buried in a
+ * lambda: an off-by-one here either strands the board at five panes or makes
+ * the sixth tap add a pane there is no state slot for.
+ */
+fun splitTapAddsPane(paneCount: Int, maxPanes: Int = MAX_PANES): Boolean =
+    paneCount < maxPanes
+
+/**
+ * How many EXTRA panes a lesson of [pageCount] pages can show.
+ *
+ * Every pane needs a page of its own — a split showing the same page twice is
+ * the thing the split exists to avoid — so deleting pages under an open split
+ * has to close the panes that no longer have one. Pulled out so that rule is
+ * testable on its own rather than only observable by deleting pages by hand.
+ */
+fun panesForPages(pageCount: Int, maxPanes: Int = MAX_PANES): Int =
+    (pageCount - 1).coerceIn(0, maxPanes - 1)
 
 /**
  * Page navigation, bottom-right, modelled on the reference panel's
@@ -54,23 +84,46 @@ fun PageStrip(
     onAddPage: () -> Unit,
     onDeletePage: () -> Unit,
     modifier: Modifier = Modifier,
-    onOpenMenu: () -> Unit = {},
-    isSplit: Boolean = false,
-    onToggleSplit: () -> Unit = {},
+    paneCount: Int = 1,
+    maxPanes: Int = MAX_PANES,
+    onCycleSplit: () -> Unit = {},
+    onCloseSplit: () -> Unit = {},
 ) {
     val dimens = SmartBoardTheme.dimens
     val index = pages.indexOfFirst { it.id == currentPageId }
     val current = if (index >= 0) index + 1 else 1
+    val isSplit = paneCount > 1
 
     FloatingIsland(modifier = modifier, contentPadding = PaddingValues(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Split sits LEFT of add page, where the reference panel puts it.
+            // One tap adds a pane, and the tap past the last one closes the
+            // split: a single control, so there is nothing to learn beyond
+            // "press it again". The badge says how many panes are open, since
+            // the icon alone cannot tell three from four.
             StripAction(
                 icon = Icons.Filled.VerticalSplit,
-                label = if (isSplit) "Close split view" else "Split view",
+                label = when {
+                    paneCount >= maxPanes -> "Close split view"
+                    isSplit -> "Add pane ($paneCount of $maxPanes)"
+                    else -> "Split view"
+                },
                 selected = isSplit,
-                onClick = onToggleSplit,
+                badge = if (isSplit) paneCount.toString() else null,
+                onClick = onCycleSplit,
             )
+
+            // An explicit way out, shown only while split. Cycling round to
+            // the end works, but a teacher at six panes should not have to
+            // discover that pressing "split" six more times is how you stop
+            // splitting.
+            if (isSplit) {
+                StripAction(
+                    icon = Icons.Filled.Close,
+                    label = "Close split view",
+                    onClick = onCloseSplit,
+                )
+            }
 
             StripAction(Icons.Filled.Add, "Add page", onClick = onAddPage)
 
@@ -105,15 +158,6 @@ fun PageStrip(
                 enabled = pages.size > 1,
                 onClick = onDeletePage,
             )
-
-            Box(
-                Modifier
-                    .padding(horizontal = 4.dp)
-                    .size(width = 1.dp, height = dimens.chromeButton * 0.55f)
-                    .background(ChromeBorder),
-            )
-
-            StripAction(Icons.Filled.Menu, "Menu", onClick = onOpenMenu)
         }
     }
 }
@@ -124,6 +168,7 @@ private fun StripAction(
     label: String,
     enabled: Boolean = true,
     selected: Boolean = false,
+    badge: String? = null,
     onClick: () -> Unit,
 ) {
     val dimens = SmartBoardTheme.dimens
@@ -143,5 +188,17 @@ private fun StripAction(
             tint = if (selected) Color.White else TextOnChromeMuted,
             modifier = Modifier.size(dimens.chromeIcon),
         )
+
+        if (badge != null) {
+            Text(
+                text = badge,
+                color = Color.White,
+                fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 3.dp, bottom = 1.dp),
+            )
+        }
     }
 }

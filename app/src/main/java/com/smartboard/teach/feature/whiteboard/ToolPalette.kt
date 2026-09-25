@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.smartboard.teach.core.ui.component.BoardEraserIcon
 import com.smartboard.teach.core.ui.component.NibBrushIcon
+import com.smartboard.teach.core.ui.component.NibShapeIcon
 import com.smartboard.teach.core.ui.component.NibTextIcon
 import com.smartboard.teach.core.ui.component.NibFountainIcon
 import com.smartboard.teach.core.ui.component.NibHighlighterIcon
@@ -77,7 +78,7 @@ import com.smartboard.teach.core.ui.theme.TextOnChromeMuted
 import com.smartboard.teach.domain.model.DrawTool
 
 /** Which popover, if any, is open above the bar. */
-private enum class OpenPanel { NONE, PEN, ERASER, SHAPES, INSERT, GEOMETRY }
+private enum class OpenPanel { NONE, PEN, ERASER, SHAPES, INSERT, GEOMETRY, TABLE }
 
 /**
  * The board toolbar: eight buttons, bottom-left, modelled on the reference
@@ -97,17 +98,17 @@ private enum class OpenPanel { NONE, PEN, ERASER, SHAPES, INSERT, GEOMETRY }
 @Composable
 fun ToolPalette(
     state: BoardState,
+    onAddCustomColor: (Color) -> Unit,
+    onRemoveCustomColor: (Color) -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onClear: () -> Unit,
-    onSnapshot: () -> Unit,
     onImportBackground: () -> Unit,
-    onInsertTable: () -> Unit,
+    onInsertTable: (rows: Int, cols: Int) -> Unit,
     onInsertMindmap: () -> Unit,
     onInsertPdf: () -> Unit,
     onInsertVideo: () -> Unit,
     onShowTimer: () -> Unit,
-    onWebSearch: () -> Unit,
     onBackgroundSettings: () -> Unit,
     onLessons: () -> Unit,
     onInsertImage: () -> Unit,
@@ -136,7 +137,11 @@ fun ToolPalette(
         if (panel != OpenPanel.NONE) {
             Box(Modifier.padding(bottom = dimens.gutterSmall)) {
                 when (panel) {
-                    OpenPanel.PEN -> PenPopover(state = state)
+                    OpenPanel.PEN -> PenPopover(
+                        state = state,
+                        onAddCustomColor = onAddCustomColor,
+                        onRemoveCustomColor = onRemoveCustomColor,
+                    )
                     OpenPanel.ERASER -> EraserSizePopover(state = state)
                     OpenPanel.SHAPES -> ShapesPopover(
                         state = state,
@@ -149,21 +154,26 @@ fun ToolPalette(
                         },
                     )
 
+                    OpenPanel.TABLE -> TableSizePicker(
+                        onPick = { rows, cols ->
+                            panel = OpenPanel.NONE
+                            onInsertTable(rows, cols)
+                        },
+                    )
+
                     OpenPanel.INSERT -> InsertTray(
                         onImage = { panel = OpenPanel.NONE; onInsertImage() },
-                        onTable = { panel = OpenPanel.NONE; onInsertTable() },
+                        onTable = { panel = OpenPanel.TABLE },
                         onGeometry = { panel = OpenPanel.GEOMETRY },
                         onMindmap = { panel = OpenPanel.NONE; onInsertMindmap() },
                         onPdf = { panel = OpenPanel.NONE; onInsertPdf() },
                         onVideo = { panel = OpenPanel.NONE; onInsertVideo() },
-                        onWeb = { panel = OpenPanel.NONE; onWebSearch() },
                         onTimer = { panel = OpenPanel.NONE; onShowTimer() },
                         onText = {
                             panel = OpenPanel.NONE
                             state.clearSelection()
                             state.mode = BoardMode.TextPlacement
                         },
-                        onSnapshot = { panel = OpenPanel.NONE; onSnapshot() },
                         onBackground = { panel = OpenPanel.NONE; onBackgroundSettings() },
                         onLessons = { panel = OpenPanel.NONE; onLessons() },
                         // PDF reuses the existing background importer until it
@@ -173,7 +183,6 @@ fun ToolPalette(
                         mindmapEnabled = true,
                         videoEnabled = true,
                         timerEnabled = true,
-                        webEnabled = true,
                     )
                     OpenPanel.NONE -> Unit
                 }
@@ -432,6 +441,7 @@ internal fun PenType.nibIcon() = when (this) {
     PenType.FOUNTAIN -> NibFountainIcon
     PenType.BRUSH -> NibBrushIcon
     PenType.TEXT -> NibTextIcon
+    PenType.SHAPE -> NibShapeIcon
 }
 
 /**

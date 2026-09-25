@@ -148,4 +148,83 @@ class TableGridTest {
         assertEquals("two cells landed on the same index", moved.size, moved.toSet().size)
         assertTrue(moved.none { it < 0 })
     }
+
+    // --- Growing a table from its edge buttons ---
+
+    @Test
+    fun `inserting a row grows the grid and keeps it contiguous`() {
+        val before = TableGrid.create(0f, 0f, rows = 2, cols = 3, cellWidth = 10f, cellHeight = 5f)
+        val after = TableGrid.withRowInserted(before, insertAt = 1)
+
+        assertEquals(3, after.rows)
+        assertEquals(3, after.cols)
+        assertEquals(9, after.cells.size)
+        after.cells.forEachIndexed { index, cell ->
+            assertEquals("index $index row", index / 3, cell.row)
+            assertEquals("index $index col", index % 3, cell.col)
+        }
+        // Still gapless vertically: each row starts where the last one ended.
+        for (row in 1 until after.rows) {
+            val above = after.cells.first { it.row == row - 1 && it.col == 0 }
+            val here = after.cells.first { it.row == row && it.col == 0 }
+            assertEquals(above.bottom, here.top, 0.001f)
+        }
+    }
+
+    @Test
+    fun `inserting a column grows the grid and keeps it contiguous`() {
+        val before = TableGrid.create(0f, 0f, rows = 2, cols = 2, cellWidth = 10f, cellHeight = 5f)
+        val after = TableGrid.withColumnInserted(before, insertAt = 2)
+
+        assertEquals(2, after.rows)
+        assertEquals(3, after.cols)
+        assertEquals(6, after.cells.size)
+        for (col in 1 until after.cols) {
+            val left = after.cells.first { it.row == 0 && it.col == col - 1 }
+            val here = after.cells.first { it.row == 0 && it.col == col }
+            assertEquals(left.right, here.left, 0.001f)
+        }
+    }
+
+    @Test
+    fun `inserting at either end is accepted and anchored at the origin`() {
+        val before = TableGrid.create(7f, 9f, rows = 2, cols = 2, cellWidth = 10f, cellHeight = 5f)
+
+        // Top and left edges, the cases the edge buttons pass as 0.
+        val topped = TableGrid.withRowInserted(before, insertAt = 0)
+        val lefted = TableGrid.withColumnInserted(before, insertAt = 0)
+        assertEquals(3, topped.rows)
+        assertEquals(3, lefted.cols)
+
+        // The table keeps its origin rather than drifting: growing downward
+        // must not walk the whole grid up the board.
+        assertEquals(7f, topped.cells.first().left, 0.001f)
+        assertEquals(9f, topped.cells.first().top, 0.001f)
+        assertEquals(7f, lefted.cells.first().left, 0.001f)
+    }
+
+    @Test
+    fun `an out of range insert is clamped rather than throwing`() {
+        val before = TableGrid.create(0f, 0f, rows = 2, cols = 2)
+        assertEquals(3, TableGrid.withRowInserted(before, insertAt = 99).rows)
+        assertEquals(3, TableGrid.withColumnInserted(before, insertAt = -5).cols)
+    }
+
+    @Test
+    fun `a stroke's retagged cell still sits under the cell it moved to`() {
+        // The corruption this guards: ink retagged to an index whose rect is
+        // somewhere else entirely, which only shows up after a reload.
+        val cols = 3
+        val before = TableGrid.create(0f, 0f, rows = 2, cols = cols, cellWidth = 10f, cellHeight = 5f)
+        val after = TableGrid.withRowInserted(before, insertAt = 1)
+
+        for (oldIndex in before.cells.indices) {
+            val newIndex = TableGrid.reindexAfterRowInsert(oldIndex, insertAt = 1, cols = cols)
+            val old = before.cells[oldIndex]
+            val new = after.cells[newIndex]
+            // Same column, and the row either stayed or moved down by one.
+            assertEquals(old.col, new.col)
+            assertTrue(new.row == old.row || new.row == old.row + 1)
+        }
+    }
 }
