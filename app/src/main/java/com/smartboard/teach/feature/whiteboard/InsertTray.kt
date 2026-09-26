@@ -1,5 +1,12 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.feature.whiteboard.games.Game
+import com.smartboard.teach.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material.icons.filled.DonutLarge
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +77,7 @@ fun InsertTray(
     onText: () -> Unit,
     onBackground: () -> Unit,
     onLessons: () -> Unit,
+    onGame: (Game) -> Unit,
     modifier: Modifier = Modifier,
     geometryEnabled: Boolean = false,
     mindmapEnabled: Boolean = false,
@@ -96,6 +104,13 @@ fun InsertTray(
             InsertItem(Icons.Filled.AccessTime, "Timer", timerEnabled, onTimer),
             InsertItem(Icons.Filled.Gradient, "Background", true, onBackground),
             InsertItem(Icons.Filled.FolderOpen, "Lessons", true, onLessons),
+        ),
+        // Classroom games: board widgets like the Timer.
+        listOf(
+            InsertItem(Icons.Filled.Person, stringResource(R.string.game_names_short), true) { onGame(Game.NAMES) },
+            InsertItem(Icons.Filled.DonutLarge, stringResource(R.string.game_spinner), true) { onGame(Game.SPINNER) },
+            InsertItem(Icons.Filled.Casino, stringResource(R.string.game_dice), true) { onGame(Game.DICE) },
+            InsertItem(Icons.Filled.EmojiEvents, stringResource(R.string.game_scores_short), true) { onGame(Game.SCORES) },
         ),
     )
 

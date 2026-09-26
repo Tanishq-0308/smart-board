@@ -1,5 +1,8 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.runtime.key
+import com.smartboard.teach.feature.whiteboard.games.GamePanel
+import com.smartboard.teach.feature.whiteboard.games.Game
 import com.smartboard.teach.R
 import androidx.core.content.ContextCompat
 import android.os.Build
@@ -300,6 +303,8 @@ fun WhiteboardScreen(
 
     /** Whether the lesson timer is on the board. */
     var showTimer by remember { mutableStateOf(false) }
+    // Several games can be open at once (a scoreboard beside the dice).
+    var openGames by remember { mutableStateOf(emptySet<Game>()) }
 
     // The video currently open in the full-screen player, or null.
     var playingVideoPath by remember { mutableStateOf<String?>(null) }
@@ -702,6 +707,32 @@ fun WhiteboardScreen(
             )
         }
 
+        openGames.forEach { game ->
+            key(game) {
+                GamePanel(
+                    game = game,
+                    onClose = { openGames = openGames - game },
+                    // Each game opens in its own corner of the board, so several
+                    // can be open at once without covering each other.
+                    modifier = Modifier
+                        .align(
+                            when (game) {
+                                Game.NAMES -> Alignment.TopStart
+                                Game.SPINNER -> Alignment.TopCenter
+                                Game.DICE -> Alignment.CenterEnd
+                                Game.SCORES -> Alignment.BottomStart
+                            },
+                        )
+                        .padding(
+                            start = dimens.touchTarget + dimens.gutter,
+                            end = dimens.touchTarget + dimens.gutter,
+                            top = dimens.gutterLarge,
+                            bottom = dimens.chromeButton + dimens.gutter * 2,
+                        ),
+                )
+            }
+        }
+
         MindmapChrome(
             state = state,
             onAddChild = { index ->
@@ -817,6 +848,7 @@ fun WhiteboardScreen(
             onInsertPdf = { insertPdfPicker.launch(arrayOf("application/pdf")) },
             onInsertVideo = { insertVideoPicker.launch(arrayOf("video/*")) },
             onShowTimer = { showTimer = true },
+            onShowGame = { openGames = openGames + it },
             onBackgroundSettings = { showBackgroundSettings = true },
             onLessons = {
                 // Refreshed on open rather than observed: the list only

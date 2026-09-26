@@ -109,6 +109,7 @@ fun ToolPalette(
     onInsertPdf: () -> Unit,
     onInsertVideo: () -> Unit,
     onShowTimer: () -> Unit,
+    onShowGame: (com.smartboard.teach.feature.whiteboard.games.Game) -> Unit,
     onBackgroundSettings: () -> Unit,
     onLessons: () -> Unit,
     onInsertImage: () -> Unit,
@@ -169,6 +170,7 @@ fun ToolPalette(
                         onPdf = { panel = OpenPanel.NONE; onInsertPdf() },
                         onVideo = { panel = OpenPanel.NONE; onInsertVideo() },
                         onTimer = { panel = OpenPanel.NONE; onShowTimer() },
+                        onGame = { panel = OpenPanel.NONE; onShowGame(it) },
                         onText = {
                             panel = OpenPanel.NONE
                             state.clearSelection()

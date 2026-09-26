@@ -76,6 +76,11 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
 - **Mindmap:** add child and sibling nodes, delete branches. It re-lays itself out automatically.
 - **PDF:** import a whole PDF as board pages.
 - **Video:** placed as a poster frame. It plays full screen with a scrubber, and **Capture this frame** puts the current frame on the board.
+- **Classroom games** (Insert tray, bottom row). Each is a movable widget like the Timer, and several can be open at once:
+  - **Names:** a random name picker. Type names in as a guest; a signed-in teacher can load a class list. "Everyone before repeats" works through the whole class before anyone is picked twice.
+  - **Spinner:** a wheel with up to 12 segments you type in yourself (numbers by default).
+  - **Dice:** 1–3 dice with a total.
+  - **Scores:** a team scoreboard with 2–6 teams you can rename, plus +/− and reset.
 - **Timer:** a movable HH:MM:SS timer with play/pause, reset, full screen and an on-screen number pad.
 - **Background:** paper colour, and grid styles (none, thin, mix, square, dotted, lined, rangoli). You can also use an image or a PDF page as the backdrop.
 - **Lessons:** New, Open, Save, Save as and Delete named lessons, stored on the board.

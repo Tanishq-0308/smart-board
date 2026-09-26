@@ -64,4 +64,31 @@
     <!-- Look up -->
     <string name="lookup_save_to_notes">Save to notes</string>
     <string name="lookup_read_from_board">Read from the board: %1$s</string>
+
+    <!-- Classroom games -->
+    <string name="game_close">Close</string>
+    <string name="game_names">Pick a name</string>
+    <string name="game_names_short">Names</string>
+    <string name="game_names_empty_result">Who will it be?</string>
+    <string name="game_names_pick">Pick</string>
+    <string name="game_names_no_repeat">Everyone before repeats</string>
+    <string name="game_names_progress">%1$d of %2$d picked</string>
+    <string name="game_names_load_class">Load a class</string>
+    <string name="game_names_hint">Type names, one per line or separated by commas</string>
+    <string name="game_spinner">Spinner</string>
+    <string name="game_spin">Spin</string>
+    <string name="game_spinner_hint">Segments, separated by commas (up to 12)</string>
+    <string name="game_dice">Dice</string>
+    <string name="game_roll">Roll</string>
+    <string name="game_dice_total">Total: %1$d</string>
+    <string name="game_dice_fewer">Fewer dice</string>
+    <string name="game_dice_more">More dice</string>
+    <string name="game_scores">Scoreboard</string>
+    <string name="game_scores_short">Scores</string>
+    <string name="game_team_default">Team %1$s</string>
+    <string name="game_team_add">Add team</string>
+    <string name="game_team_remove">Remove</string>
+    <string name="game_scores_reset">Reset</string>
+    <string name="game_score_up">Add a point</string>
+    <string name="game_score_down">Take a point</string>
 </resources>
