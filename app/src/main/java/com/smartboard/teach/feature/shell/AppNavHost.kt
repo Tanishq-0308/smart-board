@@ -20,6 +20,7 @@ import com.smartboard.teach.feature.material.MaterialListScreen
 import com.smartboard.teach.feature.material.MaterialViewerScreen
 import com.smartboard.teach.feature.notes.NoteDetailScreen
 import com.smartboard.teach.feature.notes.NotesListScreen
+import com.smartboard.teach.feature.settings.DiagnosticsScreen
 import com.smartboard.teach.feature.settings.SettingsScreen
 import com.smartboard.teach.feature.whiteboard.WhiteboardScreen
 
@@ -102,7 +103,12 @@ fun AppNavHost(
             )
         }
 
-        composable(Dest.Settings.route) { SettingsScreen() }
+        composable(Dest.Settings.route) {
+            SettingsScreen(onOpenDiagnostics = { navController.navigate(DetailRoutes.DIAGNOSTICS) })
+        }
+        composable(DetailRoutes.DIAGNOSTICS) {
+            DiagnosticsScreen(onBack = { navController.popBackStack() })
+        }
 
         composable(Dest.Login.route) {
             LoginScreen(

@@ -59,7 +59,7 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
   - Containers (images, tables, videos) cannot be rotated.
 - **Look up** a selected region with AI. The AI explains it (text, equation, diagram, chemistry, geometry) and suggests related terms.
   - The result panel offers **Search with Lens**, **Search the web** and **Open notes**.
-  - **Search with Lens** works even without an AI key.
+  - **Search with Lens** works even without an AI key. It is hidden when no app on the board can receive an image, and **Search the web** is hidden when there is no browser.
 - **Save a selection** as a PNG or PDF.
 - **Undo / redo** for every action, including moving and resizing objects.
 
@@ -86,7 +86,7 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
 - A live clock sits in the top-right corner.
 
 ### Tools drawer (right edge)
-- **Web:** web search docked beside the board.
+- **Web:** web search docked beside the board. Hidden on boards without a working WebView.
 - **Snapshot → AI notes:** turns the whole board into structured lesson notes.
 - **3D Maths:** opens the 3D Maths screen (see section 2).
 
@@ -140,6 +140,7 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
 
 ## 8. Settings ✅
 - **Pen and touch:** Stylus only, Pressure sensitivity, Pen eraser button, Pointer debug overlay (for setting up new hardware).
+- **Device diagnostics** (for installers): Android version, memory, storage, screen, declared touch points, stylus, Google Play Services, WebView and network, each marked OK or warning. A **touch test pad** shows how many contacts the panel really tracks, which input types it sends (finger, stylus, eraser) and whether pressure varies.
 - **Display:** 24-hour clock.
 - **AI notes:** shows whether an AI key is configured and which model is used.
 - **Storage:** Clear board data. Removes pages and backgrounds; keeps notes and classes.
@@ -169,5 +170,12 @@ The app already has a single place where each on-device data source will be swap
   - the rest of the prototype's Hinglish teaching text
 - **Board clear button.** The action is wired up in code but has no button.
 
+## Compatibility
+Runs on Android 9 and later, with or without Google Play Services. Tested on a 2 GB Android 9 image without Play Services. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for what was tested and how features degrade.
+
 ## Known issues
-- **Pages lost content twice in testing.** On the emulator, a page twice came back almost empty, and the cause hasn't been reproduced. Candidate fixes have gone in: the board reloads its page when you return to it, and a lost pen-up no longer blocks writing. If it happens again, note the steps just before it, or add logging of every page save.
+- **Pages losing content (fixed, still being watched).** Two causes were found and fixed:
+  - **Save as** moved the original lesson's ink and text into the copy, leaving tables and images behind.
+  - **Split view** could open one page in two panes, and the later save overwrote the other's ink.
+
+  Every page save and load is now logged under the `BoardPersist` tag. A save that removes more than half of a page's ink logs a warning with a stack trace, so any remaining cause will leave evidence.

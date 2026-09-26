@@ -24,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.smartboard.teach.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -36,6 +38,7 @@ import com.smartboard.teach.core.ui.theme.WarningAmber
 
 @Composable
 fun SettingsScreen(
+    onOpenDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -93,6 +96,20 @@ fun SettingsScreen(
                     checked = settings.showPointerDebug,
                     onCheckedChange = viewModel::setPointerDebug,
                 )
+
+                Spacer(Modifier.height(dimens.gutterSmall))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.diag_open), fontSize = dimens.bodySize, color = TextOnSurface)
+                        Text(stringResource(R.string.diag_open_detail), fontSize = dimens.labelSize, color = TextOnSurfaceMuted)
+                    }
+                    Spacer(Modifier.width(dimens.gutter))
+                    OutlinedButton(
+                        onClick = onOpenDiagnostics,
+                        shape = RoundedCornerShape(dimens.cornerRadius),
+                        modifier = Modifier.height(dimens.touchTarget),
+                    ) { Text(stringResource(R.string.diag_open)) }
+                }
 
                 Spacer(Modifier.height(dimens.gutterLarge))
                 SectionHeader("Display")

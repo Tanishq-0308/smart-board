@@ -18,4 +18,40 @@
 
     <!-- Degraded features on panels without a component -->
     <string name="web_unavailable">Web search needs Android System WebView, which is not installed on this board.</string>
+
+    <string name="action_back">Back</string>
+
+    <!-- Device diagnostics -->
+    <string name="diag_title">Device diagnostics</string>
+    <string name="diag_open">Device diagnostics</string>
+    <string name="diag_open_detail">Android version, memory, storage, touch, pen, Play Services, WebView and network. For installers checking a new board.</string>
+    <string name="diag_yes">Yes</string>
+    <string name="diag_no">No</string>
+    <string name="diag_missing">Not installed</string>
+    <string name="diag_android">Android</string>
+    <string name="diag_device">Device</string>
+    <string name="diag_app_version">App version</string>
+    <string name="diag_ram">Memory</string>
+    <string name="diag_ram_value">%1$s (total · free)</string>
+    <string name="diag_app_heap">App memory limit</string>
+    <string name="diag_low_ram">Low-RAM device</string>
+    <string name="diag_storage">Storage</string>
+    <string name="diag_storage_value">%1$s (free · total)</string>
+    <string name="diag_screen">Screen</string>
+    <string name="diag_touch_declared">Touch points (declared)</string>
+    <string name="diag_stylus">Stylus detected</string>
+    <string name="diag_gms">Google Play Services</string>
+    <string name="diag_webview">WebView</string>
+    <string name="diag_network">Network</string>
+    <string name="diag_offline">Offline</string>
+    <string name="diag_online">%1$s, internet OK</string>
+    <string name="diag_no_internet">%1$s, no internet</string>
+    <string name="diag_pad_title">Touch test</string>
+    <string name="diag_pad_hint">Touch here with several fingers, then with the pen. Press lightly and firmly.</string>
+    <string name="diag_pad_active">Touching now: %1$d</string>
+    <string name="diag_pad_max">Most at once: %1$d</string>
+    <string name="diag_pad_tools">Input seen: %1$s</string>
+    <string name="diag_pad_pressure">Pressure: %1$s</string>
+    <string name="diag_pad_pressure_varies">Pressure varies: pressure-sensitive ink will work.</string>
+    <string name="diag_pad_pressure_constant">Pressure is constant: turn off Pressure sensitivity in Settings for even lines.</string>
 </resources>

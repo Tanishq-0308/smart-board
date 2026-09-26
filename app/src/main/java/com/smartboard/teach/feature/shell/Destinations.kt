@@ -65,6 +65,7 @@ object DetailRoutes {
     const val CLASS_DETAIL = "classes/{classId}"
     const val ATTENDANCE_FOR_CLASS = "attendance/{classId}"
     const val NOTE_DETAIL = "notes/{noteId}"
+    const val DIAGNOSTICS = "settings/diagnostics"
     const val MATERIAL_VIEWER = "material/{materialId}"
 
     fun classDetail(classId: String) = "classes/$classId"

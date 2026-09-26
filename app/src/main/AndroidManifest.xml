@@ -28,6 +28,8 @@
       this the intent silently fails to resolve on API 30+.
     -->
     <queries>
+        <!-- Device diagnostics reports whether Play Services is present. -->
+        <package android:name="com.google.android.gms" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
