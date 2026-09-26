@@ -8,8 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartboard.teach.core.util.AppResult
 import com.smartboard.teach.data.file.BoardExportStore
-import com.smartboard.teach.data.ink.HandwritingRecognizer
-import com.smartboard.teach.data.ink.RecognizerState
+import com.smartboard.teach.domain.engine.InkRecognizer
+import com.smartboard.teach.domain.engine.RecognizerState
 import com.smartboard.teach.data.file.PdfPageRenderer
 import com.smartboard.teach.data.file.SafImporter
 import com.smartboard.teach.data.file.posterPathFor
@@ -74,7 +74,7 @@ class WhiteboardViewModel @Inject constructor(
     private val explainRegion: ExplainBoardRegionUseCase,
     private val lookupCropStore: LookupCropStore,
     private val safImporter: SafImporter,
-    private val handwriting: HandwritingRecognizer,
+    private val handwriting: InkRecognizer,
     private val exportStore: BoardExportStore,
     private val pdfPageRenderer: PdfPageRenderer,
     private val aiService: NotesAiService,

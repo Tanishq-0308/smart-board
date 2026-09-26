@@ -45,7 +45,7 @@ import com.smartboard.teach.domain.model.DrawTool
 import com.smartboard.teach.domain.model.Stroke
 import com.smartboard.teach.domain.model.TextBox
 import com.smartboard.teach.feature.notes.SnapshotDialog
-import com.smartboard.teach.data.ink.RecognizerState
+import com.smartboard.teach.domain.engine.RecognizerState
 import com.smartboard.teach.feature.shell.LocalHideClock
 import com.smartboard.teach.feature.whiteboard.container.MindmapChrome
 import com.smartboard.teach.feature.whiteboard.container.MindmapLayout

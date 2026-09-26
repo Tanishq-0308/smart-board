@@ -11,19 +11,12 @@ import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.domain.engine.InkRecognizer
 import com.smartboard.teach.domain.model.Stroke
 import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
-
-/** What the text pen is currently able to do. */
-sealed interface RecognizerState {
-    data object Idle : RecognizerState
-    data object Downloading : RecognizerState
-    data object Ready : RecognizerState
-    data class Unavailable(val message: String) : RecognizerState
-}
 
 /**
  * Handwriting to text, on device.
@@ -38,7 +31,7 @@ sealed interface RecognizerState {
  * for it; after one download it works offline forever.
  */
 @Singleton
-class HandwritingRecognizer @Inject constructor() {
+class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
 
     private var recognizer: DigitalInkRecognizer? = null
     private var model: DigitalInkRecognitionModel? = null
@@ -49,7 +42,7 @@ class HandwritingRecognizer @Inject constructor() {
      * Safe to call repeatedly: once [recognizer] exists this returns
      * immediately, so the per-conversion path costs nothing.
      */
-    suspend fun prepare(): AppResult<Unit> {
+    override suspend fun prepare(): AppResult<Unit> {
         recognizer?.let { return AppResult.Success(Unit) }
 
         val identifier = try {
@@ -102,7 +95,7 @@ class HandwritingRecognizer @Inject constructor() {
      * coordinates from a zoomed-out board would present handwriting at a scale
      * it has never seen.
      */
-    suspend fun recognize(strokes: List<Stroke>): AppResult<String> {
+    override suspend fun recognize(strokes: List<Stroke>): AppResult<String> {
         val engine = recognizer
             ?: return AppResult.Failure(AppError.Storage("Handwriting model is not ready."))
         if (strokes.isEmpty()) return AppResult.Success("")
@@ -133,7 +126,7 @@ class HandwritingRecognizer @Inject constructor() {
         }
     }
 
-    fun close() {
+    override fun close() {
         recognizer?.close()
         recognizer = null
     }
