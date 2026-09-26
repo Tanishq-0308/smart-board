@@ -1,6 +1,7 @@
 package com.smartboard.teach.core.util
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.Base64
 import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
@@ -27,6 +28,20 @@ object BitmapUtils {
         val width = (source.width * scale).roundToInt().coerceAtLeast(1)
         val height = (source.height * scale).roundToInt().coerceAtLeast(1)
         return Bitmap.createScaledBitmap(source, width, height, true)
+    }
+
+    /**
+     * Decodes [path] no larger than about [maxEdgePx] on its long edge, via a
+     * power-of-two sample size — a 12 MP photo decoded at full size is ~48 MB,
+     * a good share of a 2 GB board's heap. Null if the file is unreadable.
+     */
+    fun decodeSampled(path: String, maxEdgePx: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxEdgePx) sample *= 2
+        return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
     }
 
     fun toJpegBytes(bitmap: Bitmap, quality: Int = AI_JPEG_QUALITY): ByteArray =

@@ -54,4 +54,10 @@
     <string name="diag_pad_pressure">Pressure: %1$s</string>
     <string name="diag_pad_pressure_varies">Pressure varies: pressure-sensitive ink will work.</string>
     <string name="diag_pad_pressure_constant">Pressure is constant: turn off Pressure sensitivity in Settings for even lines.</string>
+
+    <!-- Lesson export -->
+    <string name="lesson_export_pdf">Export as PDF</string>
+    <string name="export_lesson_progress">Rendering page %1$d of %2$d…</string>
+    <string name="export_lesson_empty">This lesson has no pages to export.</string>
+    <string name="export_needs_storage">Allow storage access to save exports where a file manager can find them.</string>
 </resources>

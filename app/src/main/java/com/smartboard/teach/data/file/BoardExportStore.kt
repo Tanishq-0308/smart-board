@@ -77,6 +77,22 @@ class BoardExportStore @Inject constructor(
             }
         }
 
+    /** A fresh scratch folder for the per-page JPEGs of a lesson export. */
+    fun newScratchDir(): File =
+        File(context.cacheDir, "lesson_export_${System.nanoTime()}").apply { mkdirs() }
+
+    /** Writes [pages] as one PDF, a page each, to Documents/SmartBoard. */
+    suspend fun saveLessonPdf(pages: List<JpegPage>, baseName: String): AppResult<ExportResult> =
+        write(
+            fileName = "$baseName.pdf",
+            mimeType = "application/pdf",
+            relativeDir = Environment.DIRECTORY_DOCUMENTS,
+            subDir = EXPORT_DIR,
+        ) { out ->
+            JpegPdfWriter.write(out, pages)
+            true
+        }
+
     private suspend fun write(
         fileName: String,
         mimeType: String,

@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.RectF
+import com.smartboard.teach.domain.model.BoardBackground
 import com.smartboard.teach.domain.model.Container
 import com.smartboard.teach.domain.model.ContainerKind
 import com.smartboard.teach.domain.model.DrawTool
@@ -536,6 +537,9 @@ class BoardRenderer {
         maxScale: Float = EXPORT_MAX_SCALE,
         containers: List<Container> = emptyList(),
         media: Map<String, Bitmap> = emptyMap(),
+        /** Where [background] sits in the world; null means the origin at 1x. */
+        backgroundPlacement: BoardBackground? = null,
+        paperArgb: Int = android.graphics.Color.WHITE,
     ): Bitmap? {
         // An explicit region wins over computed content bounds. This is what
         // the visual-lookup crop uses: the teacher chose the area, so the
@@ -560,6 +564,23 @@ class BoardRenderer {
                     left = minOf(left, b[0]); top = minOf(top, b[1])
                     right = maxOf(right, b[2]); bottom = maxOf(bottom, b[3])
                 }
+            }
+        }
+
+        // The page's backdrop (an imported PDF page or photo) is content too
+        // when exporting a whole page: annotations mean nothing without it.
+        val bgRect = background?.let { bg ->
+            val bx = backgroundPlacement?.x ?: 0f
+            val by = backgroundPlacement?.y ?: 0f
+            val bs = backgroundPlacement?.scale ?: 1f
+            RectF(bx, by, bx + bg.width * bs, by + bg.height * bs)
+        }
+        if (regionBounds == null && bgRect != null) {
+            if (left > right) {
+                left = bgRect.left; top = bgRect.top; right = bgRect.right; bottom = bgRect.bottom
+            } else {
+                left = minOf(left, bgRect.left); top = minOf(top, bgRect.top)
+                right = maxOf(right, bgRect.right); bottom = maxOf(bottom, bgRect.bottom)
             }
         }
 
@@ -602,19 +623,27 @@ class BoardRenderer {
         val output = Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
         // White first: a whiteboard, and a transparent JPEG becomes black.
-        canvas.drawColor(android.graphics.Color.WHITE)
+        canvas.drawColor(paperArgb)
 
         canvas.save()
         canvas.scale(scale, scale)
         canvas.translate(-left, -top)
 
-        background?.let { bg ->
-            canvas.drawBitmap(
-                bg,
-                null,
-                RectF(left, top, left + bg.width.toFloat(), top + bg.height.toFloat()),
-                null,
-            )
+        // Placed exactly as BoardCanvas draws it. This used to pin the
+        // backdrop to the export's top-left at native size, so a moved or
+        // scaled background exported in the wrong place.
+        if (background != null && bgRect != null) {
+            val rotation = backgroundPlacement?.rotation ?: 0f
+            canvas.save()
+            if (rotation != 0f) {
+                canvas.rotate(
+                    Math.toDegrees(rotation.toDouble()).toFloat(),
+                    bgRect.centerX(),
+                    bgRect.centerY(),
+                )
+            }
+            canvas.drawBitmap(background, null, bgRect, null)
+            canvas.restore()
         }
 
         val exportBounds = floatArrayOf(left, top, right, bottom)

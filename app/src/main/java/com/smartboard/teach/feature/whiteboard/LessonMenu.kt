@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SaveAs
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -34,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.smartboard.teach.R
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -74,6 +77,7 @@ fun LessonMenu(
     onSave: (String) -> Unit,
     onSaveAs: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onExportPdf: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -138,6 +142,9 @@ fun LessonMenu(
                         namingAsCopy = currentLesson != null
                         draftName = currentLesson?.let { "${it.name} copy" }.orEmpty()
                         view = MenuView.NAME
+                    }
+                    MenuRow(Icons.Filled.PictureAsPdf, stringResource(R.string.lesson_export_pdf)) {
+                        onExportPdf(); onClose()
                     }
                 }
 

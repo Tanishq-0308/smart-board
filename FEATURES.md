@@ -61,6 +61,7 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
   - The result panel offers **Search with Lens**, **Search the web** and **Open notes**.
   - **Search with Lens** works even without an AI key. It is hidden when no app on the board can receive an image, and **Search the web** is hidden when there is no browser.
 - **Save a selection** as a PNG or PDF.
+- **Export a whole lesson** as one PDF (Insert → Lessons → Export as PDF): every page, including imported PDF pages and pictures under the ink, one PDF page each. Large lessons are exported one page at a time, so they don't run a 2 GB board out of memory.
 - **Undo / redo** for every action, including moving and resizing objects.
 
 ### Insert
@@ -160,7 +161,6 @@ The app already has a single place where each on-device data source will be swap
 - Boards, lessons and notes stay on the device.
 
 ### 💡 Ideas and gaps, not yet scheduled
-- **Export a whole page or lesson.** Today only a selection can be exported.
 - **Lesson sharing:** cloud upload, scan, email. These were left out on purpose for Phase 1.
 - **Multi-writer touch.** Palm rejection currently allows one writer at a time.
 - **Look up → "Save to notes":** the code mentions it, but the panel only offers "Open notes".

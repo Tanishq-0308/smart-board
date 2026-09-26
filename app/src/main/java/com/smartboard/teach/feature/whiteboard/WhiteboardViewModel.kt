@@ -13,6 +13,9 @@ import com.smartboard.teach.domain.engine.RecognizerState
 import com.smartboard.teach.data.file.PdfPageRenderer
 import com.smartboard.teach.data.file.SafImporter
 import com.smartboard.teach.data.file.posterPathFor
+import com.smartboard.teach.data.file.JpegPage
+import com.smartboard.teach.core.util.AppError
+import com.smartboard.teach.core.util.BitmapUtils
 import com.smartboard.teach.data.prefs.InputSettings
 import com.smartboard.teach.data.prefs.InputSettingsStore
 import com.smartboard.teach.domain.model.BackgroundKind
@@ -705,6 +708,10 @@ class WhiteboardViewModel @Inject constructor(
      * state, and rendering off the UI thread produces intermittently corrupt
      * output that is very hard to trace back.
      */
+    fun exportFailed(message: String) {
+        _exportPhase.value = ExportPhase.Failed(message)
+    }
+
     fun exportSelection(asPdf: Boolean, render: () -> Bitmap?) {
         val bitmap = render()
         if (bitmap == null) {
@@ -725,6 +732,88 @@ class WhiteboardViewModel @Inject constructor(
                 is AppResult.Failure -> ExportPhase.Failed(
                     result.error.message ?: "The file could not be written.",
                 )
+            }
+        }
+    }
+
+    /**
+     * Exports every page of the current lesson as one PDF.
+     *
+     * Pages are handled ONE AT A TIME — load, render, write a JPEG, recycle —
+     * so a 200-page imported textbook costs the memory of one page, and the
+     * PDF is streamed from those JPEGs (see JpegPdfWriter). [render] runs on
+     * the main thread, for the same reason as [exportSelection].
+     */
+    fun exportLesson(render: (PageContent, Bitmap?, Map<String, Bitmap>) -> Bitmap?) {
+        val sessionId = _state.value.sessionId ?: return
+        viewModelScope.launch {
+            // What is on screen must be in the database before it is read back.
+            writeNow()
+            paneSlots.forEach { writePaneNow(it) }
+            val pages = boardRepository.getPages(sessionId)
+            if (pages.isEmpty()) {
+                _exportPhase.value = ExportPhase.Failed("This lesson has no pages to export.")
+                return@launch
+            }
+            val scratch = exportStore.newScratchDir()
+            try {
+                val jpegs = mutableListOf<JpegPage>()
+                pages.forEachIndexed { index, page ->
+                    _exportPhase.value = ExportPhase.Progress(index + 1, pages.size)
+                    val content = boardRepository.loadPage(page.id) ?: return@forEachIndexed
+                    val background = content.background?.let { ensureRendered(it) }
+                    // Background at full size: its world size IS its pixel
+                    // size times its scale. Media is drawn into its container
+                    // rect, so it can be sampled down safely.
+                    val bgBitmap = background?.let {
+                        withContext(Dispatchers.IO) { BitmapFactory.decodeFile(it.renderedPath) }
+                    }
+                    val media = withContext(Dispatchers.IO) {
+                        content.containers
+                            .filter { it.kind.isMedia && it.mediaPath != null }
+                            .mapNotNull { c ->
+                                val path = if (c.kind == ContainerKind.VIDEO) {
+                                    posterPathFor(c.mediaPath!!)
+                                } else {
+                                    c.mediaPath!!
+                                }
+                                BitmapUtils.decodeSampled(path, LESSON_EXPORT_MEDIA_EDGE_PX)
+                                    ?.let { c.id to it }
+                            }
+                            .toMap()
+                    }
+                    val bitmap = render(content.copy(background = background), bgBitmap, media)
+                    bgBitmap?.recycle()
+                    media.values.forEach { it.recycle() }
+                    if (bitmap != null) {
+                        val file = File(scratch, "page_$index.jpg")
+                        withContext(Dispatchers.IO) {
+                            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+                        }
+                        jpegs += JpegPage(file, bitmap.width, bitmap.height)
+                        bitmap.recycle()
+                    }
+                }
+                _exportPhase.value = ExportPhase.Working
+                val name = (_currentLesson.value?.name ?: "lesson")
+                    .replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifEmpty { "lesson" } +
+                    "_${System.currentTimeMillis()}"
+                val result = if (jpegs.isEmpty()) {
+                    AppResult.Failure(AppError.Storage("There was nothing to save."))
+                } else {
+                    exportStore.saveLessonPdf(jpegs, name)
+                }
+                _exportPhase.value = when (result) {
+                    is AppResult.Success -> ExportPhase.Done(result.data.displayPath)
+                    is AppResult.Failure -> ExportPhase.Failed(
+                        result.error.message ?: "The file could not be written.",
+                    )
+                }
+            } catch (e: OutOfMemoryError) {
+                // Degrade, never crash: the lesson itself is untouched.
+                _exportPhase.value = ExportPhase.Failed("The board ran out of memory exporting this lesson.")
+            } finally {
+                withContext(Dispatchers.IO) { scratch.deleteRecursively() }
             }
         }
     }
@@ -1435,6 +1524,9 @@ class WhiteboardViewModel @Inject constructor(
          * that an unexpected power-off loses at most a second of ink.
          */
         const val SAVE_DEBOUNCE_MS = 1_000L
+
+        /** Pictures on exported pages never need more than this. */
+        const val LESSON_EXPORT_MEDIA_EDGE_PX = 1600
 
         /**
          * How long the pen must be still before handwriting converts.

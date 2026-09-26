@@ -15,13 +15,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.R
 
 /** What an export is currently doing, for the dialog to reflect. */
 sealed interface ExportPhase {
     /** Waiting for the teacher to choose a format. */
     data object Choosing : ExportPhase
     data object Working : ExportPhase
+    /** A whole-lesson export, page [done] of [total]. */
+    data class Progress(val done: Int, val total: Int) : ExportPhase
     data class Done(val displayPath: String) : ExportPhase
     data class Failed(val message: String) : ExportPhase
 }
@@ -48,7 +52,7 @@ fun ExportDialog(
             Text(
                 when (phase) {
                     is ExportPhase.Choosing -> "Save selection"
-                    is ExportPhase.Working -> "Saving…"
+                    is ExportPhase.Working, is ExportPhase.Progress -> "Saving…"
                     is ExportPhase.Done -> "Saved"
                     is ExportPhase.Failed -> "Could not save"
                 },
@@ -77,6 +81,9 @@ fun ExportDialog(
                 }
 
                 is ExportPhase.Working -> Text("Writing the file…")
+                is ExportPhase.Progress -> Text(
+                    stringResource(R.string.export_lesson_progress, phase.done, phase.total),
+                )
                 is ExportPhase.Done -> Text("Saved to ${phase.displayPath}")
                 is ExportPhase.Failed -> Text(phase.message)
             }
@@ -84,7 +91,7 @@ fun ExportDialog(
         confirmButton = {
             // Nothing to confirm while choosing — the format buttons ARE the
             // action, and a greyed-out OK beside them is just noise.
-            if (phase !is ExportPhase.Choosing) {
+            if (phase !is ExportPhase.Choosing && phase !is ExportPhase.Progress) {
                 TextButton(onClick = onDismiss) { Text("Done") }
             }
         },

@@ -1,5 +1,10 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.R
+import androidx.core.content.ContextCompat
+import android.os.Build
+import android.content.pm.PackageManager
+import android.Manifest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,6 +94,30 @@ fun WhiteboardScreen(
     val webViewAvailable = remember { isWebViewAvailable() }
     val canShareImage = remember { LensShare.canShareImage(context) }
     val canBrowse = remember { LensShare.canBrowse(context) }
+
+    // Android 9 has no scoped storage: writing to shared Documents/Pictures
+    // needs WRITE_EXTERNAL_STORAGE granted at runtime. Without this every
+    // export failed on API 28 panels. Newer panels use MediaStore and are
+    // never asked.
+    var pendingExport by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val storagePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val run = pendingExport
+        pendingExport = null
+        if (granted) run?.invoke() else viewModel.exportFailed(context.getString(R.string.export_needs_storage))
+    }
+    fun withStorageAccess(action: () -> Unit) {
+        val needed = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+            PackageManager.PERMISSION_GRANTED
+        if (!needed) {
+            action()
+        } else {
+            pendingExport = action
+            storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+    }
     val dimens = SmartBoardTheme.dimens
 
     // The instruments measure in real centimetres, so they need the panel's
@@ -587,6 +616,30 @@ fun WhiteboardScreen(
                 onSave = { viewModel.saveLesson(it) },
                 onSaveAs = { viewModel.saveLessonAs(it, ::applySnapshot) },
                 onDelete = { viewModel.deleteLesson(it) },
+                onExportPdf = {
+                    withStorageAccess {
+                    viewModel.exportLesson { content, bg, media ->
+                        renderer.exportBitmap(
+                            strokes = content.strokes,
+                            textBoxes = content.textBoxes.map { box ->
+                                TextBoxRender(
+                                    x = box.x,
+                                    y = box.y,
+                                    text = box.text,
+                                    colorArgb = box.colorArgb,
+                                    fontSizePx = with(density) { box.fontSizeSp.sp.toPx() },
+                                )
+                            },
+                            background = bg,
+                            backgroundPlacement = content.background,
+                            containers = content.containers,
+                            media = media,
+                            paperArgb = content.page.canvasStyle.colorArgb,
+                            maxEdgePx = LESSON_EXPORT_EDGE_PX,
+                        )
+                    }
+                    }
+                },
                 onClose = { showLessonMenu = false },
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -914,12 +967,14 @@ fun WhiteboardScreen(
                         )
                     }
                     val bg = backgroundBitmap
+                    val placement = state.background
                     val containers = state.containers.toList()
                     viewModel.lookupSelection {
                         renderer.exportBitmap(
                             strokes = strokes,
                             textBoxes = textBoxes,
                             background = bg,
+                            backgroundPlacement = placement,
                             containers = containers,
                             regionBounds = bounds,
                             // Small selections are UPSCALED here. A lassoed
@@ -1093,6 +1148,7 @@ fun WhiteboardScreen(
                     )
                 },
                 background = backgroundBitmap,
+                backgroundPlacement = state.background,
                 containers = state.containers.toList(),
                 media = state.mediaBitmaps.toMap(),
                 regionBounds = bounds,
@@ -1104,8 +1160,8 @@ fun WhiteboardScreen(
 
         ExportDialog(
             phase = phase,
-            onSavePng = { viewModel.exportSelection(asPdf = false, render = ::renderExport) },
-            onSavePdf = { viewModel.exportSelection(asPdf = true, render = ::renderExport) },
+            onSavePng = { withStorageAccess { viewModel.exportSelection(asPdf = false, render = ::renderExport) } },
+            onSavePdf = { withStorageAccess { viewModel.exportSelection(asPdf = true, render = ::renderExport) } },
             onDismiss = {
                 viewModel.dismissExport()
                 exportBounds = null
@@ -1885,3 +1941,6 @@ private fun StatusPill(message: String, modifier: Modifier = Modifier) {
         )
     }
 }
+
+/** Long edge of an exported lesson page: legible when printed on A4. */
+private const val LESSON_EXPORT_EDGE_PX = 2048
