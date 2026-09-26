@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.DonutLarge
 import androidx.compose.material.icons.filled.Person
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +49,7 @@ import com.smartboard.teach.core.ui.theme.TextOnChromeMuted
 /** One slot in the insert tray. */
 private data class InsertItem(
     val icon: ImageVector,
-    val label: String,
+    @StringRes val label: Int,
     val enabled: Boolean,
     val onClick: () -> Unit,
 )
@@ -92,25 +93,25 @@ fun InsertTray(
     // for — they go and fetch something from outside it.
     val rows = listOf(
         listOf(
-            InsertItem(Icons.Filled.Image, "Image", true, onImage),
-            InsertItem(Icons.Filled.GridOn, "Table", true, onTable),
-            InsertItem(SetSquare45Icon, "Geometry", geometryEnabled, onGeometry),
-            InsertItem(Icons.Filled.TextFields, "Text", true, onText),
-            InsertItem(Icons.Filled.AccountTree, "Mindmap", mindmapEnabled, onMindmap),
+            InsertItem(Icons.Filled.Image, R.string.board_insert_image, true, onImage),
+            InsertItem(Icons.Filled.GridOn, R.string.board_insert_table, true, onTable),
+            InsertItem(SetSquare45Icon, R.string.board_insert_geometry, geometryEnabled, onGeometry),
+            InsertItem(Icons.Filled.TextFields, R.string.board_insert_text, true, onText),
+            InsertItem(Icons.Filled.AccountTree, R.string.board_insert_mindmap, mindmapEnabled, onMindmap),
         ),
         listOf(
-            InsertItem(Icons.Filled.PictureAsPdf, "PDF", pdfEnabled, onPdf),
-            InsertItem(Icons.Filled.Movie, "Video", videoEnabled, onVideo),
-            InsertItem(Icons.Filled.AccessTime, "Timer", timerEnabled, onTimer),
-            InsertItem(Icons.Filled.Gradient, "Background", true, onBackground),
-            InsertItem(Icons.Filled.FolderOpen, "Lessons", true, onLessons),
+            InsertItem(Icons.Filled.PictureAsPdf, R.string.board_insert_pdf, pdfEnabled, onPdf),
+            InsertItem(Icons.Filled.Movie, R.string.board_insert_video, videoEnabled, onVideo),
+            InsertItem(Icons.Filled.AccessTime, R.string.board_insert_timer, timerEnabled, onTimer),
+            InsertItem(Icons.Filled.Gradient, R.string.board_insert_background, true, onBackground),
+            InsertItem(Icons.Filled.FolderOpen, R.string.board_insert_lessons, true, onLessons),
         ),
         // Classroom games: board widgets like the Timer.
         listOf(
-            InsertItem(Icons.Filled.Person, stringResource(R.string.game_names_short), true) { onGame(Game.NAMES) },
-            InsertItem(Icons.Filled.DonutLarge, stringResource(R.string.game_spinner), true) { onGame(Game.SPINNER) },
-            InsertItem(Icons.Filled.Casino, stringResource(R.string.game_dice), true) { onGame(Game.DICE) },
-            InsertItem(Icons.Filled.EmojiEvents, stringResource(R.string.game_scores_short), true) { onGame(Game.SCORES) },
+            InsertItem(Icons.Filled.Person, R.string.game_names_short, true) { onGame(Game.NAMES) },
+            InsertItem(Icons.Filled.DonutLarge, R.string.game_spinner, true) { onGame(Game.SPINNER) },
+            InsertItem(Icons.Filled.Casino, R.string.game_dice, true) { onGame(Game.DICE) },
+            InsertItem(Icons.Filled.EmojiEvents, R.string.game_scores_short, true) { onGame(Game.SCORES) },
         ),
     )
 
@@ -150,7 +151,7 @@ private fun TrayButton(item: InsertItem) {
             modifier = Modifier.size(dimens.chromeIcon),
         )
         Text(
-            text = item.label,
+            text = stringResource(item.label),
             color = if (item.enabled) TextOnChrome else TextOnChromeMuted,
             fontSize = 10.sp,
             maxLines = 1,

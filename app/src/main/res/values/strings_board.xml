@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Whiteboard: status -->
+    <string name="board_preparing_handwriting">Preparing handwriting…</string>
+
+    <!-- Whiteboard: tool bar -->
+    <string name="board_eraser">Eraser</string>
+    <string name="board_select">Select</string>
+    <string name="board_insert">Insert</string>
+    <string name="board_undo">Undo</string>
+    <string name="board_redo">Redo</string>
+    <string name="board_move_board">Move board</string>
+    <string name="board_duplicate">Duplicate</string>
+    <string name="board_look_up">Look up</string>
+    <string name="board_save_as_image_or_pdf">Save as image or PDF</string>
+    <string name="board_delete">Delete</string>
+
+    <!-- Whiteboard: geometry instruments -->
+    <string name="board_ruler">Ruler</string>
+    <string name="board_set_square_45">Set square 45°</string>
+    <string name="board_set_square_30_60">Set square 30/60°</string>
+    <string name="board_protractor">Protractor</string>
+    <string name="board_compass">Compass</string>
+
+    <!-- Whiteboard: pen popover -->
+    <string name="board_pen">Pen</string>
+    <string name="board_pen_preview">Preview</string>
+    <string name="board_pen_color">Color</string>
+    <string name="board_pen_extras">Extras</string>
+    <string name="board_pen_hold_to_remove">Hold to remove</string>
+    <string name="board_pen_custom_colour">Custom colour</string>
+    <string name="board_pen_thickness">Thickness</string>
+
+    <!-- Whiteboard: table size picker -->
+    <string name="board_table_choose_size">Choose a size</string>
+
+    <!-- Whiteboard: insert tray -->
+    <string name="board_insert_image">Image</string>
+    <string name="board_insert_table">Table</string>
+    <string name="board_insert_geometry">Geometry</string>
+    <string name="board_insert_text">Text</string>
+    <string name="board_insert_mindmap">Mindmap</string>
+    <string name="board_insert_pdf">PDF</string>
+    <string name="board_insert_video">Video</string>
+    <string name="board_insert_timer">Timer</string>
+    <string name="board_insert_background">Background</string>
+    <string name="board_insert_lessons">Lessons</string>
+
+    <!-- Whiteboard: tools drawer -->
+    <string name="board_tool_web">Web</string>
+    <string name="board_tool_snapshot">Snapshot</string>
+    <string name="board_tool_3d_maths">3D Maths</string>
+    <string name="board_open_tools">Open tools</string>
+
+    <!-- Whiteboard: zoom -->
+    <string name="board_zoom_out">Zoom out</string>
+    <string name="board_zoom_in">Zoom in</string>
+    <string name="board_fit_to_content">Fit to content</string>
+
+    <!-- Whiteboard: page strip and split panes -->
+    <string name="board_split_view">Split view</string>
+    <string name="board_close_split_view">Close split view</string>
+    <string name="board_add_pane">Add pane (%1$d of %2$d)</string>
+    <string name="board_add_page">Add page</string>
+    <string name="board_previous_page">Previous page</string>
+    <string name="board_next_page">Next page</string>
+    <string name="board_delete_page">Delete page</string>
+
+    <!-- Whiteboard: object chrome -->
+    <string name="board_add_row_above">Add row above</string>
+    <string name="board_add_row_below">Add row below</string>
+    <string name="board_add_column_left">Add column left</string>
+    <string name="board_add_column_right">Add column right</string>
+    <string name="board_move">Move</string>
+</resources>

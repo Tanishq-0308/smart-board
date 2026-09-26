@@ -21,10 +21,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
 import com.smartboard.teach.core.ui.theme.TextOnChrome
@@ -54,7 +56,7 @@ fun ZoomControls(
     Row(
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ZoomButton(Icons.Filled.Remove, "Zoom out") {
+        ZoomButton(Icons.Filled.Remove, stringResource(R.string.board_zoom_out)) {
             state.camera.zoomBy(1f / ZOOM_STEP, centreX(state), centreY(state))
             onZoomChanged()
         }
@@ -80,12 +82,12 @@ fun ZoomControls(
             )
         }
 
-        ZoomButton(Icons.Filled.Add, "Zoom in") {
+        ZoomButton(Icons.Filled.Add, stringResource(R.string.board_zoom_in)) {
             state.camera.zoomBy(ZOOM_STEP, centreX(state), centreY(state))
             onZoomChanged()
         }
 
-        ZoomButton(Icons.Filled.CenterFocusStrong, "Fit to content", onClick = onFitToContent)
+        ZoomButton(Icons.Filled.CenterFocusStrong, stringResource(R.string.board_fit_to_content), onClick = onFitToContent)
     }
     }
 }

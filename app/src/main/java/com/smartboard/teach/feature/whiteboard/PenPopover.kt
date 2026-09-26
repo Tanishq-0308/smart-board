@@ -37,9 +37,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.ChromeBorder
@@ -138,7 +140,7 @@ fun PenPopover(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Preview",
+                    text = stringResource(R.string.board_pen_preview),
                     color = TextOnChromeMuted,
                     fontSize = dimens.labelSize,
                 )
@@ -170,7 +172,7 @@ private fun ColorColumn(
         modifier.padding(vertical = dimens.gutterSmall),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Color", color = TextOnChromeMuted, fontSize = dimens.labelSize)
+        Text(stringResource(R.string.board_pen_color), color = TextOnChromeMuted, fontSize = dimens.labelSize)
         Column(
             Modifier.padding(top = 6.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -185,14 +187,14 @@ private fun ColorColumn(
         }
         // The teacher's own colours, then + to mix another. Null marks the + cell.
         Text(
-            "Extras",
+            stringResource(R.string.board_pen_extras),
             color = TextOnChromeMuted,
             fontSize = dimens.labelSize,
             modifier = Modifier.padding(top = 8.dp),
         )
         // Holding is the delete gesture: a tap must stay "use this colour".
         if (extras.isNotEmpty()) {
-            Text("Hold to remove", color = TextOnChromeMuted, fontSize = dimens.labelSize * 0.75f)
+            Text(stringResource(R.string.board_pen_hold_to_remove), color = TextOnChromeMuted, fontSize = dimens.labelSize * 0.75f)
         }
         Column(
             Modifier.padding(top = 6.dp),
@@ -248,7 +250,7 @@ private fun AddSwatch(onClick: () -> Unit) {
     ) {
         Icon(
             Icons.Filled.Add,
-            contentDescription = "Custom colour",
+            contentDescription = stringResource(R.string.board_pen_custom_colour),
             tint = TextOnChrome,
             modifier = Modifier.size(dimens.swatchSize * 0.6f),
         )
@@ -266,7 +268,7 @@ private fun ThicknessColumn(
         modifier.padding(vertical = dimens.gutterSmall),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Thickness", color = TextOnChromeMuted, fontSize = dimens.labelSize)
+        Text(stringResource(R.string.board_pen_thickness), color = TextOnChromeMuted, fontSize = dimens.labelSize)
         Text(
             text = formatWidth(width),
             color = TextOnChrome,
@@ -369,7 +371,7 @@ private fun NibColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text("Pen", color = TextOnChromeMuted, fontSize = dimens.labelSize)
+        Text(stringResource(R.string.board_pen), color = TextOnChromeMuted, fontSize = dimens.labelSize)
         PenType.entries.forEach { type ->
             Box(
                 Modifier

@@ -25,8 +25,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.IslandSurface
 import com.smartboard.teach.domain.model.ContainerKind
@@ -86,10 +88,10 @@ fun ObjectChrome(
         // A table gains a + on each edge, inserting a row or column THERE, so
         // the grid grows in the direction the teacher points at.
         if (selected?.kind == ContainerKind.TABLE) {
-            EdgeButton("Add row above", midX.toDp(), top.toDp()) { onInsertRow(0) }
-            EdgeButton("Add row below", midX.toDp(), bottom.toDp()) { onInsertRow(selected.rows) }
-            EdgeButton("Add column left", left.toDp(), midY.toDp()) { onInsertColumn(0) }
-            EdgeButton("Add column right", right.toDp(), midY.toDp()) {
+            EdgeButton(stringResource(R.string.board_add_row_above), midX.toDp(), top.toDp()) { onInsertRow(0) }
+            EdgeButton(stringResource(R.string.board_add_row_below), midX.toDp(), bottom.toDp()) { onInsertRow(selected.rows) }
+            EdgeButton(stringResource(R.string.board_add_column_left), left.toDp(), midY.toDp()) { onInsertColumn(0) }
+            EdgeButton(stringResource(R.string.board_add_column_right), right.toDp(), midY.toDp()) {
                 onInsertColumn(selected.cols)
             }
         }
@@ -130,14 +132,14 @@ fun ObjectChrome(
                 ) {
                     Icon(
                         Icons.Filled.OpenWith,
-                        contentDescription = "Move",
+                        contentDescription = stringResource(R.string.board_move),
                         tint = Color.White,
                         modifier = Modifier.size(18.dp),
                     )
                 }
 
-                BarButton(Icons.Filled.ContentCopy, "Duplicate", onDuplicate)
-                BarButton(Icons.Filled.DeleteOutline, "Delete", onDelete)
+                BarButton(Icons.Filled.ContentCopy, stringResource(R.string.board_duplicate), onDuplicate)
+                BarButton(Icons.Filled.DeleteOutline, stringResource(R.string.board_delete), onDelete)
             }
         }
     }

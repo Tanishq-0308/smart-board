@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.ChangeHistory
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.ui.res.stringResource
+import com.smartboard.teach.R
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentKind
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Circle
@@ -215,7 +217,7 @@ fun ToolPalette(
 
             // 2. Eraser — an eraser block, never a waste bin: a bin reads as
             //    "delete everything", which is the opposite of a correction.
-            BarButton(BoardEraserIcon, "Eraser", eraserActive) {
+            BarButton(BoardEraserIcon, stringResource(R.string.board_eraser), eraserActive) {
                 if (eraserActive) {
                     toggle(OpenPanel.ERASER)
                 } else {
@@ -227,7 +229,7 @@ fun ToolPalette(
             // 3. Select
             BarButton(
                 Icons.Outlined.HighlightAlt,
-                "Select",
+                stringResource(R.string.board_select),
                 state.mode == BoardMode.Select,
             ) {
                 panel = OpenPanel.NONE
@@ -243,21 +245,21 @@ fun ToolPalette(
             ) { toggle(OpenPanel.SHAPES) }
 
             // 5. Insert
-            BarButton(Icons.Filled.Add, "Insert", panel == OpenPanel.INSERT) {
+            BarButton(Icons.Filled.Add, stringResource(R.string.board_insert), panel == OpenPanel.INSERT) {
                 toggle(OpenPanel.INSERT)
             }
 
             // 6/7. Undo & redo stay on the bar: they are reached mid-sentence
             //      and must never sit behind another tap.
-            BarButton(Icons.AutoMirrored.Filled.Undo, "Undo", false, enabled = state.canUndo) {
+            BarButton(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.board_undo), false, enabled = state.canUndo) {
                 onUndo()
             }
-            BarButton(Icons.AutoMirrored.Filled.Redo, "Redo", false, enabled = state.canRedo) {
+            BarButton(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.board_redo), false, enabled = state.canRedo) {
                 onRedo()
             }
 
             // 8. Gesture — pan and zoom by hand.
-            BarButton(Icons.Filled.PanTool, "Move board", state.mode == BoardMode.Pan) {
+            BarButton(Icons.Filled.PanTool, stringResource(R.string.board_move_board), state.mode == BoardMode.Pan) {
                 panel = OpenPanel.NONE
                 state.clearSelection()
                 state.mode = BoardMode.Pan
@@ -267,10 +269,10 @@ fun ToolPalette(
             // eight buttons the rest of the time.
             if (state.hasSelection) {
                 BarDivider()
-                BarButton(Icons.Filled.ContentCopy, "Duplicate", false) { onDuplicateSelection() }
-                BarButton(Icons.Filled.ImageSearch, "Look up", false) { onLookupSelection() }
-                BarButton(Icons.Filled.Save, "Save as image or PDF", false) { onExportSelection() }
-                BarButton(Icons.Filled.DeleteOutline, "Delete", false) { onDeleteSelection() }
+                BarButton(Icons.Filled.ContentCopy, stringResource(R.string.board_duplicate), false) { onDuplicateSelection() }
+                BarButton(Icons.Filled.ImageSearch, stringResource(R.string.board_look_up), false) { onLookupSelection() }
+                BarButton(Icons.Filled.Save, stringResource(R.string.board_save_as_image_or_pdf), false) { onExportSelection() }
+                BarButton(Icons.Filled.DeleteOutline, stringResource(R.string.board_delete), false) { onDeleteSelection() }
             }
         }
     }
@@ -359,7 +361,7 @@ private fun EraserSizePopover(state: BoardState, modifier: Modifier = Modifier) 
     FloatingIsland(modifier = modifier, contentPadding = PaddingValues(dimens.gutterSmall)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Eraser",
+                text = stringResource(R.string.board_eraser),
                 color = TextOnChromeMuted,
                 fontSize = dimens.labelSize,
                 modifier = Modifier.padding(horizontal = dimens.gutterSmall),
@@ -488,15 +490,15 @@ private fun GeometryPicker(
     val dimens = SmartBoardTheme.dimens
     FloatingIsland(modifier = modifier, contentPadding = PaddingValues(dimens.gutterSmall)) {
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            GeometryButton(RulerIcon, "Ruler") { onPick(InstrumentKind.RULER) }
-            GeometryButton(SetSquare45Icon, "Set square 45°") {
+            GeometryButton(RulerIcon, stringResource(R.string.board_ruler)) { onPick(InstrumentKind.RULER) }
+            GeometryButton(SetSquare45Icon, stringResource(R.string.board_set_square_45)) {
                 onPick(InstrumentKind.SET_SQUARE_45)
             }
-            GeometryButton(SetSquare30Icon, "Set square 30/60°") {
+            GeometryButton(SetSquare30Icon, stringResource(R.string.board_set_square_30_60)) {
                 onPick(InstrumentKind.SET_SQUARE_30)
             }
-            GeometryButton(ProtractorIcon, "Protractor") { onPick(InstrumentKind.PROTRACTOR) }
-            GeometryButton(CompassIcon, "Compass") { onPick(InstrumentKind.COMPASS) }
+            GeometryButton(ProtractorIcon, stringResource(R.string.board_protractor)) { onPick(InstrumentKind.PROTRACTOR) }
+            GeometryButton(CompassIcon, stringResource(R.string.board_compass)) { onPick(InstrumentKind.COMPASS) }
         }
     }
 }

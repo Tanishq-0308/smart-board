@@ -18,9 +18,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.theme.ChromeBorder
 import com.smartboard.teach.core.ui.theme.TextOnChrome
@@ -150,7 +152,7 @@ fun SecondaryPane(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = "Previous page",
+                            contentDescription = stringResource(R.string.board_previous_page),
                             tint = if (previous != null) TextOnChrome else TextOnChromeMuted,
                             modifier = Modifier.size(18.dp),
                         )
@@ -170,7 +172,7 @@ fun SecondaryPane(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Next page",
+                            contentDescription = stringResource(R.string.board_next_page),
                             tint = if (next != null) {
                                 TextOnChrome
                             } else {

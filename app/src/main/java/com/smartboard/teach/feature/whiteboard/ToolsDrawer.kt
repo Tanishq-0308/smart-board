@@ -36,8 +36,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.theme.IslandSurface
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
@@ -105,16 +107,16 @@ fun ToolsDrawer(
                 // board beside it visible.
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (showWeb) {
-                        ToolButton(Icons.Filled.Public, "Web", true) {
+                        ToolButton(Icons.Filled.Public, stringResource(R.string.board_tool_web), true) {
                             onDismiss()
                             onWebSearch()
                         }
                     }
-                    ToolButton(Icons.Filled.PhotoCamera, "Snapshot", snapshotEnabled) {
+                    ToolButton(Icons.Filled.PhotoCamera, stringResource(R.string.board_tool_snapshot), snapshotEnabled) {
                         onDismiss()
                         onSnapshot()
                     }
-                    ToolButton(Icons.Filled.ViewInAr, "3D Maths", true) {
+                    ToolButton(Icons.Filled.ViewInAr, stringResource(R.string.board_tool_3d_maths), true) {
                         onDismiss()
                         onMaths3D()
                     }
@@ -193,7 +195,7 @@ private fun ToolsHandle(
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-            contentDescription = "Open tools",
+            contentDescription = stringResource(R.string.board_open_tools),
             tint = TextOnChrome,
             modifier = Modifier.size(20.dp),
         )

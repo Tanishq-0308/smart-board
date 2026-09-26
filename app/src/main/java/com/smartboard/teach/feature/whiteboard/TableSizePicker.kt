@@ -23,8 +23,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.ChromeBorder
@@ -121,7 +123,7 @@ fun TableSizePicker(
             }
 
             Text(
-                text = if (rows > 0) "$cols × $rows" else "Choose a size",
+                text = if (rows > 0) "$cols × $rows" else stringResource(R.string.board_table_choose_size),
                 color = if (rows > 0) TextOnChrome else TextOnChromeMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 8.dp),

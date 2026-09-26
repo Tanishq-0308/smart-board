@@ -24,9 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import androidx.compose.ui.graphics.Color
 import com.smartboard.teach.core.ui.theme.Accent
@@ -104,9 +106,9 @@ fun PageStrip(
             StripAction(
                 icon = Icons.Filled.VerticalSplit,
                 label = when {
-                    paneCount >= maxPanes -> "Close split view"
-                    isSplit -> "Add pane ($paneCount of $maxPanes)"
-                    else -> "Split view"
+                    paneCount >= maxPanes -> stringResource(R.string.board_close_split_view)
+                    isSplit -> stringResource(R.string.board_add_pane, paneCount, maxPanes)
+                    else -> stringResource(R.string.board_split_view)
                 },
                 selected = isSplit,
                 badge = if (isSplit) paneCount.toString() else null,
@@ -120,16 +122,16 @@ fun PageStrip(
             if (isSplit) {
                 StripAction(
                     icon = Icons.Filled.Close,
-                    label = "Close split view",
+                    label = stringResource(R.string.board_close_split_view),
                     onClick = onCloseSplit,
                 )
             }
 
-            StripAction(Icons.Filled.Add, "Add page", onClick = onAddPage)
+            StripAction(Icons.Filled.Add, stringResource(R.string.board_add_page), onClick = onAddPage)
 
             StripAction(
                 icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                label = "Previous page",
+                label = stringResource(R.string.board_previous_page),
                 enabled = index > 0,
                 onClick = { pages.getOrNull(index - 1)?.let { onSelectPage(it.id) } },
             )
@@ -146,14 +148,14 @@ fun PageStrip(
 
             StripAction(
                 icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                label = "Next page",
+                label = stringResource(R.string.board_next_page),
                 enabled = index in 0 until pages.size - 1,
                 onClick = { pages.getOrNull(index + 1)?.let { onSelectPage(it.id) } },
             )
 
             StripAction(
                 icon = Icons.Filled.DeleteOutline,
-                label = "Delete page",
+                label = stringResource(R.string.board_delete_page),
                 // The board must never end up with zero pages.
                 enabled = pages.size > 1,
                 onClick = onDeletePage,

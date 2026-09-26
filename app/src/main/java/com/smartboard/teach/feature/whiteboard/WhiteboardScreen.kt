@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -606,7 +607,7 @@ fun WhiteboardScreen(
         // A one-off download and a hard failure both need saying: silence
         // would read as the text pen simply not working.
         (recognizerState as? RecognizerState.Downloading)?.let {
-            StatusPill("Preparing handwriting…", Modifier.align(Alignment.TopCenter))
+            StatusPill(stringResource(R.string.board_preparing_handwriting), Modifier.align(Alignment.TopCenter))
         }
         (recognizerState as? RecognizerState.Unavailable)?.let { unavailable ->
             StatusPill(unavailable.message, Modifier.align(Alignment.TopCenter))
