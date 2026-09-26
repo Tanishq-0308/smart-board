@@ -34,10 +34,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.ChromeBorder
@@ -70,7 +72,7 @@ fun ColorPickerDialog(
                 Modifier.width(360.dp).padding(dimens.gutter),
                 verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
             ) {
-                Text("Custom colour", color = TextOnChrome, fontSize = dimens.bodySize, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.panel_colour_custom), color = TextOnChrome, fontSize = dimens.bodySize, fontWeight = FontWeight.Medium)
 
                 // Saturation left→right, brightness top→bottom, for the chosen hue.
                 Canvas(
@@ -122,9 +124,9 @@ fun ColorPickerDialog(
                         modifier = Modifier.padding(start = dimens.gutterSmall),
                     )
                     Spacer(Modifier.weight(1f))
-                    DialogButton("Cancel", Color.Transparent, TextOnChrome, onDismiss)
+                    DialogButton(stringResource(R.string.panel_cancel), Color.Transparent, TextOnChrome, onDismiss)
                     Spacer(Modifier.width(8.dp))
-                    DialogButton("Add", Accent, Color.White) { onPick(picked) }
+                    DialogButton(stringResource(R.string.panel_colour_add), Accent, Color.White) { onPick(picked) }
                 }
             }
         }

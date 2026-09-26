@@ -89,7 +89,7 @@ fun LookupPanel(
                 IconButton(onClick = onDismiss, modifier = Modifier.size(dimens.touchTarget)) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.panel_close),
                         tint = TextOnChromeMuted,
                         modifier = Modifier.size(dimens.iconSize),
                     )
@@ -111,7 +111,7 @@ fun LookupPanel(
                         )
                         Spacer(Modifier.width(dimens.gutter))
                         Text(
-                            "Reading the selected region…",
+                            stringResource(R.string.panel_lookup_reading),
                             fontSize = dimens.bodySize,
                             color = TextOnChromeMuted,
                         )
@@ -126,9 +126,7 @@ fun LookupPanel(
                     )
 
                     is LookupState.NotConfigured -> Text(
-                        "AI lookup is not configured on this board. You can still " +
-                            "send the selected region to Google Lens or another " +
-                            "visual search app.",
+                        stringResource(R.string.panel_lookup_not_configured),
                         fontSize = dimens.bodySize,
                         color = TextOnChrome,
                     )
@@ -153,7 +151,7 @@ fun LookupPanel(
                             modifier = Modifier.size(dimens.iconSize),
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("Search with Lens", fontSize = dimens.labelSize)
+                        Text(stringResource(R.string.panel_lookup_lens), fontSize = dimens.labelSize)
                     }
                 }
 
@@ -165,7 +163,7 @@ fun LookupPanel(
                             modifier = Modifier.size(dimens.iconSize),
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("Search the web", fontSize = dimens.labelSize)
+                        Text(stringResource(R.string.panel_search_web), fontSize = dimens.labelSize)
                     }
                 }
 
@@ -205,7 +203,7 @@ private fun ReadyBody(state: LookupState.Ready, dimens: Dimens) {
         if (lookup.transcription.isNotBlank()) {
             Spacer(Modifier.height(dimens.gutter))
             Text(
-                "Read from the board",
+                stringResource(R.string.panel_lookup_read_from_board),
                 fontSize = dimens.labelSize,
                 fontWeight = FontWeight.SemiBold,
                 color = TextOnChromeMuted,
@@ -224,7 +222,7 @@ private fun ReadyBody(state: LookupState.Ready, dimens: Dimens) {
         if (lookup.relatedTerms.isNotEmpty()) {
             Spacer(Modifier.height(dimens.gutter))
             Text(
-                "Related: " + lookup.relatedTerms.joinToString(", "),
+                stringResource(R.string.panel_lookup_related, lookup.relatedTerms.joinToString(", ")),
                 fontSize = dimens.labelSize,
                 color = TextOnChromeMuted,
             )
@@ -239,11 +237,12 @@ private fun shareUriOf(state: LookupState) = when (state) {
     is LookupState.NotConfigured -> state.shareUri
 }
 
+@Composable
 private fun headerTitle(state: LookupState): String = when (state) {
-    is LookupState.Working -> "Looking up"
+    is LookupState.Working -> stringResource(R.string.panel_lookup_working)
     is LookupState.Ready -> state.lookup.title
-    is LookupState.Failed -> "Lookup failed"
-    is LookupState.NotConfigured -> "Visual search"
+    is LookupState.Failed -> stringResource(R.string.panel_lookup_failed)
+    is LookupState.NotConfigured -> stringResource(R.string.panel_lookup_visual_search)
 }
 
 private fun headerIcon(state: LookupState): ImageVector = when (state) {

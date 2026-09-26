@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.smartboard.teach.R
 
 /**
  * Hands a cropped board region to an external visual-search app.
@@ -25,7 +26,7 @@ object LensShare {
      * @return false when the board has nothing that can receive an image, so
      *         the caller can say so instead of failing silently.
      */
-    fun shareImage(context: Context, uri: Uri, title: String = "Search this region"): Boolean {
+    fun shareImage(context: Context, uri: Uri, title: String = context.getString(R.string.panel_lens_share_title)): Boolean {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "image/*"
             putExtra(Intent.EXTRA_STREAM, uri)

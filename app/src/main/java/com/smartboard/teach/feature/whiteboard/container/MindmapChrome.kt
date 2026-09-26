@@ -21,7 +21,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.domain.model.ContainerKind
 import com.smartboard.teach.feature.whiteboard.BoardState
@@ -78,20 +80,20 @@ fun MindmapChrome(
         val midX = (left + right) / 2f
         val midY = (top + bottom) / 2f
 
-        NodeButton(Icons.Filled.Add, "Add child", right.toDp(), midY.toDp()) {
+        NodeButton(Icons.Filled.Add, stringResource(R.string.panel_mindmap_add_child), right.toDp(), midY.toDp()) {
             onAddChild(index)
         }
         // The root has no parent, so it can have no sibling; offering the
         // buttons anyway would give a control that silently does nothing.
         if (cell.col != MindmapLayout.ROOT_PARENT) {
-            NodeButton(Icons.Filled.ArrowDropUp, "Add sibling above", midX.toDp(), top.toDp()) {
+            NodeButton(Icons.Filled.ArrowDropUp, stringResource(R.string.panel_mindmap_sibling_above), midX.toDp(), top.toDp()) {
                 onAddSibling(index, true)
             }
-            NodeButton(Icons.Filled.ArrowDropDown, "Add sibling below", midX.toDp(), bottom.toDp()) {
+            NodeButton(Icons.Filled.ArrowDropDown, stringResource(R.string.panel_mindmap_sibling_below), midX.toDp(), bottom.toDp()) {
                 onAddSibling(index, false)
             }
         }
-        NodeButton(Icons.Filled.Close, "Delete node", left.toDp(), midY.toDp()) {
+        NodeButton(Icons.Filled.Close, stringResource(R.string.panel_mindmap_delete_node), left.toDp(), midY.toDp()) {
             onDeleteNode(index)
         }
     }

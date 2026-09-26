@@ -35,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.smartboard.teach.R
 import androidx.compose.ui.draw.clip
@@ -84,6 +86,7 @@ fun LessonMenu(
     var view by remember { mutableStateOf(MenuView.ACTIONS) }
     var draftName by remember { mutableStateOf("") }
     // True when the name being typed is for Save as rather than a first Save.
+    val context = LocalContext.current
     var namingAsCopy by remember { mutableStateOf(false) }
 
     FloatingIsland(
@@ -98,9 +101,9 @@ fun LessonMenu(
             ) {
                 Text(
                     text = when (view) {
-                        MenuView.ACTIONS -> currentLesson?.name ?: "Unsaved lesson"
-                        MenuView.OPEN -> "Open lesson"
-                        MenuView.NAME -> if (namingAsCopy) "Save a copy as" else "Save lesson as"
+                        MenuView.ACTIONS -> currentLesson?.name ?: stringResource(R.string.panel_lesson_unsaved)
+                        MenuView.OPEN -> stringResource(R.string.panel_lesson_open_title)
+                        MenuView.NAME -> if (namingAsCopy) stringResource(R.string.panel_lesson_save_copy_as) else stringResource(R.string.panel_lesson_save_as_title)
                     },
                     color = TextOnChrome,
                     fontSize = 15.sp,
@@ -114,7 +117,7 @@ fun LessonMenu(
                 ) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = if (view == MenuView.ACTIONS) "Close" else "Back",
+                        contentDescription = if (view == MenuView.ACTIONS) stringResource(R.string.panel_close) else stringResource(R.string.action_back),
                         tint = TextOnChrome,
                         modifier = Modifier.size(16.dp),
                     )
@@ -123,9 +126,9 @@ fun LessonMenu(
 
             when (view) {
                 MenuView.ACTIONS -> {
-                    MenuRow(Icons.Filled.NoteAdd, "New") { onNew(); onClose() }
-                    MenuRow(Icons.Filled.FolderOpen, "Open") { view = MenuView.OPEN }
-                    MenuRow(Icons.Filled.Save, "Save") {
+                    MenuRow(Icons.Filled.NoteAdd, stringResource(R.string.panel_lesson_new)) { onNew(); onClose() }
+                    MenuRow(Icons.Filled.FolderOpen, stringResource(R.string.panel_lesson_open)) { view = MenuView.OPEN }
+                    MenuRow(Icons.Filled.Save, stringResource(R.string.panel_save)) {
                         val existing = currentLesson
                         if (existing == null) {
                             // Never saved: Save must ask for a name rather than
@@ -138,9 +141,9 @@ fun LessonMenu(
                             onClose()
                         }
                     }
-                    MenuRow(Icons.Filled.SaveAs, "Save as") {
+                    MenuRow(Icons.Filled.SaveAs, stringResource(R.string.panel_lesson_save_as)) {
                         namingAsCopy = currentLesson != null
-                        draftName = currentLesson?.let { "${it.name} copy" }.orEmpty()
+                        draftName = currentLesson?.let { context.getString(R.string.panel_lesson_copy_name, it.name) }.orEmpty()
                         view = MenuView.NAME
                     }
                     MenuRow(Icons.Filled.PictureAsPdf, stringResource(R.string.lesson_export_pdf)) {
@@ -154,8 +157,8 @@ fun LessonMenu(
                         onValueChange = { draftName = it },
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionButton("Cancel", filled = false) { view = MenuView.ACTIONS }
-                        ActionButton("Save", filled = draftName.isNotBlank()) {
+                        ActionButton(stringResource(R.string.panel_cancel), filled = false) { view = MenuView.ACTIONS }
+                        ActionButton(stringResource(R.string.panel_save), filled = draftName.isNotBlank()) {
                             if (draftName.isBlank()) return@ActionButton
                             if (namingAsCopy) onSaveAs(draftName) else onSave(draftName)
                             onClose()
@@ -166,7 +169,7 @@ fun LessonMenu(
                 MenuView.OPEN -> {
                     if (lessons.isEmpty()) {
                         Text(
-                            "No saved lessons yet.",
+                            stringResource(R.string.panel_lesson_none),
                             color = TextOnChromeMuted,
                             fontSize = 13.sp,
                             modifier = Modifier.padding(vertical = 12.dp),
@@ -236,7 +239,7 @@ private fun LessonRow(
         Column(Modifier.weight(1f)) {
             Text(lesson.name, color = TextOnChrome, fontSize = 13.sp)
             Text(
-                text = "${lesson.pageCount} page${if (lesson.pageCount == 1) "" else "s"} · " +
+                text = pluralStringResource(R.plurals.panel_page_count, lesson.pageCount, lesson.pageCount) + " · " +
                     DATE_FORMAT.format(Date(lesson.updatedAt)),
                 color = TextOnChromeMuted,
                 fontSize = 11.sp,
@@ -245,7 +248,7 @@ private fun LessonRow(
         IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
             Icon(
                 Icons.Filled.DeleteOutline,
-                contentDescription = "Delete ${lesson.name}",
+                contentDescription = stringResource(R.string.panel_lesson_delete, lesson.name),
                 tint = TextOnChromeMuted,
                 modifier = Modifier.size(16.dp),
             )
@@ -262,7 +265,7 @@ private fun NameField(value: String, onValueChange: (String) -> Unit) {
             .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
         if (value.isEmpty()) {
-            Text("Lesson name", color = TextOnChromeMuted, fontSize = 14.sp)
+            Text(stringResource(R.string.panel_lesson_name_hint), color = TextOnChromeMuted, fontSize = 14.sp)
         }
         BasicTextField(
             value = value,

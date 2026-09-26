@@ -32,8 +32,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.ErrorRed
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
@@ -61,12 +64,12 @@ fun BackgroundImportSheet(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.panel_close)) }
         },
         dismissButton = if (uiState.hasBackground) {
             {
                 TextButton(onClick = onRemoveBackground) {
-                    Text("Remove background", color = ErrorRed)
+                    Text(stringResource(R.string.panel_bg_remove), color = ErrorRed)
                 }
             }
         } else {
@@ -74,7 +77,7 @@ fun BackgroundImportSheet(
         },
         title = {
             Text(
-                text = if (uiState.pdfPageCount != null) "Choose a page" else "Board background",
+                text = if (uiState.pdfPageCount != null) stringResource(R.string.panel_bg_choose_page) else stringResource(R.string.panel_bg_title),
                 fontSize = dimens.titleSize,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -97,7 +100,7 @@ fun BackgroundImportSheet(
 
                     else -> Column {
                         Text(
-                            "Put an image or a PDF page behind the ink and annotate over it.",
+                            stringResource(R.string.panel_bg_intro),
                             color = TextOnSurfaceMuted,
                             fontSize = dimens.bodySize,
                         )
@@ -124,8 +127,8 @@ private fun BusyBlock(message: String) {
 private fun SourceRow(onPickImage: () -> Unit, onPickPdf: () -> Unit) {
     val dimens = SmartBoardTheme.dimens
     Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutter)) {
-        SourceCard(Icons.Filled.Image, "Image", onPickImage)
-        SourceCard(Icons.Filled.PictureAsPdf, "PDF", onPickPdf)
+        SourceCard(Icons.Filled.Image, stringResource(R.string.panel_bg_image), onPickImage)
+        SourceCard(Icons.Filled.PictureAsPdf, stringResource(R.string.panel_pdf), onPickPdf)
     }
 }
 
@@ -155,7 +158,7 @@ private fun PagePicker(pageCount: Int, onChoosePage: (Int) -> Unit) {
     val dimens = SmartBoardTheme.dimens
     Column {
         Text(
-            "$pageCount pages",
+            pluralStringResource(R.plurals.panel_page_count, pageCount, pageCount),
             color = TextOnSurfaceMuted,
             fontSize = dimens.labelSize,
         )

@@ -40,10 +40,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.TextOnChrome
@@ -150,7 +152,7 @@ fun TimerPanel(onClose: () -> Unit, modifier: Modifier = Modifier) {
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = if (state.mode == TimerMode.COUNTDOWN) "Timer" else "Stopwatch",
+                        text = if (state.mode == TimerMode.COUNTDOWN) stringResource(R.string.panel_timer) else stringResource(R.string.panel_stopwatch),
                         color = TextOnChrome,
                         fontSize = 14.sp,
                         modifier = Modifier
@@ -183,7 +185,7 @@ fun TimerPanel(onClose: () -> Unit, modifier: Modifier = Modifier) {
                             } else {
                                 Icons.Filled.NotificationsOff
                             },
-                            contentDescription = if (alarmEnabled) "Alarm on" else "Alarm off",
+                            contentDescription = if (alarmEnabled) stringResource(R.string.panel_alarm_on) else stringResource(R.string.panel_alarm_off),
                             tint = if (alarmEnabled) ALARM_ON else TextOnChromeMuted,
                             modifier = Modifier.size(18.dp),
                         )
@@ -195,7 +197,7 @@ fun TimerPanel(onClose: () -> Unit, modifier: Modifier = Modifier) {
                     ) {
                         Icon(
                             Icons.Filled.Close,
-                            contentDescription = "Close timer",
+                            contentDescription = stringResource(R.string.panel_timer_close),
                             tint = TextOnChrome,
                             modifier = Modifier.size(18.dp),
                         )
@@ -236,7 +238,7 @@ fun TimerPanel(onClose: () -> Unit, modifier: Modifier = Modifier) {
                     // not have to find the right small icon; there is one
                     // thing to do and it fills the panel.
                     Text(
-                        text = "Stop alarm",
+                        text = stringResource(R.string.panel_timer_stop_alarm),
                         color = Color.White,
                         fontSize = 16.sp,
                         modifier = Modifier
@@ -270,7 +272,7 @@ fun TimerPanel(onClose: () -> Unit, modifier: Modifier = Modifier) {
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        ControlIcon(Icons.Filled.Replay, "Reset") { state = state.reset() }
+                        ControlIcon(Icons.Filled.Replay, stringResource(R.string.panel_reset)) { state = state.reset() }
 
                         ControlIcon(
                             icon = if (state.isRunning) {
@@ -278,7 +280,7 @@ fun TimerPanel(onClose: () -> Unit, modifier: Modifier = Modifier) {
                             } else {
                                 Icons.Filled.PlayArrow
                             },
-                            label = if (state.isRunning) "Pause" else "Start",
+                            label = if (state.isRunning) stringResource(R.string.panel_pause) else stringResource(R.string.panel_start),
                             tint = if (state.canStart) TextOnChrome else TextOnChromeMuted,
                         ) {
                             state = state.toggle()
@@ -290,7 +292,7 @@ fun TimerPanel(onClose: () -> Unit, modifier: Modifier = Modifier) {
                             } else {
                                 Icons.Filled.Fullscreen
                             },
-                            label = if (fullscreen) "Shrink" else "Enlarge",
+                            label = if (fullscreen) stringResource(R.string.panel_timer_shrink) else stringResource(R.string.panel_timer_enlarge),
                         ) {
                             fullscreen = !fullscreen
                         }
@@ -309,7 +311,7 @@ private fun Presets(onPick: (Long) -> Unit) {
     ) {
         TimerState.PRESETS_MS.forEach { millis ->
             Text(
-                text = "${millis / 60_000}m",
+                text = stringResource(R.string.panel_timer_preset_minutes, (millis / 60_000).toInt()),
                 color = TextOnChrome,
                 fontSize = 13.sp,
                 modifier = Modifier
@@ -342,9 +344,9 @@ private fun Keypad(onDigit: (Char) -> Unit, onClear: () -> Unit, onDone: () -> U
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Key("C", onClick = onClear)
+            Key(stringResource(R.string.panel_timer_key_clear), onClick = onClear)
             Key("0") { onDigit('0') }
-            Key("OK", accent = true, onClick = onDone)
+            Key(stringResource(R.string.panel_timer_key_ok), accent = true, onClick = onDone)
         }
     }
 }

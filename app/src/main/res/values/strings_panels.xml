@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared panel actions -->
+    <string name="panel_close">Close</string>
+    <string name="panel_cancel">Cancel</string>
+    <string name="panel_save">Save</string>
+    <string name="panel_done">Done</string>
+    <string name="panel_reset">Reset</string>
+    <string name="panel_start">Start</string>
+    <string name="panel_play">Play</string>
+    <string name="panel_pause">Pause</string>
+    <string name="panel_pdf">PDF</string>
+    <string name="panel_search">Search</string>
+    <string name="panel_search_web">Search the web</string>
+    <plurals name="panel_page_count">
+        <item quantity="one">%1$d page</item>
+        <item quantity="other">%1$d pages</item>
+    </plurals>
+
+    <!-- Timer -->
+    <string name="panel_timer">Timer</string>
+    <string name="panel_stopwatch">Stopwatch</string>
+    <string name="panel_alarm_on">Alarm on</string>
+    <string name="panel_alarm_off">Alarm off</string>
+    <string name="panel_timer_close">Close timer</string>
+    <string name="panel_timer_stop_alarm">Stop alarm</string>
+    <string name="panel_timer_shrink">Shrink</string>
+    <string name="panel_timer_enlarge">Enlarge</string>
+    <!-- Preset chip, e.g. "5m" for five minutes -->
+    <string name="panel_timer_preset_minutes">%1$dm</string>
+    <!-- Keypad: clear key -->
+    <string name="panel_timer_key_clear">C</string>
+    <string name="panel_timer_key_ok">OK</string>
+
+    <!-- Lesson menu -->
+    <string name="panel_lesson_unsaved">Unsaved lesson</string>
+    <string name="panel_lesson_open_title">Open lesson</string>
+    <string name="panel_lesson_save_copy_as">Save a copy as</string>
+    <string name="panel_lesson_save_as_title">Save lesson as</string>
+    <string name="panel_lesson_new">New</string>
+    <string name="panel_lesson_open">Open</string>
+    <string name="panel_lesson_save_as">Save as</string>
+    <string name="panel_lesson_copy_name">%1$s copy</string>
+    <string name="panel_lesson_none">No saved lessons yet.</string>
+    <string name="panel_lesson_delete">Delete %1$s</string>
+    <string name="panel_lesson_name_hint">Lesson name</string>
+
+    <!-- Export dialog -->
+    <string name="panel_export_title_choose">Save selection</string>
+    <string name="panel_export_title_saving">Saving…</string>
+    <string name="panel_export_title_done">Saved</string>
+    <string name="panel_export_title_failed">Could not save</string>
+    <string name="panel_export_choose_format">Choose a format.</string>
+    <string name="panel_export_png">Image (PNG)</string>
+    <string name="panel_export_writing">Writing the file…</string>
+    <string name="panel_export_saved_to">Saved to %1$s</string>
+
+    <!-- Background import -->
+    <string name="panel_bg_remove">Remove background</string>
+    <string name="panel_bg_choose_page">Choose a page</string>
+    <string name="panel_bg_title">Board background</string>
+    <string name="panel_bg_intro">Put an image or a PDF page behind the ink and annotate over it.</string>
+    <string name="panel_bg_image">Image</string>
+
+    <!-- Background settings -->
+    <string name="panel_bgs_title">Background</string>
+    <string name="panel_bgs_close">Close background settings</string>
+    <string name="panel_bgs_colour">Colour</string>
+    <string name="panel_bgs_grid">Grid</string>
+    <string name="panel_grid_plain">Plain</string>
+    <string name="panel_grid_thin">Thin grid</string>
+    <string name="panel_grid_mix">Mix grid</string>
+    <string name="panel_grid_square">Square grid</string>
+    <string name="panel_grid_dotted">Dotted grid</string>
+    <string name="panel_grid_trace">Trace grid</string>
+    <string name="panel_grid_rangoli">Rangoli grid</string>
+
+    <!-- Video player -->
+    <string name="panel_video_capture">Capture frame</string>
+    <string name="panel_video_close">Close video</string>
+    <string name="panel_video_back10">Back 10 seconds</string>
+    <string name="panel_video_forward10">Forward 10 seconds</string>
+
+    <!-- Web search -->
+    <string name="panel_search_close">Close search</string>
+    <string name="panel_search_hint">Press and hold an image to place it on the board</string>
+
+    <!-- Look up -->
+    <string name="panel_lookup_reading">Reading the selected region…</string>
+    <string name="panel_lookup_not_configured">AI lookup is not configured on this board. You can still send the selected region to Google Lens or another visual search app.</string>
+    <string name="panel_lookup_lens">Search with Lens</string>
+    <string name="panel_lookup_read_from_board">Read from the board</string>
+    <string name="panel_lookup_related">Related: %1$s</string>
+    <string name="panel_lookup_working">Looking up</string>
+    <string name="panel_lookup_failed">Lookup failed</string>
+    <string name="panel_lookup_visual_search">Visual search</string>
+    <string name="panel_lens_share_title">Search this region</string>
+
+    <!-- Colour picker -->
+    <string name="panel_colour_custom">Custom colour</string>
+    <string name="panel_colour_add">Add</string>
+
+    <!-- Mind map -->
+    <string name="panel_mindmap_add_child">Add child</string>
+    <string name="panel_mindmap_sibling_above">Add sibling above</string>
+    <string name="panel_mindmap_sibling_below">Add sibling below</string>
+    <string name="panel_mindmap_delete_node">Delete node</string>
+
+    <!-- Instruments -->
+    <string name="panel_instrument_put_away">Put away</string>
+    <string name="panel_instrument_flip">Flip</string>
+    <string name="panel_instrument_reset_angle">Reset angle</string>
+</resources>

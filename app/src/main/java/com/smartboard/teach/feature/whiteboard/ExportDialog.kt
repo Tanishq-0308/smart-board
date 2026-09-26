@@ -51,40 +51,40 @@ fun ExportDialog(
         title = {
             Text(
                 when (phase) {
-                    is ExportPhase.Choosing -> "Save selection"
-                    is ExportPhase.Working, is ExportPhase.Progress -> "Saving…"
-                    is ExportPhase.Done -> "Saved"
-                    is ExportPhase.Failed -> "Could not save"
+                    is ExportPhase.Choosing -> stringResource(R.string.panel_export_title_choose)
+                    is ExportPhase.Working, is ExportPhase.Progress -> stringResource(R.string.panel_export_title_saving)
+                    is ExportPhase.Done -> stringResource(R.string.panel_export_title_done)
+                    is ExportPhase.Failed -> stringResource(R.string.panel_export_title_failed)
                 },
             )
         },
         text = {
             when (phase) {
                 is ExportPhase.Choosing -> Column(Modifier.fillMaxWidth()) {
-                    Text("Choose a format.")
+                    Text(stringResource(R.string.panel_export_choose_format))
                     Row(
                         modifier = Modifier.padding(top = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         OutlinedButton(onClick = onSavePng) {
                             Icon(Icons.Filled.Image, contentDescription = null)
-                            Text("  Image (PNG)")
+                            Text("  " + stringResource(R.string.panel_export_png))
                         }
                         OutlinedButton(
                             onClick = onSavePdf,
                             modifier = Modifier.padding(start = 12.dp),
                         ) {
                             Icon(Icons.Filled.PictureAsPdf, contentDescription = null)
-                            Text("  PDF")
+                            Text("  " + stringResource(R.string.panel_pdf))
                         }
                     }
                 }
 
-                is ExportPhase.Working -> Text("Writing the file…")
+                is ExportPhase.Working -> Text(stringResource(R.string.panel_export_writing))
                 is ExportPhase.Progress -> Text(
                     stringResource(R.string.export_lesson_progress, phase.done, phase.total),
                 )
-                is ExportPhase.Done -> Text("Saved to ${phase.displayPath}")
+                is ExportPhase.Done -> Text(stringResource(R.string.panel_export_saved_to, phase.displayPath))
                 is ExportPhase.Failed -> Text(phase.message)
             }
         },
@@ -92,12 +92,12 @@ fun ExportDialog(
             // Nothing to confirm while choosing — the format buttons ARE the
             // action, and a greyed-out OK beside them is just noise.
             if (phase !is ExportPhase.Choosing && phase !is ExportPhase.Progress) {
-                TextButton(onClick = onDismiss) { Text("Done") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.panel_done)) }
             }
         },
         dismissButton = {
             if (phase is ExportPhase.Choosing) {
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.panel_cancel)) }
             }
         },
     )

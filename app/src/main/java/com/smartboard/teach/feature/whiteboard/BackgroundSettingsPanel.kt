@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,8 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.TextOnChrome
@@ -64,10 +67,10 @@ fun BackgroundSettingsPanel(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Background", color = TextOnChrome, fontSize = 15.sp)
+                Text(stringResource(R.string.panel_bgs_title), color = TextOnChrome, fontSize = 15.sp)
                 Box(Modifier.weight(1f))
                 Text(
-                    text = gridLabel(style.grid),
+                    text = stringResource(gridLabel(style.grid)),
                     color = TextOnChromeMuted,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(end = 4.dp),
@@ -75,14 +78,14 @@ fun BackgroundSettingsPanel(
                 IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = "Close background settings",
+                        contentDescription = stringResource(R.string.panel_bgs_close),
                         tint = TextOnChrome,
                         modifier = Modifier.size(16.dp),
                     )
                 }
             }
 
-            Text("Colour", color = TextOnChromeMuted, fontSize = 11.sp)
+            Text(stringResource(R.string.panel_bgs_colour), color = TextOnChromeMuted, fontSize = 11.sp)
             // Two rows of six, as in the reference: pale tints above, deep
             // papers below.
             BoardCanvasStyle.PALETTE.chunked(6).forEach { row ->
@@ -102,7 +105,7 @@ fun BackgroundSettingsPanel(
                 }
             }
 
-            Text("Grid", color = TextOnChromeMuted, fontSize = 11.sp)
+            Text(stringResource(R.string.panel_bgs_grid), color = TextOnChromeMuted, fontSize = 11.sp)
             GridStyle.entries.chunked(4).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { grid ->
@@ -210,14 +213,15 @@ private fun GridThumbnail(
     }
 }
 
-private fun gridLabel(grid: GridStyle): String = when (grid) {
-    GridStyle.NONE -> "Plain"
-    GridStyle.THIN -> "Thin grid"
-    GridStyle.MIX -> "Mix grid"
-    GridStyle.SQUARE -> "Square grid"
-    GridStyle.DOTTED -> "Dotted grid"
-    GridStyle.LINED -> "Trace grid"
-    GridStyle.RANGOLI -> "Rangoli grid"
+@StringRes
+private fun gridLabel(grid: GridStyle): Int = when (grid) {
+    GridStyle.NONE -> R.string.panel_grid_plain
+    GridStyle.THIN -> R.string.panel_grid_thin
+    GridStyle.MIX -> R.string.panel_grid_mix
+    GridStyle.SQUARE -> R.string.panel_grid_square
+    GridStyle.DOTTED -> R.string.panel_grid_dotted
+    GridStyle.LINED -> R.string.panel_grid_trace
+    GridStyle.RANGOLI -> R.string.panel_grid_rangoli
 }
 
 private val SWATCH_EDGE = Color(0x33FFFFFF)

@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
 import com.smartboard.teach.feature.whiteboard.BoardState
@@ -114,15 +116,15 @@ private fun InstrumentControls(state: BoardState, instrument: Instrument) {
             .offset { IntOffset(anchor.x.toInt(), anchor.y.toInt()) }
             .padding(dimens.gutterSmall),
     ) {
-        ControlButton(Icons.Filled.Close, "Put away") {
+        ControlButton(Icons.Filled.Close, stringResource(R.string.panel_instrument_put_away)) {
             state.instruments.removeAll { it.id == instrument.id }
         }
         if (instrument.kind.hasRulingEdge) {
-            ControlButton(Icons.Filled.SwapHoriz, "Flip") {
+            ControlButton(Icons.Filled.SwapHoriz, stringResource(R.string.panel_instrument_flip)) {
                 state.replaceInstrument(instrument.copy(flipped = !instrument.flipped))
             }
         }
-        ControlButton(Icons.Filled.Refresh, "Reset angle") {
+        ControlButton(Icons.Filled.Refresh, stringResource(R.string.panel_instrument_reset_angle)) {
             // A compass's rest angle is hanging down, not lying flat, and
             // resetting also drops a part-drawn arc that no longer lines up.
             state.replaceInstrument(

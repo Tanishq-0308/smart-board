@@ -36,12 +36,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.theme.Accent
 import kotlinx.coroutines.delay
 import java.io.File
@@ -169,13 +171,13 @@ fun VideoPlayerDialog(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
-                    Text("  Capture frame")
+                    Text("  " + stringResource(R.string.panel_video_capture))
                 }
 
                 IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = "Close video",
+                        contentDescription = stringResource(R.string.panel_video_close),
                         tint = Color.White,
                     )
                 }
@@ -192,14 +194,14 @@ fun VideoPlayerDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ControlButton(
                         icon = Icons.Filled.Replay10,
-                        label = "Back 10 seconds",
+                        label = stringResource(R.string.panel_video_back10),
                     ) {
                         player?.let { it.seekTo((it.currentPosition - SKIP_MS).coerceAtLeast(0)) }
                     }
 
                     ControlButton(
                         icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        label = if (isPlaying) "Pause" else "Play",
+                        label = if (isPlaying) stringResource(R.string.panel_pause) else stringResource(R.string.panel_play),
                     ) {
                         player?.let { view ->
                             if (view.isPlaying) {
@@ -224,7 +226,7 @@ fun VideoPlayerDialog(
 
                     ControlButton(
                         icon = Icons.Filled.Forward10,
-                        label = "Forward 10 seconds",
+                        label = stringResource(R.string.panel_video_forward10),
                     ) {
                         player?.let {
                             it.seekTo((it.currentPosition + SKIP_MS).coerceAtMost(durationMs))

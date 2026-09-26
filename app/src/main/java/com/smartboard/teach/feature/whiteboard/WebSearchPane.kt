@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.widget.TextView
+import androidx.compose.ui.res.stringResource
 import com.smartboard.teach.R
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
@@ -109,7 +110,7 @@ fun WebSearchPane(
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.action_back),
                     tint = if (canGoBack) TextOnChrome else TextOnChromeMuted,
                     modifier = Modifier.size(20.dp),
                 )
@@ -122,7 +123,7 @@ fun WebSearchPane(
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             ) {
                 if (query.isEmpty()) {
-                    Text("Search the web", color = TextOnChromeMuted, fontSize = 14.sp)
+                    Text(stringResource(R.string.panel_search_web), color = TextOnChromeMuted, fontSize = 14.sp)
                 }
                 BasicTextField(
                     value = query,
@@ -139,7 +140,7 @@ fun WebSearchPane(
             IconButton(onClick = { search(query) }, modifier = Modifier.size(36.dp)) {
                 Icon(
                     Icons.Filled.Search,
-                    contentDescription = "Search",
+                    contentDescription = stringResource(R.string.panel_search),
                     tint = TextOnChrome,
                     modifier = Modifier.size(20.dp),
                 )
@@ -148,7 +149,7 @@ fun WebSearchPane(
             IconButton(onClick = onClose, modifier = Modifier.size(36.dp)) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = "Close search",
+                    contentDescription = stringResource(R.string.panel_search_close),
                     tint = TextOnChrome,
                     modifier = Modifier.size(20.dp),
                 )
@@ -156,7 +157,7 @@ fun WebSearchPane(
         }
 
         Text(
-            text = "Press and hold an image to place it on the board",
+            text = stringResource(R.string.panel_search_hint),
             color = TextOnChromeMuted,
             fontSize = 11.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
