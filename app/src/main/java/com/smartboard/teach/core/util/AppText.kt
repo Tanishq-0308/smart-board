@@ -1,5 +1,6 @@
 package com.smartboard.teach.core.util
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.annotation.StringRes
 
@@ -12,6 +13,9 @@ import androidx.annotation.StringRes
  * short-lived, so that is acceptable; move to resolving at display time if
  * in-app language switching lands.
  */
+// Holds the APPLICATION context only (see init), which lives as long as the
+// process — lint's leak warning is about Activity contexts.
+@SuppressLint("StaticFieldLeak")
 object AppText {
     private var context: Context? = null
 

@@ -174,6 +174,9 @@ The app already has a single place where each on-device data source will be swap
   - the rest of the prototype's Hinglish teaching text
 - **Board clear button.** The action is wired up in code but has no button.
 
+## Languages
+English only for now. All user-facing text is in string resources (`res/values/strings*.xml`, about 500 strings), so another language is a translated copy of those files, not code changes. Maths notation such as V = πr²h stays as written.
+
 ## Compatibility
 Runs on Android 9 and later, with or without Google Play Services. Tested on a 2 GB Android 9 image without Play Services. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for what was tested and how features degrade.
 
