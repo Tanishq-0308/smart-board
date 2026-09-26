@@ -2,8 +2,10 @@ package com.smartboard.teach.data.remote.openai
 
 import android.graphics.Bitmap
 import com.smartboard.teach.BuildConfig
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.core.util.BitmapUtils
 import com.smartboard.teach.di.IoDispatcher
 import com.smartboard.teach.domain.model.LookupKind
@@ -108,14 +110,14 @@ class OpenAiLookupClient @Inject constructor(
                     val message = parsed.choices.firstOrNull()?.message
                     message?.refusal?.let {
                         return@withContext AppResult.Failure(
-                            AppError.AiResponse("The model declined: $it"),
+                            AppError.AiResponse(AppText.get(R.string.error_ai_declined, it)),
                         )
                     }
 
                     val content = message?.content
                     if (content.isNullOrBlank()) {
                         return@withContext AppResult.Failure(
-                            AppError.AiResponse("The AI returned an empty response."),
+                            AppError.AiResponse(AppText.get(R.string.error_ai_empty)),
                         )
                     }
 
@@ -127,10 +129,10 @@ class OpenAiLookupClient @Inject constructor(
             } catch (e: SocketTimeoutException) {
                 AppResult.Failure(AppError.Timeout())
             } catch (e: IOException) {
-                AppResult.Failure(AppError.Network(e.message ?: "Network error."))
+                AppResult.Failure(AppError.Network(e.message ?: AppText.get(R.string.error_network_generic)))
             } catch (t: Throwable) {
                 AppResult.Failure(
-                    AppError.AiResponse("Could not read the AI response: ${t.message}"),
+                    AppError.AiResponse(AppText.get(R.string.error_ai_read, t.message.orEmpty())),
                 )
             } finally {
                 // downscale() returns the source unchanged when no scaling was
@@ -146,10 +148,10 @@ class OpenAiLookupClient @Inject constructor(
         }.getOrNull()
 
         return when (code) {
-            401 -> AppError.Http(code, "The OpenAI API key was rejected. Check local.properties.")
-            429 -> AppError.Http(code, "Rate limit or quota exceeded on the OpenAI account.")
-            in 500..599 -> AppError.Http(code, "OpenAI is unavailable right now. Try again shortly.")
-            else -> AppError.Http(code, detail ?: "OpenAI request failed (HTTP $code).")
+            401 -> AppError.Http(code, AppText.get(R.string.error_ai_key_rejected))
+            429 -> AppError.Http(code, AppText.get(R.string.error_ai_rate_limit))
+            in 500..599 -> AppError.Http(code, AppText.get(R.string.error_ai_unavailable))
+            else -> AppError.Http(code, detail ?: AppText.get(R.string.error_ai_http, code))
         }
     }
 
@@ -170,7 +172,7 @@ class OpenAiLookupClient @Inject constructor(
 }
 
 private fun VisualLookupDto.toDomain() = VisualLookup(
-    title = title.ifBlank { "Selected region" },
+    title = title.ifBlank { AppText.get(R.string.status_title_selected_region) },
     kind = runCatching { LookupKind.valueOf(kind) }.getOrDefault(LookupKind.OTHER),
     explanation = explanation,
     transcription = transcription,

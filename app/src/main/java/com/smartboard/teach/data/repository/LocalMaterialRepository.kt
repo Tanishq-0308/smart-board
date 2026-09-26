@@ -1,8 +1,10 @@
 package com.smartboard.teach.data.repository
 
 import android.content.Context
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.data.local.dao.MaterialDao
 import com.smartboard.teach.data.local.entity.StudyMaterialEntity
 import com.smartboard.teach.di.IoDispatcher
@@ -56,7 +58,7 @@ class LocalMaterialRepository @Inject constructor(
 
                 val assetName = entity.seedAssetFile
                     ?: return@withContext AppResult.Failure(
-                        AppError.NotFound("This material has no file attached."),
+                        AppError.NotFound(AppText.get(R.string.error_material_no_file)),
                     )
 
                 val target = File(materialsDir(), "${entity.id}_$assetName")
@@ -67,7 +69,7 @@ class LocalMaterialRepository @Inject constructor(
                 materialDao.setLocalPath(entity.id, target.absolutePath, target.length())
                 AppResult.Success(target)
             } catch (t: Throwable) {
-                AppResult.Failure(AppError.Storage("Could not open the material: ${t.message}"))
+                AppResult.Failure(AppError.Storage(AppText.get(R.string.error_material_open, t.message.orEmpty())))
             }
         }
 

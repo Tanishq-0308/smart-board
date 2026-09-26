@@ -3,7 +3,9 @@ package com.smartboard.teach.feature.attendance
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.domain.model.AttendanceStatus
 import com.smartboard.teach.domain.model.SchoolClass
 import com.smartboard.teach.domain.model.Student
@@ -119,7 +121,7 @@ class AttendanceViewModel @Inject constructor(
             val teacher = authRepository.currentTeacher()
             if (teacher == null) {
                 _uiState.update {
-                    it.copy(isSaving = false, errorMessage = "Please sign in again to save.")
+                    it.copy(isSaving = false, errorMessage = AppText.get(R.string.error_sign_in_to_save))
                 }
                 return@launch
             }
@@ -136,7 +138,7 @@ class AttendanceViewModel @Inject constructor(
                     it.copy(
                         isSaving = false,
                         loadedExisting = true,
-                        savedMessage = "Attendance saved for ${current.date}.",
+                        savedMessage = AppText.get(R.string.status_attendance_saved, current.date),
                     )
                 }
 

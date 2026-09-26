@@ -1,5 +1,6 @@
 package com.smartboard.teach.data.file
 
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.writeAtomically
 
 import android.content.Context
@@ -100,25 +101,25 @@ class NotesFileStore @Inject constructor(
         }
 
         if (notes.topics.isNotEmpty()) {
-            appendLine("## Topics")
+            appendLine("## " + context.getString(R.string.status_notes_topics))
             notes.topics.forEach { appendLine("- $it") }
             appendLine()
         }
 
         if (notes.keyPoints.isNotEmpty()) {
-            appendLine("## Key points")
+            appendLine("## " + context.getString(R.string.status_notes_key_points))
             notes.keyPoints.forEach { appendLine("- $it") }
             appendLine()
         }
 
         if (notes.definitions.isNotEmpty()) {
-            appendLine("## Definitions")
+            appendLine("## " + context.getString(R.string.status_notes_definitions))
             notes.definitions.forEach { appendLine("- **${it.term}** — ${it.meaning}") }
             appendLine()
         }
 
         if (notes.formulas.isNotEmpty()) {
-            appendLine("## Formulas")
+            appendLine("## " + context.getString(R.string.status_notes_formulas))
             appendLine("```")
             notes.formulas.forEach { appendLine(it) }
             appendLine("```")
@@ -126,7 +127,7 @@ class NotesFileStore @Inject constructor(
         }
 
         if (notes.followUpQuestions.isNotEmpty()) {
-            appendLine("## Questions to follow up")
+            appendLine("## " + context.getString(R.string.status_notes_follow_up))
             notes.followUpQuestions.forEachIndexed { i, q -> appendLine("${i + 1}. $q") }
             appendLine()
         }

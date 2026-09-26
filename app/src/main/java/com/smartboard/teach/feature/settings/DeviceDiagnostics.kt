@@ -96,10 +96,10 @@ fun collectDiagnostics(context: Context): List<DiagnosticItem> {
         val caps = cm.getNetworkCapabilities(cm.activeNetwork)
         val kind = when {
             caps == null -> null
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Mobile"
-            else -> "Other"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> context.getString(R.string.status_network_ethernet)
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> context.getString(R.string.status_network_wifi)
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> context.getString(R.string.status_network_mobile)
+            else -> context.getString(R.string.status_network_other)
         }
         val online = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
         items += DiagnosticItem(

@@ -4,7 +4,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.domain.model.NoteDocument
 import com.smartboard.teach.domain.repository.NotesAiService
 import com.smartboard.teach.domain.repository.NotesRepository
@@ -57,7 +59,7 @@ class NotesListViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         retryingNoteId = null,
-                        message = "The saved snapshot could not be opened.",
+                        message = AppText.get(R.string.error_snapshot_open),
                     )
                 }
                 return@launch
@@ -70,7 +72,7 @@ class NotesListViewModel @Inject constructor(
                 it.copy(
                     retryingNoteId = null,
                     message = when (result) {
-                        is AppResult.Success -> "Notes generated."
+                        is AppResult.Success -> AppText.get(R.string.status_notes_generated)
                         is AppResult.Failure -> result.error.message
                     },
                 )

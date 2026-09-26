@@ -1,5 +1,8 @@
 package com.smartboard.teach.domain.model
 
+import androidx.annotation.StringRes
+import com.smartboard.teach.R
+
 /**
  * The five nibs offered in the pen popover.
  *
@@ -13,7 +16,7 @@ package com.smartboard.teach.domain.model
  * inheriting the previous one's settings.
  */
 enum class PenType(
-    val label: String,
+    @StringRes val label: Int,
     /** Which underlying tool this nib draws with. */
     val tool: DrawTool,
     val defaultWidth: Float,
@@ -21,14 +24,14 @@ enum class PenType(
     val pressureSensitive: Boolean,
 ) {
     /** Even, opaque line. The default, and what most teaching is written with. */
-    PEN("Pen", DrawTool.PEN, defaultWidth = 6f, defaultAlpha = 1f, pressureSensitive = true),
+    PEN(R.string.board_pen, DrawTool.PEN, defaultWidth = 6f, defaultAlpha = 1f, pressureSensitive = true),
 
     /** Thicker and flat: headings and circling an answer. */
-    MARKER("Marker", DrawTool.PEN, defaultWidth = 14f, defaultAlpha = 1f, pressureSensitive = false),
+    MARKER(R.string.pen_marker, DrawTool.PEN, defaultWidth = 14f, defaultAlpha = 1f, pressureSensitive = false),
 
     /** Translucent, so ink underneath still reads. */
     HIGHLIGHTER(
-        "Highlighter",
+        R.string.pen_highlighter,
         DrawTool.HIGHLIGHTER,
         defaultWidth = 28f,
         defaultAlpha = 0.35f,
@@ -37,7 +40,7 @@ enum class PenType(
 
     /** Strong pressure response — thin on a light touch, broad when pressed. */
     FOUNTAIN(
-        "Fountain",
+        R.string.pen_fountain,
         DrawTool.PEN,
         defaultWidth = 8f,
         defaultAlpha = 1f,
@@ -45,7 +48,7 @@ enum class PenType(
     ),
 
     /** Soft and slightly transparent, for shading rather than writing. */
-    BRUSH("Brush", DrawTool.PEN, defaultWidth = 18f, defaultAlpha = 0.75f, pressureSensitive = true),
+    BRUSH(R.string.pen_brush, DrawTool.PEN, defaultWidth = 18f, defaultAlpha = 0.75f, pressureSensitive = true),
 
     /**
      * Writes ink that becomes TEXT a moment after the pen stops.
@@ -54,7 +57,7 @@ enum class PenType(
      * after the fact, so nothing about drawing, erasing or undo changes. Only
      * what the strokes turn INTO is different.
      */
-    TEXT("Text", DrawTool.PEN, defaultWidth = 5f, defaultAlpha = 1f, pressureSensitive = true),
+    TEXT(R.string.board_insert_text, DrawTool.PEN, defaultWidth = 5f, defaultAlpha = 1f, pressureSensitive = true),
 
     /**
      * Draws rough circles, rectangles, lines and polygons as clean shapes.
@@ -63,7 +66,7 @@ enum class PenType(
      * writing surprised teachers ("0" became a circle, a tick became a line),
      * so plain ink is now always left exactly as drawn.
      */
-    SHAPE("Shape", DrawTool.PEN, defaultWidth = 5f, defaultAlpha = 1f, pressureSensitive = false);
+    SHAPE(R.string.pen_shape, DrawTool.PEN, defaultWidth = 5f, defaultAlpha = 1f, pressureSensitive = false);
 
     val isHighlighter: Boolean get() = this == HIGHLIGHTER
 

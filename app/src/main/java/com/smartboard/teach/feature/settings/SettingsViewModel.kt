@@ -3,6 +3,8 @@ package com.smartboard.teach.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartboard.teach.BuildConfig
+import com.smartboard.teach.R
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.data.local.SmartBoardDatabase
 import com.smartboard.teach.data.prefs.InputSettings
 import com.smartboard.teach.data.prefs.InputSettingsStore
@@ -73,7 +75,7 @@ class SettingsViewModel @Inject constructor(
                 dao.allBackgrounds().forEach { dao.deleteBackground(it.id) }
             }
             _uiState.update {
-                it.copy(isClearing = false, message = "Board data cleared.")
+                it.copy(isClearing = false, message = AppText.get(R.string.status_board_cleared))
             }
         }
     }

@@ -202,7 +202,7 @@ fun ToolPalette(
                 // Shows the ACTIVE nib, so the bar answers "which pen am I
                 // holding?" without opening the panel.
                 icon = state.penType.nibIcon(),
-                label = state.penType.label,
+                label = stringResource(state.penType.label),
                 selected = penActive,
                 tint = state.colorFor(state.penType),
             ) {

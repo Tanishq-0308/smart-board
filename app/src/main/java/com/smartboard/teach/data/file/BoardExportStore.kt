@@ -8,8 +8,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.di.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -119,14 +121,14 @@ class BoardExportStore @Inject constructor(
 
                 val uri = context.contentResolver.insert(collection, values)
                     ?: return@withContext AppResult.Failure(
-                        AppError.Storage("Could not create the export file."),
+                        AppError.Storage(AppText.get(R.string.error_export_create)),
                     )
 
                 val wrote = context.contentResolver.openOutputStream(uri)?.use(body) ?: false
                 if (!wrote) {
                     context.contentResolver.delete(uri, null, null)
                     return@withContext AppResult.Failure(
-                        AppError.Storage("Could not write the export."),
+                        AppError.Storage(AppText.get(R.string.error_export_write)),
                     )
                 }
 
@@ -146,13 +148,13 @@ class BoardExportStore @Inject constructor(
                 if (!wrote) {
                     file.delete()
                     return@withContext AppResult.Failure(
-                        AppError.Storage("Could not write the export."),
+                        AppError.Storage(AppText.get(R.string.error_export_write)),
                     )
                 }
                 AppResult.Success(ExportResult(file.absolutePath, null))
             }
         } catch (t: Throwable) {
-            AppResult.Failure(AppError.Storage("Could not save the export: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_export_save, t.message.orEmpty())))
         }
     }
 

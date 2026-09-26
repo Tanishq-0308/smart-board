@@ -106,6 +106,10 @@ private fun TouchTestPad(modifier: Modifier) {
     var active by remember { mutableIntStateOf(0) }
     var maxPoints by remember { mutableIntStateOf(0) }
     var tools by remember { mutableStateOf(emptySet<String>()) }
+    val stylus = stringResource(R.string.status_pointer_stylus)
+    val eraser = stringResource(R.string.board_eraser)
+    val mouse = stringResource(R.string.status_pointer_mouse)
+    val finger = stringResource(R.string.status_pointer_finger)
     var pressure by remember { mutableFloatStateOf(0f) }
     var minPressure by remember { mutableFloatStateOf(Float.MAX_VALUE) }
     var maxPressure by remember { mutableFloatStateOf(0f) }
@@ -123,10 +127,10 @@ private fun TouchTestPad(modifier: Modifier) {
                         maxPoints = maxOf(maxPoints, down.size)
                         down.forEach { change ->
                             tools = tools + when (change.type) {
-                                PointerType.Stylus -> "Stylus"
-                                PointerType.Eraser -> "Eraser"
-                                PointerType.Mouse -> "Mouse"
-                                else -> "Finger"
+                                PointerType.Stylus -> stylus
+                                PointerType.Eraser -> eraser
+                                PointerType.Mouse -> mouse
+                                else -> finger
                             }
                             pressure = change.pressure
                             minPressure = minOf(minPressure, change.pressure)

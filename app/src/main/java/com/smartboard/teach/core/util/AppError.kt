@@ -1,5 +1,7 @@
 package com.smartboard.teach.core.util
 
+import com.smartboard.teach.R
+
 /**
  * Errors are modelled explicitly so the UI can say something honest and
  * specific — "you're offline, the snapshot was saved" is a very different
@@ -11,11 +13,11 @@ sealed interface AppError {
     val message: String
 
     data class Network(
-        override val message: String = "No internet connection.",
+        override val message: String = AppText.get(R.string.error_network),
     ) : AppError
 
     data class Timeout(
-        override val message: String = "The request took too long.",
+        override val message: String = AppText.get(R.string.error_timeout),
     ) : AppError
 
     data class Http(
@@ -24,32 +26,32 @@ sealed interface AppError {
     ) : AppError
 
     data class InvalidCredentials(
-        override val message: String = "Incorrect username or password.",
+        override val message: String = AppText.get(R.string.error_invalid_credentials),
     ) : AppError
 
     data class NotAuthenticated(
-        override val message: String = "Please sign in to continue.",
+        override val message: String = AppText.get(R.string.error_not_signed_in),
     ) : AppError
 
     data class AiNotConfigured(
         override val message: String =
-            "AI notes are not configured. Add an OpenAI API key to local.properties.",
+            AppText.get(R.string.error_ai_not_configured),
     ) : AppError
 
     data class AiResponse(
-        override val message: String = "The AI response could not be understood.",
+        override val message: String = AppText.get(R.string.error_ai_response),
     ) : AppError
 
     data class Storage(
-        override val message: String = "Could not read or write local storage.",
+        override val message: String = AppText.get(R.string.error_storage),
     ) : AppError
 
     data class NotFound(
-        override val message: String = "That item no longer exists.",
+        override val message: String = AppText.get(R.string.error_not_found),
     ) : AppError
 
     data class Unknown(
-        override val message: String = "Something went wrong.",
+        override val message: String = AppText.get(R.string.error_unknown),
         val cause: Throwable? = null,
     ) : AppError
 }

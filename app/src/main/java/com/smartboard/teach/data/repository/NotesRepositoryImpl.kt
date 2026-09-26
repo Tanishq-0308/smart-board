@@ -1,7 +1,9 @@
 package com.smartboard.teach.data.repository
 
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.core.util.epochMillisToDateTime
 import com.smartboard.teach.data.file.NotesFileStore
 import com.smartboard.teach.data.local.dao.NotesDao
@@ -40,7 +42,7 @@ class NotesRepositoryImpl @Inject constructor(
             notesDao.upsert(note.toEntity())
             AppResult.Success(Unit)
         } catch (t: Throwable) {
-            AppResult.Failure(AppError.Storage("Could not save the note: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_note_save, t.message.orEmpty())))
         }
     }
 
@@ -50,7 +52,7 @@ class NotesRepositoryImpl @Inject constructor(
             fileStore.deleteNote(id)
             AppResult.Success(Unit)
         } catch (t: Throwable) {
-            AppResult.Failure(AppError.Storage("Could not delete the note: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_note_delete, t.message.orEmpty())))
         }
     }
 

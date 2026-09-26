@@ -96,7 +96,7 @@ fun PenPopover(
                 horizontalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = nib.label,
+                    text = stringResource(nib.label),
                     color = TextOnChrome,
                     fontSize = dimens.bodySize,
                     fontWeight = FontWeight.Medium,
@@ -387,7 +387,7 @@ private fun NibColumn(
             ) {
                 Icon(
                     imageVector = type.nibIcon(),
-                    contentDescription = type.label,
+                    contentDescription = stringResource(type.label),
                     tint = if (type == selected) TextOnChrome else TextOnChromeMuted,
                     // Larger than bar icons: the whole point of this column is
                     // telling five similar shapes apart, and at bar size the

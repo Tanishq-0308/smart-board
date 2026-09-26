@@ -1,7 +1,9 @@
 package com.smartboard.teach.data.repository
 
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.data.local.StrokeSerializer
 import com.smartboard.teach.data.local.dao.BoardDao
 import com.smartboard.teach.data.local.entity.BoardBackgroundEntity
@@ -207,7 +209,7 @@ class BoardRepositoryImpl @Inject constructor(
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             Log.e(TAG, "save FAILED page=${page.id}", t)
-            AppResult.Failure(AppError.Storage("Could not save the board: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_board_save, t.message.orEmpty())))
         }
     }
 
@@ -238,7 +240,7 @@ class BoardRepositoryImpl @Inject constructor(
             boardDao.deletePage(pageId)
             AppResult.Success(Unit)
         } catch (t: Throwable) {
-            AppResult.Failure(AppError.Storage("Could not delete the page: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_page_delete, t.message.orEmpty())))
         }
     }
 
@@ -248,7 +250,7 @@ class BoardRepositoryImpl @Inject constructor(
                 boardDao.upsertBackground(background.toEntity())
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
-                AppResult.Failure(AppError.Storage(t.message ?: "Could not save the background."))
+                AppResult.Failure(AppError.Storage(t.message ?: AppText.get(R.string.error_background_save)))
             }
         }
 

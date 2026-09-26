@@ -1,8 +1,10 @@
 package com.smartboard.teach.domain.usecase
 
 import android.graphics.Bitmap
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.data.file.NotesFileStore
 import com.smartboard.teach.domain.model.NoteDocument
 import com.smartboard.teach.domain.model.NoteStatus
@@ -43,7 +45,7 @@ class GenerateNotesFromSnapshotUseCase @Inject constructor(
             fileStore.writeSnapshot(noteId, snapshot)
         } catch (t: Throwable) {
             return AppResult.Failure(
-                AppError.Storage("Could not save the board snapshot: ${t.message}"),
+                AppError.Storage(AppText.get(R.string.error_snapshot_save, t.message.orEmpty())),
             )
         }
 
@@ -71,8 +73,8 @@ class GenerateNotesFromSnapshotUseCase @Inject constructor(
                 // The snapshot survives; only the summary is missing.
                 val pending = NoteDocument(
                     id = noteId,
-                    title = "Board snapshot",
-                    summary = "Summary pending — ${aiResult.error.message}",
+                    title = AppText.get(R.string.status_title_board_snapshot),
+                    summary = AppText.get(R.string.status_summary_pending, aiResult.error.message),
                     markdownPath = null,
                     snapshotPath = snapshotFile.absolutePath,
                     sourcePageId = sourcePageId,
@@ -93,7 +95,7 @@ class GenerateNotesFromSnapshotUseCase @Inject constructor(
      */
     suspend fun retry(noteId: String, snapshot: Bitmap): AppResult<NoteDocument> {
         val existing = notesRepository.getNote(noteId)
-            ?: return AppResult.Failure(AppError.NotFound("That note no longer exists."))
+            ?: return AppResult.Failure(AppError.NotFound(AppText.get(R.string.error_note_missing)))
 
         return when (val aiResult = aiService.summarizeBoard(snapshot)) {
             is AppResult.Success -> {
@@ -114,7 +116,7 @@ class GenerateNotesFromSnapshotUseCase @Inject constructor(
             is AppResult.Failure -> {
                 notesRepository.upsert(
                     existing.copy(
-                        summary = "Summary pending — ${aiResult.error.message}",
+                        summary = AppText.get(R.string.status_summary_pending, aiResult.error.message),
                         failureMessage = aiResult.error.message,
                         status = NoteStatus.FAILED_PENDING_RETRY,
                     ),

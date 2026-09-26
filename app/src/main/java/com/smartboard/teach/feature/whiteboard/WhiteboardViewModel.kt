@@ -6,7 +6,9 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.data.file.BoardExportStore
 import com.smartboard.teach.domain.engine.InkRecognizer
 import com.smartboard.teach.domain.engine.RecognizerState
@@ -60,8 +62,6 @@ data class WhiteboardUiState(
     val isLoading: Boolean = true,
 ) {
     val currentIndex: Int get() = pages.indexOfFirst { it.id == currentPageId }
-    val pageLabel: String
-        get() = if (currentIndex >= 0) "Page ${currentIndex + 1} of ${pages.size}" else ""
 }
 
 /**
@@ -436,7 +436,7 @@ class WhiteboardViewModel @Inject constructor(
         viewModelScope.launch {
             val bitmap = composeBitmap()
             if (bitmap == null) {
-                _snapshotPhase.value = SnapshotPhase.Failed("The board could not be captured.")
+                _snapshotPhase.value = SnapshotPhase.Failed(AppText.get(R.string.error_board_capture))
                 return@launch
             }
 
@@ -474,7 +474,7 @@ class WhiteboardViewModel @Inject constructor(
         val ready = _lookupState.value as? LookupState.Ready ?: return
         val crop = ready.shareUri?.let(lookupCropStore::cropFile)
         if (crop == null) {
-            _lookupState.value = LookupState.Failed("The captured region is no longer available.", ready.shareUri)
+            _lookupState.value = LookupState.Failed(AppText.get(R.string.error_region_gone), ready.shareUri)
             return
         }
         viewModelScope.launch {
@@ -496,7 +496,7 @@ class WhiteboardViewModel @Inject constructor(
         lookupJob = viewModelScope.launch {
             val bitmap = cropRegion()
             if (bitmap == null) {
-                _lookupState.value = LookupState.Failed("That region could not be captured.")
+                _lookupState.value = LookupState.Failed(AppText.get(R.string.error_region_capture))
                 return@launch
             }
 
@@ -568,7 +568,7 @@ class WhiteboardViewModel @Inject constructor(
     }
 
     fun onImagePicked(uri: Uri) {
-        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = "Importing image…")
+        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = AppText.get(R.string.status_importing_image))
         viewModelScope.launch {
             when (val result = safImporter.importImage(uri)) {
                 is AppResult.Success -> applyBackgroundFile(
@@ -604,7 +604,7 @@ class WhiteboardViewModel @Inject constructor(
                     }
                     if (bitmap == null) {
                         _backgroundState.value =
-                            BackgroundImportState(errorMessage = "That image could not be read.")
+                            BackgroundImportState(errorMessage = AppText.get(R.string.error_image_read))
                         return@launch
                     }
                     onReady(
@@ -638,7 +638,7 @@ class WhiteboardViewModel @Inject constructor(
         uri: Uri,
         onReady: (Container, android.graphics.Bitmap) -> Unit,
     ) {
-        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = "Importing video…")
+        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = AppText.get(R.string.status_importing_video))
         viewModelScope.launch {
             when (val result = safImporter.importVideo(uri)) {
                 is AppResult.Success -> {
@@ -647,7 +647,7 @@ class WhiteboardViewModel @Inject constructor(
                     }
                     if (poster == null) {
                         _backgroundState.value =
-                            BackgroundImportState(errorMessage = "That video could not be read.")
+                            BackgroundImportState(errorMessage = AppText.get(R.string.error_video_read))
                         return@launch
                     }
                     _backgroundState.value = null
@@ -690,7 +690,7 @@ class WhiteboardViewModel @Inject constructor(
                     }
                     if (bitmap == null) {
                         _backgroundState.value =
-                            BackgroundImportState(errorMessage = "That frame could not be read.")
+                            BackgroundImportState(errorMessage = AppText.get(R.string.error_frame_read))
                         return@launch
                     }
                     onReady(
@@ -737,7 +737,7 @@ class WhiteboardViewModel @Inject constructor(
     fun exportSelection(asPdf: Boolean, render: () -> Bitmap?) {
         val bitmap = render()
         if (bitmap == null) {
-            _exportPhase.value = ExportPhase.Failed("There was nothing to save.")
+            _exportPhase.value = ExportPhase.Failed(AppText.get(R.string.error_nothing_to_save))
             return
         }
         _exportPhase.value = ExportPhase.Working
@@ -752,7 +752,7 @@ class WhiteboardViewModel @Inject constructor(
             _exportPhase.value = when (result) {
                 is AppResult.Success -> ExportPhase.Done(result.data.displayPath)
                 is AppResult.Failure -> ExportPhase.Failed(
-                    result.error.message ?: "The file could not be written.",
+                    result.error.message ?: AppText.get(R.string.error_file_write),
                 )
             }
         }
@@ -774,7 +774,7 @@ class WhiteboardViewModel @Inject constructor(
             paneSlots.forEach { writePaneNow(it) }
             val pages = boardRepository.getPages(sessionId)
             if (pages.isEmpty()) {
-                _exportPhase.value = ExportPhase.Failed("This lesson has no pages to export.")
+                _exportPhase.value = ExportPhase.Failed(AppText.get(R.string.export_lesson_empty))
                 return@launch
             }
             val scratch = exportStore.newScratchDir()
@@ -821,19 +821,19 @@ class WhiteboardViewModel @Inject constructor(
                     .replace(Regex("[^A-Za-z0-9 _-]"), "_").trim().ifEmpty { "lesson" } +
                     "_${System.currentTimeMillis()}"
                 val result = if (jpegs.isEmpty()) {
-                    AppResult.Failure(AppError.Storage("There was nothing to save."))
+                    AppResult.Failure(AppError.Storage(AppText.get(R.string.error_nothing_to_save)))
                 } else {
                     exportStore.saveLessonPdf(jpegs, name)
                 }
                 _exportPhase.value = when (result) {
                     is AppResult.Success -> ExportPhase.Done(result.data.displayPath)
                     is AppResult.Failure -> ExportPhase.Failed(
-                        result.error.message ?: "The file could not be written.",
+                        result.error.message ?: AppText.get(R.string.error_file_write),
                     )
                 }
             } catch (e: OutOfMemoryError) {
                 // Degrade, never crash: the lesson itself is untouched.
-                _exportPhase.value = ExportPhase.Failed("The board ran out of memory exporting this lesson.")
+                _exportPhase.value = ExportPhase.Failed(AppText.get(R.string.error_export_oom))
             } finally {
                 withContext(Dispatchers.IO) { scratch.deleteRecursively() }
             }
@@ -851,7 +851,7 @@ class WhiteboardViewModel @Inject constructor(
         url: String,
         onReady: (Container, android.graphics.Bitmap) -> Unit,
     ) {
-        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = "Fetching image…")
+        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = AppText.get(R.string.status_fetching_image))
         viewModelScope.launch {
             when (val result = safImporter.downloadImage(url)) {
                 is AppResult.Success -> {
@@ -860,7 +860,7 @@ class WhiteboardViewModel @Inject constructor(
                     }
                     if (bitmap == null) {
                         _backgroundState.value =
-                            BackgroundImportState(errorMessage = "That image could not be read.")
+                            BackgroundImportState(errorMessage = AppText.get(R.string.error_image_read))
                         return@launch
                     }
                     _backgroundState.value = null
@@ -916,7 +916,7 @@ class WhiteboardViewModel @Inject constructor(
             _recognizerState.value = when (val result = handwriting.prepare()) {
                 is AppResult.Success -> RecognizerState.Ready
                 is AppResult.Failure -> RecognizerState.Unavailable(
-                    result.error.message ?: "Handwriting recognition is unavailable.",
+                    result.error.message ?: AppText.get(R.string.error_ink_unavailable),
                 )
             }
         }
@@ -1239,7 +1239,7 @@ class WhiteboardViewModel @Inject constructor(
     /** Reports a media file that has gone missing since it was placed. */
     fun reportMediaMissing() {
         _backgroundState.value = BackgroundImportState(
-            errorMessage = "That video is no longer on this board's storage.",
+            errorMessage = AppText.get(R.string.error_video_missing),
         )
     }
 
@@ -1270,7 +1270,7 @@ class WhiteboardViewModel @Inject constructor(
     }
 
     fun onPdfPicked(uri: Uri) {
-        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = "Reading PDF…")
+        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = AppText.get(R.string.status_reading_pdf))
         viewModelScope.launch {
             when (val copied = safImporter.importPdf(uri)) {
                 is AppResult.Success -> {
@@ -1306,7 +1306,7 @@ class WhiteboardViewModel @Inject constructor(
      * and pages the teacher never reaches cost nothing.
      */
     fun importPdfAsPages(uri: Uri, onPageReady: (PageContentSnapshot) -> Unit) {
-        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = "Reading PDF…")
+        _backgroundState.value = BackgroundImportState(isBusy = true, busyMessage = AppText.get(R.string.status_reading_pdf))
         viewModelScope.launch {
             val copied = when (val result = safImporter.importPdf(uri)) {
                 is AppResult.Success -> result.data
@@ -1327,7 +1327,7 @@ class WhiteboardViewModel @Inject constructor(
             val sessionId = _state.value.sessionId
             if (sessionId == null || pageCount <= 0) {
                 _backgroundState.value =
-                    BackgroundImportState(errorMessage = "That PDF has no pages.")
+                    BackgroundImportState(errorMessage = AppText.get(R.string.error_pdf_no_pages))
                 return@launch
             }
 
@@ -1393,7 +1393,7 @@ class WhiteboardViewModel @Inject constructor(
         val pdf = pendingPdf ?: return
         _backgroundState.value = BackgroundImportState(
             isBusy = true,
-            busyMessage = "Rendering page ${pageIndex + 1}…",
+            busyMessage = AppText.get(R.string.status_rendering_page, pageIndex + 1),
         )
         viewModelScope.launch {
             when (val result = pdfPageRenderer.renderPageToFile(pdf, pageIndex)) {

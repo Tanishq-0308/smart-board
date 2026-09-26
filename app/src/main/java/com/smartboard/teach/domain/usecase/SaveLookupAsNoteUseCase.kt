@@ -4,6 +4,7 @@ import android.content.Context
 import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.data.file.NotesFileStore
 import com.smartboard.teach.domain.model.LessonNotes
 import com.smartboard.teach.domain.model.NoteDocument
@@ -53,6 +54,6 @@ class SaveLookupAsNoteUseCase @Inject constructor(
             notesRepository.upsert(note)
             AppResult.Success(note)
         } catch (t: Throwable) {
-            AppResult.Failure(AppError.Storage("Could not save the note: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_note_save, t.message.orEmpty())))
         }
 }

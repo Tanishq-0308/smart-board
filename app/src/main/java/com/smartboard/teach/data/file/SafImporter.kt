@@ -1,5 +1,7 @@
 package com.smartboard.teach.data.file
 
+import com.smartboard.teach.R
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.core.util.writeAtomically
 
 import android.content.Context
@@ -91,7 +93,7 @@ class SafImporter @Inject constructor(
         if (poster == null) {
             copied.delete()
             return@withContext AppResult.Failure(
-                AppError.Storage("That file is not a video the board can play."),
+                AppError.Storage(AppText.get(R.string.error_video_unsupported)),
             )
         }
 
@@ -104,7 +106,7 @@ class SafImporter @Inject constructor(
             poster.recycle()
             copied.delete()
             return@withContext AppResult.Failure(
-                AppError.Storage("Could not save the video's preview frame."),
+                AppError.Storage(AppText.get(R.string.error_video_poster)),
             )
         }
         poster.recycle()
@@ -129,7 +131,7 @@ class SafImporter @Inject constructor(
             val source = File(videoPath)
             if (!source.exists()) {
                 return@withContext AppResult.Failure(
-                    AppError.Storage("That video is no longer on this board's storage."),
+                    AppError.Storage(AppText.get(R.string.error_video_missing)),
                 )
             }
 
@@ -148,7 +150,7 @@ class SafImporter @Inject constructor(
 
             if (frame == null) {
                 return@withContext AppResult.Failure(
-                    AppError.Storage("That moment could not be captured from the video."),
+                    AppError.Storage(AppText.get(R.string.error_video_capture)),
                 )
             }
 
@@ -160,7 +162,7 @@ class SafImporter @Inject constructor(
             } catch (error: IOException) {
                 frame.recycle()
                 return@withContext AppResult.Failure(
-                    AppError.Storage("Could not save the captured frame."),
+                    AppError.Storage(AppText.get(R.string.error_frame_save)),
                 )
             }
             frame.recycle()
@@ -187,7 +189,7 @@ class SafImporter @Inject constructor(
                 val comma = url.indexOf(',')
                 if (comma < 0 || !url.substring(0, comma).contains("base64")) {
                     return@withContext AppResult.Failure(
-                        AppError.Storage("That image is in a format the board cannot read."),
+                        AppError.Storage(AppText.get(R.string.error_image_format)),
                     )
                 }
                 android.util.Base64.decode(url.substring(comma + 1), android.util.Base64.DEFAULT)
@@ -196,12 +198,12 @@ class SafImporter @Inject constructor(
                 httpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
                         return@withContext AppResult.Failure(
-                            AppError.Storage("That image could not be downloaded."),
+                            AppError.Storage(AppText.get(R.string.error_image_download)),
                         )
                     }
                     response.body?.bytes()
                 } ?: return@withContext AppResult.Failure(
-                    AppError.Storage("That image came back empty."),
+                    AppError.Storage(AppText.get(R.string.error_image_empty)),
                 )
             }
 
@@ -209,7 +211,7 @@ class SafImporter @Inject constructor(
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
                 return@withContext AppResult.Failure(
-                    AppError.Storage("That file is not a readable image."),
+                    AppError.Storage(AppText.get(R.string.error_image_unreadable)),
                 )
             }
 
@@ -220,7 +222,7 @@ class SafImporter @Inject constructor(
             }
             val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
                 ?: return@withContext AppResult.Failure(
-                    AppError.Storage("Could not decode that image."),
+                    AppError.Storage(AppText.get(R.string.error_image_decode)),
                 )
 
             val target = File(dir("imports"), "web_${UUID.randomUUID()}.${extensionFor(transparent)}")
@@ -230,7 +232,7 @@ class SafImporter @Inject constructor(
             bitmap.recycle()
             AppResult.Success(target)
         } catch (t: Throwable) {
-            AppResult.Failure(AppError.Storage("Could not fetch that image: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_image_fetch, t.message.orEmpty())))
         }
     }
 
@@ -250,13 +252,13 @@ class SafImporter @Inject constructor(
                 // `use {}` value rejected every image that opened fine.
                 val boundsStream = context.contentResolver.openInputStream(uri)
                     ?: return@withContext AppResult.Failure(
-                        AppError.Storage("Could not open the selected image."),
+                        AppError.Storage(AppText.get(R.string.error_image_open)),
                     )
                 boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
 
                 if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
                     return@withContext AppResult.Failure(
-                        AppError.Storage("That file is not a readable image."),
+                        AppError.Storage(AppText.get(R.string.error_image_unreadable)),
                     )
                 }
 
@@ -267,12 +269,12 @@ class SafImporter @Inject constructor(
                 }
                 val pixelStream = context.contentResolver.openInputStream(uri)
                     ?: return@withContext AppResult.Failure(
-                        AppError.Storage("Could not open the selected image."),
+                        AppError.Storage(AppText.get(R.string.error_image_open)),
                     )
                 val bitmap = pixelStream.use {
                     BitmapFactory.decodeStream(it, null, options)
                 } ?: return@withContext AppResult.Failure(
-                    AppError.Storage("Could not decode the selected image."),
+                    AppError.Storage(AppText.get(R.string.error_image_decode_selected)),
                 )
 
                 val target = File(
@@ -285,7 +287,7 @@ class SafImporter @Inject constructor(
                 bitmap.recycle()
                 AppResult.Success(target)
             } catch (t: Throwable) {
-                AppResult.Failure(AppError.Storage("Could not import the image: ${t.message}"))
+                AppResult.Failure(AppError.Storage(AppText.get(R.string.error_image_import, t.message.orEmpty())))
             }
         }
 
@@ -301,16 +303,16 @@ class SafImporter @Inject constructor(
             val target = File(dir(subDir), "${UUID.randomUUID()}.$extension")
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.writeAtomically { output -> input.copyTo(output) }
-            } ?: return AppResult.Failure(AppError.Storage("Could not open the selected file."))
+            } ?: return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_file_open)))
 
             if (target.length() == 0L) {
                 target.delete()
-                AppResult.Failure(AppError.Storage("The selected file was empty."))
+                AppResult.Failure(AppError.Storage(AppText.get(R.string.error_file_empty)))
             } else {
                 AppResult.Success(target)
             }
         } catch (t: Throwable) {
-            AppResult.Failure(AppError.Storage("Could not import the file: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_file_import, t.message.orEmpty())))
         }
 
     private fun dir(name: String): File = File(context.filesDir, name).apply { mkdirs() }

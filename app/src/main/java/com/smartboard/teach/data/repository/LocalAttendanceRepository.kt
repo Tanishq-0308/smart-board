@@ -1,7 +1,9 @@
 package com.smartboard.teach.data.repository
 
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.core.util.parseIsoDate
 import com.smartboard.teach.core.util.toIsoDate
 import com.smartboard.teach.data.local.dao.AttendanceDao
@@ -70,7 +72,7 @@ class LocalAttendanceRepository @Inject constructor(
             )
             AppResult.Success(Unit)
         } catch (t: Throwable) {
-            AppResult.Failure(AppError.Storage("Could not save attendance: ${t.message}"))
+            AppResult.Failure(AppError.Storage(AppText.get(R.string.error_attendance_save, t.message.orEmpty())))
         }
     }
 }

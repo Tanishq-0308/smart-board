@@ -1,5 +1,7 @@
 package com.smartboard.teach.data.file
 
+import com.smartboard.teach.R
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.core.util.writeAtomically
 
 import android.content.Context
@@ -52,7 +54,7 @@ class PdfPageRenderer @Inject constructor(
                 renderer = PdfRenderer(descriptor)
                 AppResult.Success(renderer.pageCount)
             } catch (t: Throwable) {
-                AppResult.Failure(AppError.Storage("Could not read the PDF: ${t.message}"))
+                AppResult.Failure(AppError.Storage(AppText.get(R.string.error_pdf_read, t.message.orEmpty())))
             } finally {
                 runCatching { renderer?.close() }
                 runCatching { descriptor?.close() }
@@ -84,7 +86,7 @@ class PdfPageRenderer @Inject constructor(
                 renderer = PdfRenderer(descriptor)
 
                 if (pageIndex !in 0 until renderer.pageCount) {
-                    return@withLock AppResult.Failure(AppError.NotFound("That page does not exist."))
+                    return@withLock AppResult.Failure(AppError.NotFound(AppText.get(R.string.error_pdf_page_missing)))
                 }
 
                 page = renderer.openPage(pageIndex)
@@ -107,7 +109,7 @@ class PdfPageRenderer @Inject constructor(
                 }
                 AppResult.Success(cached)
             } catch (t: Throwable) {
-                AppResult.Failure(AppError.Storage("Could not render that page: ${t.message}"))
+                AppResult.Failure(AppError.Storage(AppText.get(R.string.error_pdf_render, t.message.orEmpty())))
             } finally {
                 runCatching { page?.close() }
                 runCatching { renderer?.close() }

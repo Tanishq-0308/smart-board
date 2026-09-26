@@ -9,8 +9,10 @@ import com.google.mlkit.vision.digitalink.DigitalInkRecognizerOptions
 import com.google.mlkit.vision.digitalink.Ink
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.domain.engine.InkRecognizer
 import com.smartboard.teach.domain.model.Stroke
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -50,7 +52,7 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
         } catch (error: MlKitException) {
             null
         } ?: return AppResult.Failure(
-            AppError.Storage("Handwriting recognition is not available on this panel."),
+            AppError.Storage(AppText.get(R.string.error_ink_unavailable_panel)),
         )
 
         val built = DigitalInkRecognitionModel.builder(identifier).build()
@@ -74,7 +76,7 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
             if (!ok) {
                 return AppResult.Failure(
                     AppError.Storage(
-                        "Could not download the handwriting model. Connect to a network and try again.",
+                        AppText.get(R.string.error_ink_download),
                     ),
                 )
             }
@@ -97,7 +99,7 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
      */
     override suspend fun recognize(strokes: List<Stroke>): AppResult<String> {
         val engine = recognizer
-            ?: return AppResult.Failure(AppError.Storage("Handwriting model is not ready."))
+            ?: return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_ink_not_ready)))
         if (strokes.isEmpty()) return AppResult.Success("")
 
         val inkBuilder = Ink.builder()
@@ -119,7 +121,7 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
                 .addOnFailureListener { error ->
                     cont.resume(
                         AppResult.Failure(
-                            AppError.Storage("Could not read that handwriting: ${error.message}"),
+                            AppError.Storage(AppText.get(R.string.error_ink_read, error.message.orEmpty())),
                         ),
                     )
                 }
