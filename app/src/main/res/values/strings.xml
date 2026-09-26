@@ -60,4 +60,8 @@
     <string name="export_lesson_progress">Rendering page %1$d of %2$d…</string>
     <string name="export_lesson_empty">This lesson has no pages to export.</string>
     <string name="export_needs_storage">Allow storage access to save exports where a file manager can find them.</string>
+
+    <!-- Look up -->
+    <string name="lookup_save_to_notes">Save to notes</string>
+    <string name="lookup_read_from_board">Read from the board: %1$s</string>
 </resources>

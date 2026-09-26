@@ -1107,10 +1107,7 @@ fun WhiteboardScreen(
                     }
                 },
                 onSearchWeb = if (!canBrowse) null else { query -> LensShare.searchWeb(context, query) },
-                onSaveToNotes = {
-                    viewModel.dismissLookup()
-                    onOpenNotes()
-                },
+                onSaveToNotes = { viewModel.saveLookupToNotes(onSaved = onOpenNotes) },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(

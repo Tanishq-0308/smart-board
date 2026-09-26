@@ -56,6 +56,14 @@ class NotesFileStore @Inject constructor(
             file
         }
 
+    /** Copies an image already on disk (e.g. a Look up crop) in as the note's snapshot. */
+    suspend fun copySnapshot(noteId: String, source: File): File =
+        withContext(ioDispatcher) {
+            val file = File(noteDir(noteId), SNAPSHOT_NAME)
+            file.writeAtomically { out -> source.inputStream().use { it.copyTo(out) } }
+            file
+        }
+
     suspend fun writeMarkdown(noteId: String, notes: LessonNotes): File =
         withContext(ioDispatcher) {
             val file = File(noteDir(noteId), MARKDOWN_NAME)

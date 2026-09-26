@@ -58,7 +58,7 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
   - Tables stretch freely, and the writing inside them scales too.
   - Containers (images, tables, videos) cannot be rotated.
 - **Look up** a selected region with AI. The AI explains it (text, equation, diagram, chemistry, geometry) and suggests related terms.
-  - The result panel offers **Search with Lens**, **Search the web** and **Open notes**.
+  - The result panel offers **Search with Lens**, **Search the web** and **Save to notes**. Save to notes keeps the explanation, what was read off the board, the related terms and the cropped image as a note in Notes.
   - **Search with Lens** works even without an AI key. It is hidden when no app on the board can receive an image, and **Search the web** is hidden when there is no browser.
 - **Save a selection** as a PNG or PDF.
 - **Export a whole lesson** as one PDF (Insert → Lessons → Export as PDF): every page, including imported PDF pages and pictures under the ink, one PDF page each. Large lessons are exported one page at a time, so they don't run a 2 GB board out of memory.
@@ -163,7 +163,6 @@ The app already has a single place where each on-device data source will be swap
 ### 💡 Ideas and gaps, not yet scheduled
 - **Lesson sharing:** cloud upload, scan, email. These were left out on purpose for Phase 1.
 - **Multi-writer touch.** Palm rejection currently allows one writer at a time.
-- **Look up → "Save to notes":** the code mentions it, but the panel only offers "Open notes".
 - **3D Maths:**
   - a proper depth-buffer renderer (OpenGL ES), if the current shortcut shows glitches on deep concave solids
   - optional Hindi names for solids

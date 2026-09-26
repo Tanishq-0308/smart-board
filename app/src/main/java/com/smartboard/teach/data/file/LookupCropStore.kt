@@ -52,6 +52,10 @@ class LookupCropStore @Inject constructor(
         FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     }
 
+    /** The crop behind a URI from [writeShareableCrop], if it still exists. */
+    fun cropFile(uri: Uri): File? =
+        uri.lastPathSegment?.let { File(cropDir(), it) }?.takeIf { it.exists() }
+
     private fun sweepOldCrops() {
         val cutoff = System.currentTimeMillis() - MAX_AGE_MS
         cropDir().listFiles()?.forEach { file ->

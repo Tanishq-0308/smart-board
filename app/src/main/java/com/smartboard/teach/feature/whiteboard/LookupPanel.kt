@@ -1,6 +1,7 @@
 package com.smartboard.teach.feature.whiteboard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,6 +31,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.smartboard.teach.R
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -136,10 +139,11 @@ fun LookupPanel(
 
             // Actions. "Search with Lens" appears in EVERY state that has a
             // crop on disk, failure included, because that is exactly when the
-            // teacher still needs an answer from somewhere.
-            Row(
+            // teacher still needs an answer from somewhere. FlowRow: three
+            // actions do not fit the panel's width on one line.
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
-                verticalAlignment = Alignment.CenterVertically,
+                itemVerticalAlignment = Alignment.CenterVertically,
             ) {
                 if (onShareToLens != null && shareUriOf(state) != null) {
                     TextButton(onClick = onShareToLens) {
@@ -163,13 +167,13 @@ fun LookupPanel(
                         Spacer(Modifier.width(4.dp))
                         Text("Search the web", fontSize = dimens.labelSize)
                     }
-                    // Labelled "Open notes", NOT "Save to notes". This only
-                    // navigates; persisting a lookup as a note would need the
-                    // notes flow proper (snapshot on disk + markdown), and a
-                    // button that claims to save while doing nothing is worse
-                    // than no button at all.
+                }
+
+                // Saves the explanation and the crop as a real note, then
+                // opens Notes. Independent of the browser check above.
+                if (state is LookupState.Ready && !state.lookup.isUnreadable) {
                     TextButton(onClick = onSaveToNotes) {
-                        Text("Open notes", fontSize = dimens.labelSize)
+                        Text(stringResource(R.string.lookup_save_to_notes), fontSize = dimens.labelSize)
                     }
                 }
             }

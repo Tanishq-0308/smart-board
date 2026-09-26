@@ -33,6 +33,7 @@ import com.smartboard.teach.domain.repository.PageContent
 import com.smartboard.teach.domain.repository.NotesAiService
 import com.smartboard.teach.data.file.LookupCropStore
 import com.smartboard.teach.domain.usecase.ExplainBoardRegionUseCase
+import com.smartboard.teach.domain.usecase.SaveLookupAsNoteUseCase
 import com.smartboard.teach.domain.usecase.GenerateNotesFromSnapshotUseCase
 import com.smartboard.teach.feature.notes.SnapshotPhase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -75,6 +76,7 @@ class WhiteboardViewModel @Inject constructor(
     private val boardRepository: BoardRepository,
     private val generateNotes: GenerateNotesFromSnapshotUseCase,
     private val explainRegion: ExplainBoardRegionUseCase,
+    private val saveLookupAsNote: SaveLookupAsNoteUseCase,
     private val lookupCropStore: LookupCropStore,
     private val safImporter: SafImporter,
     private val handwriting: InkRecognizer,
@@ -467,6 +469,26 @@ class WhiteboardViewModel @Inject constructor(
      * is unconfigured, or the board is offline — the cases where a teacher
      * most needs the fallback.
      */
+    /** Saves the current Look up answer, with its crop, as a note. */
+    fun saveLookupToNotes(onSaved: () -> Unit) {
+        val ready = _lookupState.value as? LookupState.Ready ?: return
+        val crop = ready.shareUri?.let(lookupCropStore::cropFile)
+        if (crop == null) {
+            _lookupState.value = LookupState.Failed("The captured region is no longer available.", ready.shareUri)
+            return
+        }
+        viewModelScope.launch {
+            when (val result = saveLookupAsNote(ready.lookup, crop)) {
+                is AppResult.Success -> {
+                    dismissLookup()
+                    onSaved()
+                }
+                is AppResult.Failure ->
+                    _lookupState.value = LookupState.Failed(result.error.message, ready.shareUri)
+            }
+        }
+    }
+
     fun lookupSelection(cropRegion: () -> Bitmap?) {
         lookupJob?.cancel()
         _lookupState.value = LookupState.Working()
