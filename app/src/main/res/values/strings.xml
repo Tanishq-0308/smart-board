@@ -15,4 +15,7 @@
     <!-- Shell -->
     <string name="sidebar_locked_hint">Sign in to use this</string>
     <string name="guest_label">Guest</string>
+
+    <!-- Degraded features on panels without a component -->
+    <string name="web_unavailable">Web search needs Android System WebView, which is not installed on this board.</string>
 </resources>

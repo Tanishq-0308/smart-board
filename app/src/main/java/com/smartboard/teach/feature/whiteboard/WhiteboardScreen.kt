@@ -84,6 +84,11 @@ fun WhiteboardScreen(
     // the conversion to hit-test and bound them at their real height.
     Selection.spToWorldPx = with(density) { 1.sp.toPx() }
     val context = LocalContext.current
+    // Panels vary in what is installed; tools that need a missing component
+    // are hidden rather than left to crash or fail silently.
+    val webViewAvailable = remember { isWebViewAvailable() }
+    val canShareImage = remember { LensShare.canShareImage(context) }
+    val canBrowse = remember { LensShare.canBrowse(context) }
     val dimens = SmartBoardTheme.dimens
 
     // The instruments measure in real centimetres, so they need the panel's
@@ -627,6 +632,7 @@ fun WhiteboardScreen(
                 onOpen = { showToolsDrawer = true },
                 onDismiss = { showToolsDrawer = false },
                 onWebSearch = { showWebSearch = true },
+                showWeb = webViewAvailable,
                 onSnapshot = ::takeSnapshot,
                 onMaths3D = onOpenMaths3D,
             )
@@ -1034,7 +1040,8 @@ fun WhiteboardScreen(
             LookupPanel(
                 state = lookup,
                 onDismiss = viewModel::dismissLookup,
-                onShareToLens = {
+                onShareToLens = if (!canShareImage) null else {
+                    {
                     val uri = when (lookup) {
                         is LookupState.Working -> lookup.previewUri
                         is LookupState.Ready -> lookup.shareUri
@@ -1042,8 +1049,9 @@ fun WhiteboardScreen(
                         is LookupState.NotConfigured -> lookup.shareUri
                     }
                     uri?.let { LensShare.shareImage(context, it) }
+                    }
                 },
-                onSearchWeb = { query -> LensShare.searchWeb(context, query) },
+                onSearchWeb = if (!canBrowse) null else { query -> LensShare.searchWeb(context, query) },
                 onSaveToNotes = {
                     viewModel.dismissLookup()
                     onOpenNotes()

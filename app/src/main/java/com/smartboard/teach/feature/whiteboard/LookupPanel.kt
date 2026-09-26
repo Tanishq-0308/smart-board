@@ -54,8 +54,10 @@ import com.smartboard.teach.domain.model.LookupKind
 fun LookupPanel(
     state: LookupState,
     onDismiss: () -> Unit,
-    onShareToLens: () -> Unit,
-    onSearchWeb: (String) -> Unit,
+    /** Null hides the action: nothing on this board can receive an image. */
+    onShareToLens: (() -> Unit)?,
+    /** Null hides the action: no browser on this board. */
+    onSearchWeb: ((String) -> Unit)?,
     onSaveToNotes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -139,7 +141,7 @@ fun LookupPanel(
                 horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (shareUriOf(state) != null) {
+                if (onShareToLens != null && shareUriOf(state) != null) {
                     TextButton(onClick = onShareToLens) {
                         Icon(
                             Icons.Filled.Image,
@@ -151,7 +153,7 @@ fun LookupPanel(
                     }
                 }
 
-                if (state is LookupState.Ready && !state.lookup.isUnreadable) {
+                if (onSearchWeb != null && state is LookupState.Ready && !state.lookup.isUnreadable) {
                     TextButton(onClick = { onSearchWeb(state.lookup.searchQuery) }) {
                         Icon(
                             Icons.Filled.Search,

@@ -64,7 +64,8 @@ fun ToolsDrawer(
     onSnapshot: () -> Unit,
     onMaths3D: () -> Unit,
     modifier: Modifier = Modifier,
-    webEnabled: Boolean = true,
+    /** False on panels with no WebView; the button is hidden, not dimmed. */
+    showWeb: Boolean = true,
     snapshotEnabled: Boolean = true,
 ) {
     val dimens = SmartBoardTheme.dimens
@@ -103,9 +104,11 @@ fun ToolsDrawer(
                 // vertical edge, so a column keeps it narrow and leaves the
                 // board beside it visible.
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ToolButton(Icons.Filled.Public, "Web", webEnabled) {
-                        onDismiss()
-                        onWebSearch()
+                    if (showWeb) {
+                        ToolButton(Icons.Filled.Public, "Web", true) {
+                            onDismiss()
+                            onWebSearch()
+                        }
                     }
                     ToolButton(Icons.Filled.PhotoCamera, "Snapshot", snapshotEnabled) {
                         onDismiss()

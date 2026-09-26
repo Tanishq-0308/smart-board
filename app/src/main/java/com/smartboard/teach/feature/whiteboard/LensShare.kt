@@ -46,6 +46,16 @@ object LensShare {
         }
     }
 
+    /** Something on the board can receive an image (Lens, Photos, ...). */
+    fun canShareImage(context: Context): Boolean =
+        Intent(Intent.ACTION_SEND).setType("image/*")
+            .resolveActivity(context.packageManager) != null
+
+    /** A browser is installed to open a web search in. */
+    fun canBrowse(context: Context): Boolean =
+        Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
+            .resolveActivity(context.packageManager) != null
+
     /**
      * Opens a plain web search for [query].
      *

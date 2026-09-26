@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.widget.TextView
+import com.smartboard.teach.R
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -164,7 +166,14 @@ fun WebSearchPane(
             AndroidView(
                 modifier = Modifier.fillMaxWidth().fillMaxHeight(),
                 factory = { context ->
-                    WebView(context).apply {
+                    // Backstop for isWebViewAvailable(): a WebView that fails to
+                    // load must cost the pane, never the lesson.
+                    try { WebView(context) } catch (e: RuntimeException) {
+                        return@AndroidView TextView(context).apply {
+                            text = context.getString(R.string.web_unavailable)
+                            setPadding(32, 32, 32, 32)
+                        }
+                    }.apply {
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -226,6 +235,7 @@ fun WebSearchPane(
                 },
                 onRelease = {
                     webView = null
+                    if (it !is WebView) return@AndroidView
                     // Stops in-flight loads and detaches; a WebView left alive
                     // keeps a page running behind a closed panel.
                     it.stopLoading()
@@ -235,6 +245,14 @@ fun WebSearchPane(
         }
     }
 }
+
+/**
+ * Whether this panel has a loadable WebView. Many boards ship an old or
+ * missing one, and constructing a WebView without it CRASHES the app
+ * (MissingWebViewPackageException), so the Web tool is hidden instead.
+ */
+fun isWebViewAvailable(): Boolean =
+    runCatching { WebView.getCurrentWebViewPackage() != null }.getOrDefault(false)
 
 /** Wide enough for a readable results column, narrow enough to leave board. */
 val WEB_PANE_WIDTH = 420.dp
