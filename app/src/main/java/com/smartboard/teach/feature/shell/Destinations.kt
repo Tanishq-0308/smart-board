@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.shell
 
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Description
@@ -10,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.smartboard.teach.R
 
 /**
  * App destinations.
@@ -22,18 +24,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
  */
 sealed class Dest(
     val route: String,
-    val label: String,
+    @StringRes val label: Int,
     val icon: ImageVector,
     val requiresAuth: Boolean,
 ) {
-    data object Whiteboard : Dest("whiteboard", "Whiteboard", Icons.Filled.Draw, false)
-    data object Maths3D : Dest("maths3d", "3D Maths", Icons.Filled.ViewInAr, false)
-    data object Notes : Dest("notes", "Notes", Icons.Filled.Description, false)
-    data object Classes : Dest("classes", "My Classes", Icons.Filled.Groups, true)
-    data object Attendance : Dest("attendance", "Attendance", Icons.Filled.HowToReg, true)
-    data object Material : Dest("material", "Study Material", Icons.AutoMirrored.Filled.MenuBook, true)
-    data object Settings : Dest("settings", "Settings", Icons.Filled.Settings, false)
-    data object Login : Dest("login", "Sign In", Icons.AutoMirrored.Filled.Login, false)
+    data object Whiteboard : Dest("whiteboard", R.string.nav_whiteboard, Icons.Filled.Draw, false)
+    data object Maths3D : Dest("maths3d", R.string.nav_maths3d, Icons.Filled.ViewInAr, false)
+    data object Notes : Dest("notes", R.string.nav_notes, Icons.Filled.Description, false)
+    data object Classes : Dest("classes", R.string.nav_classes, Icons.Filled.Groups, true)
+    data object Attendance : Dest("attendance", R.string.nav_attendance, Icons.Filled.HowToReg, true)
+    data object Material : Dest("material", R.string.nav_material, Icons.AutoMirrored.Filled.MenuBook, true)
+    data object Settings : Dest("settings", R.string.nav_settings, Icons.Filled.Settings, false)
+    data object Login : Dest("login", R.string.nav_login, Icons.AutoMirrored.Filled.Login, false)
 
     companion object {
         /** Items rendered in the sidebar, in order. */

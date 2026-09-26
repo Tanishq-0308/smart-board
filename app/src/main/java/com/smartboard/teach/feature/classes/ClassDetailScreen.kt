@@ -30,11 +30,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.chromeInset
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
@@ -63,7 +66,7 @@ fun ClassDetailScreen(
             TextButton(onClick = onBack, modifier = Modifier.chromeInset()) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Accent)
                 Spacer(Modifier.width(6.dp))
-                Text("Classes", color = Accent)
+                Text(stringResource(R.string.classes_back_label), color = Accent)
             }
             Spacer(Modifier.width(dimens.gutter))
             Column {
@@ -74,7 +77,7 @@ fun ClassDetailScreen(
                     color = TextOnSurface,
                 )
                 Text(
-                    text = "${students.size} students",
+                    text = pluralStringResource(R.plurals.classes_student_count, students.size, students.size),
                     fontSize = dimens.labelSize,
                     color = TextOnSurfaceMuted,
                 )
@@ -84,7 +87,7 @@ fun ClassDetailScreen(
                 TextButton(onClick = { onTakeAttendance(cls.id) }) {
                     Icon(Icons.Filled.HowToReg, contentDescription = null, tint = Accent)
                     Spacer(Modifier.width(6.dp))
-                    Text("Take attendance", color = Accent)
+                    Text(stringResource(R.string.classes_take_attendance), color = Accent)
                 }
             }
         }
@@ -141,7 +144,7 @@ private fun StudentRow(student: Student) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "Roll ${student.rollNumber}",
+                text = stringResource(R.string.classes_roll_number, student.rollNumber),
                 fontSize = dimens.labelSize,
                 color = TextOnSurfaceMuted,
             )

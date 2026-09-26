@@ -29,8 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.ChromeDark
 import com.smartboard.teach.core.ui.theme.ChromeDarkElevated
@@ -74,7 +76,7 @@ fun Sidebar(
             Dest.sidebarItems.forEach { dest ->
                 val locked = dest.requiresAuth && !isAuthed
                 SidebarItem(
-                    label = dest.label,
+                    label = stringResource(dest.label),
                     icon = dest.icon,
                     selected = current == dest,
                     locked = locked,
@@ -88,7 +90,7 @@ fun Sidebar(
         Spacer(Modifier.height(dimens.gutterSmall))
 
         SidebarItem(
-            label = Dest.Settings.label,
+            label = stringResource(Dest.Settings.label),
             icon = Icons.Filled.Settings,
             selected = current == Dest.Settings,
             locked = false,
@@ -97,9 +99,9 @@ fun Sidebar(
 
         when (authState) {
             is AuthState.Authenticated -> {
-                AccountBlock(name = authState.teacher.displayName, subtitle = "Signed in")
+                AccountBlock(name = authState.teacher.displayName, subtitle = stringResource(R.string.sidebar_signed_in))
                 SidebarItem(
-                    label = "Sign Out",
+                    label = stringResource(R.string.nav_logout),
                     icon = Icons.AutoMirrored.Filled.Logout,
                     selected = false,
                     locked = false,
@@ -108,9 +110,12 @@ fun Sidebar(
             }
 
             else -> {
-                AccountBlock(name = "Guest", subtitle = "Board & notes available")
+                AccountBlock(
+                    name = stringResource(R.string.guest_label),
+                    subtitle = stringResource(R.string.sidebar_guest_subtitle),
+                )
                 SidebarItem(
-                    label = "Sign In",
+                    label = stringResource(R.string.nav_login),
                     icon = Icons.AutoMirrored.Filled.Login,
                     selected = current == Dest.Login,
                     locked = false,
@@ -164,7 +169,7 @@ private fun SidebarItem(
         if (locked) {
             Icon(
                 imageVector = Icons.Filled.Lock,
-                contentDescription = "Sign in to use this",
+                contentDescription = stringResource(R.string.sidebar_locked_hint),
                 tint = contentColor,
                 modifier = Modifier.size(dimens.iconSize * 0.7f),
             )

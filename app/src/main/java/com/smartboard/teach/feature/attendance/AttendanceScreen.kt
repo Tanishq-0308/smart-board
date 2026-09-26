@@ -33,10 +33,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.chromeInset
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
@@ -75,21 +77,21 @@ fun AttendanceScreen(
                         tint = Accent,
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text("Back", color = Accent)
+                    Text(stringResource(R.string.screens_action_back), color = Accent)
                 }
 
                 Spacer(Modifier.width(dimens.gutterSmall))
 
                 Column {
                     Text(
-                        text = schoolClass?.displayName ?: "Attendance",
+                        text = schoolClass?.displayName ?: stringResource(R.string.nav_attendance),
                         fontSize = dimens.titleSize,
                         fontWeight = FontWeight.SemiBold,
                         color = TextOnSurface,
                     )
                     if (state.loadedExisting) {
                         Text(
-                            text = "Editing saved attendance",
+                            text = stringResource(R.string.attendance_editing_saved),
                             fontSize = dimens.labelSize,
                             color = TextOnSurfaceMuted,
                         )
@@ -109,16 +111,16 @@ fun AttendanceScreen(
                     .padding(horizontal = dimens.gutter, vertical = dimens.gutterSmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = viewModel::markAllPresent) { Text("Mark all present") }
-                TextButton(onClick = viewModel::clearAll) { Text("Clear all") }
+                TextButton(onClick = viewModel::markAllPresent) { Text(stringResource(R.string.attendance_mark_all_present)) }
+                TextButton(onClick = viewModel::clearAll) { Text(stringResource(R.string.attendance_clear_all)) }
                 Spacer(Modifier.weight(1f))
-                CountChip("Present", state.presentCount, StatusPresent)
+                CountChip(stringResource(R.string.attendance_present), state.presentCount, StatusPresent)
                 Spacer(Modifier.width(dimens.gutterSmall))
-                CountChip("Absent", state.absentCount, StatusAbsent)
+                CountChip(stringResource(R.string.attendance_absent), state.absentCount, StatusAbsent)
                 Spacer(Modifier.width(dimens.gutterSmall))
-                CountChip("Late", state.lateCount, StatusLate)
+                CountChip(stringResource(R.string.attendance_late), state.lateCount, StatusLate)
                 Spacer(Modifier.width(dimens.gutterSmall))
-                CountChip("Unmarked", students.size - state.marks.size, TextOnSurfaceMuted)
+                CountChip(stringResource(R.string.attendance_unmarked), students.size - state.marks.size, TextOnSurfaceMuted)
             }
 
             // --- the grid: adaptive so ~40 students fit with little scrolling ---
@@ -163,7 +165,7 @@ fun AttendanceScreen(
                 )
             } else {
                 Text(
-                    "Save attendance",
+                    stringResource(R.string.attendance_save),
                     fontSize = dimens.bodySize,
                     fontWeight = FontWeight.Medium,
                 )
@@ -177,7 +179,7 @@ fun AttendanceScreen(
                     .align(Alignment.BottomStart)
                     .padding(dimens.gutter),
                 action = {
-                    TextButton(onClick = viewModel::dismissMessage) { Text("Dismiss") }
+                    TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(R.string.screens_action_dismiss)) }
                 },
             ) { Text(message) }
         }
@@ -189,7 +191,7 @@ private fun DateSelector(date: LocalDate, onChange: (LocalDate) -> Unit) {
     val dimens = SmartBoardTheme.dimens
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { onChange(date.minusDays(1)) }) {
-            Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day", tint = Accent)
+            Icon(Icons.Filled.ChevronLeft, contentDescription = stringResource(R.string.attendance_previous_day), tint = Accent)
         }
         Text(
             text = date.formatFriendly(),
@@ -202,7 +204,7 @@ private fun DateSelector(date: LocalDate, onChange: (LocalDate) -> Unit) {
             // Attendance is not recorded ahead of time.
             enabled = date.isBefore(LocalDate.now()),
         ) {
-            Icon(Icons.Filled.ChevronRight, contentDescription = "Next day", tint = Accent)
+            Icon(Icons.Filled.ChevronRight, contentDescription = stringResource(R.string.attendance_next_day), tint = Accent)
         }
     }
 }

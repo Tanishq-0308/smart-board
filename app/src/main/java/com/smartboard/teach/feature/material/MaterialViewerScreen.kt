@@ -27,10 +27,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.chromeInset
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.ErrorRed
@@ -58,7 +60,7 @@ fun MaterialViewerScreen(
             TextButton(onClick = onBack, modifier = Modifier.chromeInset()) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Accent)
                 Spacer(Modifier.width(6.dp))
-                Text("Material", color = Accent)
+                Text(stringResource(R.string.material_back_label), color = Accent)
             }
 
             Spacer(Modifier.weight(1f))
@@ -67,11 +69,11 @@ fun MaterialViewerScreen(
                 onClick = viewModel::previousPage,
                 enabled = state.currentPage > 0,
             ) {
-                Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous page", tint = Accent)
+                Icon(Icons.Filled.ChevronLeft, contentDescription = stringResource(R.string.material_previous_page), tint = Accent)
             }
             Text(
                 text = if (state.pageCount > 0) {
-                    "Page ${state.currentPage + 1} of ${state.pageCount}"
+                    stringResource(R.string.material_page_of, state.currentPage + 1, state.pageCount)
                 } else {
                     ""
                 },
@@ -83,7 +85,7 @@ fun MaterialViewerScreen(
                 onClick = viewModel::nextPage,
                 enabled = state.currentPage < state.pageCount - 1,
             ) {
-                Icon(Icons.Filled.ChevronRight, contentDescription = "Next page", tint = Accent)
+                Icon(Icons.Filled.ChevronRight, contentDescription = stringResource(R.string.material_next_page), tint = Accent)
             }
 
             Spacer(Modifier.width(dimens.gutter))
@@ -95,7 +97,7 @@ fun MaterialViewerScreen(
             ) {
                 Icon(Icons.Filled.Draw, contentDescription = null, tint = Accent)
                 Spacer(Modifier.width(6.dp))
-                Text("Annotate on board", color = Accent)
+                Text(stringResource(R.string.material_annotate_on_board), color = Accent)
             }
         }
 
@@ -117,7 +119,7 @@ fun MaterialViewerScreen(
 
                 state.pageBitmap != null -> Image(
                     bitmap = state.pageBitmap!!.asImageBitmap(),
-                    contentDescription = "Page ${state.currentPage + 1}",
+                    contentDescription = stringResource(R.string.material_page, state.currentPage + 1),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
@@ -125,7 +127,7 @@ fun MaterialViewerScreen(
                 )
 
                 else -> Text(
-                    "Nothing to show.",
+                    stringResource(R.string.material_nothing_to_show),
                     color = TextOnSurfaceMuted,
                     fontSize = dimens.bodySize,
                 )

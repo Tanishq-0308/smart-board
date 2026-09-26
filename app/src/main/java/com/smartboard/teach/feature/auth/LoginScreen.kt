@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.theme.ErrorRed
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
 import com.smartboard.teach.core.ui.theme.TextOnSurface
@@ -70,15 +72,14 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "Teacher Sign In",
+                text = stringResource(R.string.login_title),
                 fontSize = dimens.headlineSize,
                 fontWeight = FontWeight.SemiBold,
                 color = TextOnSurface,
             )
             Spacer(Modifier.height(dimens.gutterSmall))
             Text(
-                text = "Sign in to see your classes, attendance and study material. " +
-                    "The whiteboard and notes work without signing in.",
+                text = stringResource(R.string.login_intro),
                 fontSize = dimens.bodySize,
                 color = TextOnSurfaceMuted,
             )
@@ -88,7 +89,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = state.username,
                 onValueChange = viewModel::onUsernameChange,
-                label = { Text("Username") },
+                label = { Text(stringResource(R.string.login_username)) },
                 singleLine = true,
                 enabled = !state.isSubmitting,
                 modifier = Modifier.fillMaxWidth(),
@@ -103,7 +104,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = state.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = { Text("Password") },
+                label = { Text(stringResource(R.string.login_password)) },
                 singleLine = true,
                 enabled = !state.isSubmitting,
                 modifier = Modifier.fillMaxWidth(),
@@ -126,9 +127,9 @@ fun LoginScreen(
                                 Icons.Filled.Visibility
                             },
                             contentDescription = if (passwordVisible) {
-                                "Hide password"
+                                stringResource(R.string.login_hide_password)
                             } else {
-                                "Show password"
+                                stringResource(R.string.login_show_password)
                             },
                         )
                     }
@@ -156,7 +157,7 @@ fun LoginScreen(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text("Sign In", fontSize = dimens.bodySize, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.nav_login), fontSize = dimens.bodySize, fontWeight = FontWeight.Medium)
                 }
             }
 
@@ -204,7 +205,7 @@ private fun DemoCredentialsHint() {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = "Demo accounts (Phase 1)",
+                text = stringResource(R.string.login_demo_accounts),
                 fontSize = dimens.labelSize,
                 fontWeight = FontWeight.SemiBold,
                 color = TextOnSurfaceMuted,

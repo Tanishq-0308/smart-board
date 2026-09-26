@@ -18,8 +18,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
 import com.smartboard.teach.core.ui.theme.StatusPresent
 import com.smartboard.teach.core.ui.theme.TextOnSurfaceMuted
@@ -51,23 +53,23 @@ fun SnapshotDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         confirmButton = {
             when (phase) {
-                is SnapshotPhase.Done -> TextButton(onClick = onOpenNotes) { Text("Open notes") }
-                is SnapshotPhase.Failed -> TextButton(onClick = onOpenNotes) { Text("View in Notes") }
+                is SnapshotPhase.Done -> TextButton(onClick = onOpenNotes) { Text(stringResource(R.string.snapshot_open_notes)) }
+                is SnapshotPhase.Failed -> TextButton(onClick = onOpenNotes) { Text(stringResource(R.string.snapshot_view_in_notes)) }
                 else -> Unit
             }
         },
         dismissButton = if (!busy) {
-            { TextButton(onClick = onDismiss) { Text("Close") } }
+            { TextButton(onClick = onDismiss) { Text(stringResource(R.string.snapshot_close)) } }
         } else {
             null
         },
         title = {
             Text(
                 text = when (phase) {
-                    SnapshotPhase.Capturing -> "Capturing the board"
-                    SnapshotPhase.Summarizing -> "Creating notes"
-                    is SnapshotPhase.Done -> "Notes created"
-                    is SnapshotPhase.Failed -> "Board saved"
+                    SnapshotPhase.Capturing -> stringResource(R.string.snapshot_title_capturing)
+                    SnapshotPhase.Summarizing -> stringResource(R.string.snapshot_title_summarizing)
+                    is SnapshotPhase.Done -> stringResource(R.string.snapshot_title_done)
+                    is SnapshotPhase.Failed -> stringResource(R.string.snapshot_title_failed)
                 },
                 fontSize = dimens.titleSize,
                 fontWeight = FontWeight.SemiBold,
@@ -76,23 +78,23 @@ fun SnapshotDialog(
         text = {
             Column(Modifier.widthIn(min = 360.dp)) {
                 when (phase) {
-                    SnapshotPhase.Capturing -> BusyRow("Flattening the board…")
+                    SnapshotPhase.Capturing -> BusyRow(stringResource(R.string.snapshot_flattening))
 
                     SnapshotPhase.Summarizing -> BusyRow(
-                        "Reading the board and writing notes. This can take a few seconds.",
+                        stringResource(R.string.snapshot_summarizing_detail),
                     )
 
                     is SnapshotPhase.Done -> IconRow(
                         icon = Icons.Filled.CheckCircle,
                         tint = StatusPresent,
-                        text = "\"${phase.title}\" was saved to Notes.",
+                        text = stringResource(R.string.snapshot_saved_to_notes, phase.title),
                     )
 
                     is SnapshotPhase.Failed -> Column {
                         IconRow(
                             icon = Icons.Filled.CloudOff,
                             tint = WarningAmber,
-                            text = "The board image was saved. The summary could not be created.",
+                            text = stringResource(R.string.snapshot_failed_detail),
                         )
                         Spacer(Modifier.height(dimens.gutterSmall))
                         Text(
@@ -102,7 +104,7 @@ fun SnapshotDialog(
                         )
                         Spacer(Modifier.height(dimens.gutterSmall))
                         Text(
-                            "You can retry from the Notes screen when you are back online.",
+                            stringResource(R.string.snapshot_retry_hint),
                             fontSize = dimens.labelSize,
                             color = TextOnSurfaceMuted,
                         )

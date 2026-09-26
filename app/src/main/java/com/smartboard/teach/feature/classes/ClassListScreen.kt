@@ -30,10 +30,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.EmptyState
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
@@ -53,8 +56,8 @@ fun ClassListScreen(
 
     if (classes.isEmpty()) {
         EmptyState(
-            title = "No classes assigned",
-            detail = "Classes assigned to you will appear here.",
+            title = stringResource(R.string.classes_empty_title),
+            detail = stringResource(R.string.classes_empty_detail),
             icon = Icons.Filled.Groups,
             modifier = modifier,
         )
@@ -123,7 +126,7 @@ private fun ClassCard(
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                text = "${schoolClass.studentCount} students",
+                text = pluralStringResource(R.plurals.classes_student_count, schoolClass.studentCount, schoolClass.studentCount),
                 fontSize = dimens.labelSize,
                 color = TextOnSurfaceMuted,
             )
@@ -139,7 +142,7 @@ private fun ClassCard(
                     modifier = Modifier.size(dimens.iconSize * 0.8f),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("Attendance", color = Accent, fontSize = dimens.labelSize)
+                Text(stringResource(R.string.nav_attendance), color = Accent, fontSize = dimens.labelSize)
             }
         }
     }

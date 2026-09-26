@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared -->
+    <string name="screens_action_back">Back</string>
+    <string name="screens_action_dismiss">Dismiss</string>
+
+    <!-- Shell -->
+    <string name="nav_maths3d">3D Maths</string>
+    <string name="sidebar_signed_in">Signed in</string>
+    <string name="sidebar_guest_subtitle">Board &amp; notes available</string>
+    <string name="shell_open_menu">Open menu</string>
+    <string name="shell_close_menu">Close menu</string>
+
+    <!-- Attendance -->
+    <string name="attendance_editing_saved">Editing saved attendance</string>
+    <string name="attendance_mark_all_present">Mark all present</string>
+    <string name="attendance_clear_all">Clear all</string>
+    <string name="attendance_present">Present</string>
+    <string name="attendance_absent">Absent</string>
+    <string name="attendance_late">Late</string>
+    <string name="attendance_unmarked">Unmarked</string>
+    <string name="attendance_save">Save attendance</string>
+    <string name="attendance_previous_day">Previous day</string>
+    <string name="attendance_next_day">Next day</string>
+
+    <!-- Login -->
+    <string name="login_title">Teacher Sign In</string>
+    <string name="login_intro">Sign in to see your classes, attendance and study material. The whiteboard and notes work without signing in.</string>
+    <string name="login_username">Username</string>
+    <string name="login_password">Password</string>
+    <string name="login_hide_password">Hide password</string>
+    <string name="login_show_password">Show password</string>
+    <string name="login_demo_accounts">Demo accounts (Phase 1)</string>
+
+    <!-- Classes -->
+    <string name="classes_back_label">Classes</string>
+    <string name="classes_take_attendance">Take attendance</string>
+    <string name="classes_roll_number">Roll %1$s</string>
+    <string name="classes_empty_title">No classes assigned</string>
+    <string name="classes_empty_detail">Classes assigned to you will appear here.</string>
+    <plurals name="classes_student_count">
+        <item quantity="one">%1$d students</item>
+        <item quantity="other">%1$d students</item>
+    </plurals>
+
+    <!-- Study material -->
+    <string name="material_empty_title">No study material</string>
+    <string name="material_empty_detail">Material assigned to you will appear here.</string>
+    <string name="material_back_label">Material</string>
+    <string name="material_previous_page">Previous page</string>
+    <string name="material_next_page">Next page</string>
+    <string name="material_page_of">Page %1$d of %2$d</string>
+    <string name="material_page">Page %1$d</string>
+    <string name="material_annotate_on_board">Annotate on board</string>
+    <string name="material_nothing_to_show">Nothing to show.</string>
+
+    <!-- Notes -->
+    <string name="notes_export">Export</string>
+    <string name="notes_no_summary">This note has no summary yet.</string>
+    <string name="notes_empty_title">No notes yet</string>
+    <string name="notes_empty_detail">Use the camera button on the whiteboard to capture the board and turn it into notes.</string>
+    <string name="notes_summary_pending">Summary pending.</string>
+    <string name="notes_delete">Delete note</string>
+    <string name="notes_pending_banner">Board saved — summary pending</string>
+    <string name="notes_retrying">Retrying…</string>
+    <string name="notes_retry">Retry</string>
+
+    <!-- Board snapshot dialog -->
+    <string name="snapshot_open_notes">Open notes</string>
+    <string name="snapshot_view_in_notes">View in Notes</string>
+    <string name="snapshot_close">Close</string>
+    <string name="snapshot_title_capturing">Capturing the board</string>
+    <string name="snapshot_title_summarizing">Creating notes</string>
+    <string name="snapshot_title_done">Notes created</string>
+    <string name="snapshot_title_failed">Board saved</string>
+    <string name="snapshot_flattening">Flattening the board…</string>
+    <string name="snapshot_summarizing_detail">Reading the board and writing notes. This can take a few seconds.</string>
+    <string name="snapshot_saved_to_notes">\"%1$s\" was saved to Notes.</string>
+    <string name="snapshot_failed_detail">The board image was saved. The summary could not be created.</string>
+    <string name="snapshot_retry_hint">You can retry from the Notes screen when you are back online.</string>
+
+    <!-- Settings -->
+    <string name="settings_section_pen">Pen and touch</string>
+    <string name="settings_pen_intro">Interactive boards report pen input differently. If the pen behaves oddly, adjust these before assuming a fault.</string>
+    <string name="settings_stylus_only">Stylus only</string>
+    <string name="settings_stylus_only_detail">Ignore finger and palm touches entirely. The most reliable palm rejection on a board that has a pen.</string>
+    <string name="settings_pressure">Pressure sensitivity</string>
+    <string name="settings_pressure_detail">Vary stroke width with pen pressure. Turn off if your board reports a fixed pressure and strokes look uneven.</string>
+    <string name="settings_pen_eraser">Pen eraser button</string>
+    <string name="settings_pen_eraser_detail">Treat the eraser end of the pen as an eraser, whatever tool is selected.</string>
+    <string name="settings_pointer_debug">Pointer debug overlay</string>
+    <string name="settings_pointer_debug_detail">Show live pointer type, pressure and contact count on the board. Use this when setting up new hardware.</string>
+    <string name="settings_section_display">Display</string>
+    <string name="settings_24h_clock">24-hour clock</string>
+    <string name="settings_24h_clock_detail">Show the header clock in 24-hour time.</string>
+    <string name="settings_section_ai">AI notes</string>
+    <string name="settings_ai_configured">Configured — model %1$s</string>
+    <string name="settings_ai_not_configured">No API key. Add OPENAI_API_KEY to local.properties and rebuild. Board snapshots are still saved and can be summarised later.</string>
+    <string name="settings_section_storage">Storage</string>
+    <string name="settings_storage_detail">Removes saved board pages and imported backgrounds. Notes and class lists are kept.</string>
+    <string name="settings_clearing">Clearing…</string>
+    <string name="settings_clear_board_data">Clear board data</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_app_version">Smart Board %1$s</string>
+    <string name="settings_about_phase">Phase 1 — local data. ERP and LMS integration follows in Phase 2.</string>
+    <string name="settings_status_ok">OK</string>
+</resources>

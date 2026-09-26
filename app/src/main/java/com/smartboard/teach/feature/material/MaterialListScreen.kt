@@ -27,11 +27,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.EmptyState
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
@@ -51,8 +53,8 @@ fun MaterialListScreen(
 
     if (materials.isEmpty()) {
         EmptyState(
-            title = "No study material",
-            detail = "Material assigned to you will appear here.",
+            title = stringResource(R.string.material_empty_title),
+            detail = stringResource(R.string.material_empty_detail),
             icon = Icons.AutoMirrored.Filled.MenuBook,
             modifier = modifier,
         )

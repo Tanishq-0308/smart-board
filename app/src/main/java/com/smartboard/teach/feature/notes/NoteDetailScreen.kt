@@ -24,11 +24,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.chromeInset
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
@@ -55,7 +57,7 @@ fun NoteDetailScreen(
             TextButton(onClick = onBack, modifier = Modifier.chromeInset()) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Accent)
                 Spacer(Modifier.width(6.dp))
-                Text("Notes", color = Accent)
+                Text(stringResource(R.string.nav_notes), color = Accent)
             }
             Spacer(Modifier.weight(1f))
             state.note?.let { note ->
@@ -65,7 +67,7 @@ fun NoteDetailScreen(
                     ) {
                         Icon(Icons.Filled.IosShare, contentDescription = null, tint = Accent)
                         Spacer(Modifier.width(6.dp))
-                        Text("Export", color = Accent)
+                        Text(stringResource(R.string.notes_export), color = Accent)
                     }
                 }
             }
@@ -78,7 +80,7 @@ fun NoteDetailScreen(
 
             state.markdown == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Text(
-                    "This note has no summary yet.",
+                    stringResource(R.string.notes_no_summary),
                     color = TextOnSurfaceMuted,
                     fontSize = dimens.bodySize,
                 )

@@ -34,11 +34,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.EmptyState
 import com.smartboard.teach.core.ui.theme.Accent
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
@@ -62,9 +64,8 @@ fun NotesListScreen(
     Box(modifier.fillMaxSize()) {
         if (notes.isEmpty()) {
             EmptyState(
-                title = "No notes yet",
-                detail = "Use the camera button on the whiteboard to capture the board " +
-                    "and turn it into notes.",
+                title = stringResource(R.string.notes_empty_title),
+                detail = stringResource(R.string.notes_empty_detail),
                 icon = Icons.Filled.Description,
             )
         } else {
@@ -97,7 +98,7 @@ fun NotesListScreen(
                     .align(Alignment.BottomCenter)
                     .padding(dimens.gutter),
                 action = {
-                    TextButton(onClick = viewModel::clearMessage) { Text("Dismiss") }
+                    TextButton(onClick = viewModel::clearMessage) { Text(stringResource(R.string.screens_action_dismiss)) }
                 },
             ) { Text(message) }
         }
@@ -147,7 +148,7 @@ private fun NoteCard(
             // summary is missing. A generic error here would make a teacher
             // think they lost the lesson.
             PendingBanner(
-                message = note.failureMessage ?: "Summary pending.",
+                message = note.failureMessage ?: stringResource(R.string.notes_summary_pending),
                 isRetrying = isRetrying,
                 onRetry = onRetry,
             )
@@ -169,7 +170,7 @@ private fun NoteCard(
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Filled.DeleteOutline,
-                    contentDescription = "Delete note",
+                    contentDescription = stringResource(R.string.notes_delete),
                     tint = TextOnSurfaceMuted,
                     modifier = Modifier.size(dimens.iconSize),
                 )
@@ -200,7 +201,7 @@ private fun PendingBanner(
             )
             Spacer(Modifier.width(dimens.gutterSmall))
             Text(
-                text = "Board saved — summary pending",
+                text = stringResource(R.string.notes_pending_banner),
                 fontSize = dimens.labelSize,
                 fontWeight = FontWeight.Medium,
                 color = WarningAmber,
@@ -222,7 +223,7 @@ private fun PendingBanner(
                     strokeWidth = 2.dp,
                 )
                 Spacer(Modifier.width(dimens.gutterSmall))
-                Text("Retrying…", fontSize = dimens.labelSize, color = TextOnSurfaceMuted)
+                Text(stringResource(R.string.notes_retrying), fontSize = dimens.labelSize, color = TextOnSurfaceMuted)
             } else {
                 TextButton(onClick = onRetry) {
                     Icon(
@@ -232,7 +233,7 @@ private fun PendingBanner(
                         modifier = Modifier.size(dimens.iconSize * 0.8f),
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text("Retry", color = Accent, fontSize = dimens.labelSize)
+                    Text(stringResource(R.string.notes_retry), color = Accent, fontSize = dimens.labelSize)
                 }
             }
         }

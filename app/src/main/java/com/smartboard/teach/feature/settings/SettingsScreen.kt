@@ -59,40 +59,35 @@ fun SettingsScreen(
                 ),
         ) {
             Column(Modifier.widthIn(max = 820.dp)) {
-                SectionHeader("Pen and touch")
+                SectionHeader(stringResource(R.string.settings_section_pen))
                 Text(
-                    text = "Interactive boards report pen input differently. If the pen " +
-                        "behaves oddly, adjust these before assuming a fault.",
+                    text = stringResource(R.string.settings_pen_intro),
                     fontSize = dimens.labelSize,
                     color = TextOnSurfaceMuted,
                 )
                 Spacer(Modifier.height(dimens.gutter))
 
                 SettingRow(
-                    title = "Stylus only",
-                    detail = "Ignore finger and palm touches entirely. The most reliable " +
-                        "palm rejection on a board that has a pen.",
+                    title = stringResource(R.string.settings_stylus_only),
+                    detail = stringResource(R.string.settings_stylus_only_detail),
                     checked = settings.stylusOnlyMode,
                     onCheckedChange = viewModel::setStylusOnly,
                 )
                 SettingRow(
-                    title = "Pressure sensitivity",
-                    detail = "Vary stroke width with pen pressure. Turn off if your board " +
-                        "reports a fixed pressure and strokes look uneven.",
+                    title = stringResource(R.string.settings_pressure),
+                    detail = stringResource(R.string.settings_pressure_detail),
                     checked = settings.pressureSensitivity,
                     onCheckedChange = viewModel::setPressure,
                 )
                 SettingRow(
-                    title = "Pen eraser button",
-                    detail = "Treat the eraser end of the pen as an eraser, whatever tool " +
-                        "is selected.",
+                    title = stringResource(R.string.settings_pen_eraser),
+                    detail = stringResource(R.string.settings_pen_eraser_detail),
                     checked = settings.honourEraserButton,
                     onCheckedChange = viewModel::setEraserButton,
                 )
                 SettingRow(
-                    title = "Pointer debug overlay",
-                    detail = "Show live pointer type, pressure and contact count on the " +
-                        "board. Use this when setting up new hardware.",
+                    title = stringResource(R.string.settings_pointer_debug),
+                    detail = stringResource(R.string.settings_pointer_debug_detail),
                     checked = settings.showPointerDebug,
                     onCheckedChange = viewModel::setPointerDebug,
                 )
@@ -112,28 +107,26 @@ fun SettingsScreen(
                 }
 
                 Spacer(Modifier.height(dimens.gutterLarge))
-                SectionHeader("Display")
+                SectionHeader(stringResource(R.string.settings_section_display))
                 SettingRow(
-                    title = "24-hour clock",
-                    detail = "Show the header clock in 24-hour time.",
+                    title = stringResource(R.string.settings_24h_clock),
+                    detail = stringResource(R.string.settings_24h_clock_detail),
                     checked = settings.use24HourClock,
                     onCheckedChange = viewModel::set24HourClock,
                 )
 
                 Spacer(Modifier.height(dimens.gutterLarge))
-                SectionHeader("AI notes")
+                SectionHeader(stringResource(R.string.settings_section_ai))
                 StatusLine(
                     ok = viewModel.isAiConfigured,
-                    okText = "Configured — model ${viewModel.aiModel}",
-                    notOkText = "No API key. Add OPENAI_API_KEY to local.properties and " +
-                        "rebuild. Board snapshots are still saved and can be summarised later.",
+                    okText = stringResource(R.string.settings_ai_configured, viewModel.aiModel),
+                    notOkText = stringResource(R.string.settings_ai_not_configured),
                 )
 
                 Spacer(Modifier.height(dimens.gutterLarge))
-                SectionHeader("Storage")
+                SectionHeader(stringResource(R.string.settings_section_storage))
                 Text(
-                    text = "Removes saved board pages and imported backgrounds. " +
-                        "Notes and class lists are kept.",
+                    text = stringResource(R.string.settings_storage_detail),
                     fontSize = dimens.labelSize,
                     color = TextOnSurfaceMuted,
                 )
@@ -144,18 +137,18 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(dimens.cornerRadius),
                     modifier = Modifier.height(dimens.touchTarget),
                 ) {
-                    Text(if (uiState.isClearing) "Clearing…" else "Clear board data")
+                    Text(stringResource(if (uiState.isClearing) R.string.settings_clearing else R.string.settings_clear_board_data))
                 }
 
                 Spacer(Modifier.height(dimens.gutterLarge))
-                SectionHeader("About")
+                SectionHeader(stringResource(R.string.settings_section_about))
                 Text(
-                    text = "Smart Board ${viewModel.appVersion}",
+                    text = stringResource(R.string.settings_app_version, viewModel.appVersion),
                     fontSize = dimens.labelSize,
                     color = TextOnSurfaceMuted,
                 )
                 Text(
-                    text = "Phase 1 — local data. ERP and LMS integration follows in Phase 2.",
+                    text = stringResource(R.string.settings_about_phase),
                     fontSize = dimens.labelSize,
                     color = TextOnSurfaceMuted,
                 )
@@ -168,7 +161,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(dimens.gutter),
-                action = { TextButton(onClick = viewModel::dismissMessage) { Text("Dismiss") } },
+                action = { TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(R.string.screens_action_dismiss)) } },
             ) { Text(message) }
         }
     }
@@ -221,7 +214,7 @@ private fun StatusLine(ok: Boolean, okText: String, notOkText: String) {
         verticalAlignment = Alignment.Top,
     ) {
         Text(
-            text = if (ok) "OK" else "!",
+            text = if (ok) stringResource(R.string.settings_status_ok) else "!",
             fontSize = dimens.bodySize,
             fontWeight = FontWeight.Bold,
             color = color,
