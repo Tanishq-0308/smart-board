@@ -1,6 +1,7 @@
 package com.smartboard.teach.feature.maths3d
 
 import android.content.Context
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -60,6 +61,8 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -70,6 +73,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.smartboard.teach.R
 import com.smartboard.teach.core.ui.component.FloatingIsland
 import com.smartboard.teach.core.ui.component.chromeInset
 import com.smartboard.teach.core.ui.theme.ChromeBorder
@@ -148,26 +152,26 @@ fun Maths3DScreen(
     var inserting by remember { mutableStateOf(false) }
 
     val boardPane: @Composable (Modifier) -> Unit = { m ->
-        Pane("1. Draw a shape", m, actions = {
-            Pill("Multi", selected = viewModel.multi) { viewModel.toggleMulti() }
-            Pill("↶ Undo", enabled = viewModel.canUndo) { viewModel.undo() }
-            Pill("Clear", enabled = shape != null) { viewModel.clear() }
+        Pane(stringResource(R.string.m3d_pane_draw), m, actions = {
+            Pill(stringResource(R.string.m3d_multi), selected = viewModel.multi) { viewModel.toggleMulti() }
+            Pill(stringResource(R.string.m3d_undo), enabled = viewModel.canUndo) { viewModel.undo() }
+            Pill(stringResource(R.string.m3d_clear), enabled = shape != null) { viewModel.clear() }
         }) {
             ChalkBoard(shape, mode, others, viewModel::onStroke, Modifier.weight(1f).fillMaxWidth())
             Text(
-                viewModel.message, color = TextOnChromeMuted, fontSize = dimens.labelSize,
+                viewModel.message.text(), color = TextOnChromeMuted, fontSize = dimens.labelSize,
                 modifier = Modifier.padding(dimens.gutterSmall),
             )
         }
     }
 
     val viewPane: @Composable (Modifier) -> Unit = { m ->
-        Pane("2. Turn it in 3D", m, actions = {
-            Pill("Auto rotate", selected = autoRotate) { autoRotate = !autoRotate }
-            Pill("Wireframe", selected = wireframe) { wireframe = !wireframe }
-            Pill("Transparent", selected = glass) { glass = !glass }
-            Pill("Labels", selected = labels) { labels = !labels }
-            Pill("Reset view") { resetKey++ }
+        Pane(stringResource(R.string.m3d_pane_view), m, actions = {
+            Pill(stringResource(R.string.m3d_auto_rotate), selected = autoRotate) { autoRotate = !autoRotate }
+            Pill(stringResource(R.string.m3d_wireframe), selected = wireframe) { wireframe = !wireframe }
+            Pill(stringResource(R.string.m3d_transparent), selected = glass) { glass = !glass }
+            Pill(stringResource(R.string.m3d_labels), selected = labels) { labels = !labels }
+            Pill(stringResource(R.string.m3d_reset_view)) { resetKey++ }
         }) {
             SolidViewport(
                 solid, camera, autoRotate, wireframe, glass, labels,
@@ -203,7 +207,7 @@ fun Maths3DScreen(
     }
 
     val mathsPane: @Composable (Modifier) -> Unit = { m ->
-        Pane("3. Maths", m) {
+        Pane(stringResource(R.string.m3d_pane_maths), m) {
             MathsSheet(sheet, viewModel.pi, viewModel::togglePi, Modifier.weight(1f).fillMaxWidth())
         }
     }
@@ -251,10 +255,10 @@ private fun PresetBar(onPreset: (Preset) -> Unit, modifier: Modifier) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("3D Maths", color = SolidAmber, fontSize = dimens.titleSize, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.m3d_title), color = SolidAmber, fontSize = dimens.titleSize, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.width(dimens.gutter))
-        Text("Quick start:", color = TextOnChromeMuted, fontSize = dimens.labelSize)
-        PRESETS.forEach { p -> Pill(p.label) { onPreset(p) } }
+        Text(stringResource(R.string.m3d_quick_start), color = TextOnChromeMuted, fontSize = dimens.labelSize)
+        PRESETS.forEach { p -> Pill(stringResource(p.label)) { onPreset(p) } }
     }
 }
 
@@ -336,16 +340,16 @@ private fun Controls(
         ) {
             shape?.let { s ->
                 modesFor(s).forEach { opt ->
-                    Pill(opt.label, selected = opt.mode == mode, enabled = opt.enabled) { onMode(opt.mode) }
+                    Pill(stringResource(opt.label), selected = opt.mode == mode, enabled = opt.enabled) { onMode(opt.mode) }
                 }
             }
             Spacer(Modifier.weight(1f))
-            Pill("▶ Grow", accent = true, enabled = shape != null, onClick = onGrow)
-            Pill(if (inserting) "Inserting…" else "Insert on board", enabled = shape != null && !inserting, onClick = onInsert)
+            Pill(stringResource(R.string.m3d_grow), accent = true, enabled = shape != null, onClick = onGrow)
+            Pill(stringResource(if (inserting) R.string.m3d_inserting else R.string.m3d_insert), enabled = shape != null && !inserting, onClick = onInsert)
         }
         val needsHeight = shape != null && mode != Mode.SPHERE && mode != Mode.REVOLVE
         Row(Modifier.fillMaxWidth().alpha(if (needsHeight) 1f else 0f), verticalAlignment = Alignment.CenterVertically) {
-            Text("Height (h):", color = TextOnChromeMuted, fontSize = dimens.labelSize)
+            Text(stringResource(R.string.m3d_height), color = TextOnChromeMuted, fontSize = dimens.labelSize)
             Slider(
                 value = h.toFloat(),
                 onValueChange = { onHeight(snap(it.toDouble())) },
@@ -369,7 +373,7 @@ private fun MathsSheet(sheet: Sheet?, pi: PiValue, onTogglePi: () -> Unit, modif
     val formulaFont = FontFamily.Serif
     if (sheet == null) {
         Text(
-            "Draw a shape or pick a preset above. Its name, formulas and worked answers appear here.",
+            stringResource(R.string.m3d_empty_sheet),
             color = TextOnChromeMuted, fontSize = dimens.bodySize,
             modifier = modifier.padding(dimens.gutter),
         )
@@ -381,11 +385,11 @@ private fun MathsSheet(sheet: Sheet?, pi: PiValue, onTogglePi: () -> Unit, modif
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            Text(sheet.name, color = SolidAmber, fontSize = dimens.headlineSize, fontWeight = FontWeight.SemiBold)
+            Text(sheet.name.text(), color = SolidAmber, fontSize = dimens.headlineSize, fontWeight = FontWeight.SemiBold)
         }
         item {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                sheet.given.forEach { Pill(it) {} }
+                sheet.given.forEach { Pill(it.text()) {} }
                 if (sheet.usesPi) Pill("π = ${pi.text} ⇄", onClick = onTogglePi)
             }
         }
@@ -398,9 +402,10 @@ private fun MathsSheet(sheet: Sheet?, pi: PiValue, onTogglePi: () -> Unit, modif
                     .border(1.dp, ChromeBorder, RoundedCornerShape(10.dp))
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
-                Text(card.title.uppercase(), color = TextOnChromeMuted, fontSize = 12.sp, letterSpacing = 0.6.sp)
-                Text(card.formula, color = TextOnChrome, fontSize = 18.sp, fontFamily = formulaFont)
-                if (card.steps.isNotEmpty()) Text(card.steps, color = TextOnChromeMuted, fontSize = 15.sp, fontFamily = formulaFont)
+                val steps = card.steps.text()
+                Text(stringResource(card.title).uppercase(), color = TextOnChromeMuted, fontSize = 12.sp, letterSpacing = 0.6.sp)
+                Text(card.formula.text(), color = TextOnChrome, fontSize = 18.sp, fontFamily = formulaFont)
+                if (steps.isNotEmpty()) Text(steps, color = TextOnChromeMuted, fontSize = 15.sp, fontFamily = formulaFont)
                 Text(card.answer, color = DimTeal, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             }
         }
@@ -414,15 +419,15 @@ private fun MathsSheet(sheet: Sheet?, pi: PiValue, onTogglePi: () -> Unit, modif
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text("EULER'S FORMULA  F + V − E = 2", color = TextOnChromeMuted, fontSize = 12.sp, letterSpacing = 0.6.sp)
+                    Text(stringResource(R.string.m3d_euler_title).uppercase() + "  F + V − E = 2", color = TextOnChromeMuted, fontSize = 12.sp, letterSpacing = 0.6.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(e.f to "Faces", e.v to "Vertices", e.e to "Edges").forEach { (n, label) ->
+                        listOf(e.f to R.string.m3d_faces, e.v to R.string.m3d_vertices, e.e to R.string.m3d_edges).forEach { (n, label) ->
                             Column(
                                 Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(ChromeDark).padding(vertical = 6.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text("$n", color = SolidAmber, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                                Text(label, color = TextOnChrome, fontSize = 13.sp)
+                                Text(stringResource(label), color = TextOnChrome, fontSize = 13.sp)
                             }
                         }
                     }
@@ -430,7 +435,7 @@ private fun MathsSheet(sheet: Sheet?, pi: PiValue, onTogglePi: () -> Unit, modif
                 }
             }
         }
-        sheet.note?.let { item { Text(it, color = TextOnChromeMuted, fontSize = 13.sp) } }
+        sheet.note?.let { item { Text(it.text(), color = TextOnChromeMuted, fontSize = 13.sp) } }
     }
 }
 
@@ -449,6 +454,8 @@ private fun ChalkBoard(
 ) {
     val stroke = remember { mutableStateListOf<P>() }
     val measurer = rememberTextMeasurer(cacheSize = 32)
+    val axisLabel = stringResource(R.string.m3d_axis)
+    val scaleLabel = stringResource(R.string.m3d_box_scale)
     Box(modifier) {
         Canvas(
             Modifier
@@ -485,8 +492,8 @@ private fun ChalkBoard(
                 DimTeal.copy(alpha = 0.55f), Offset(size.width / 2, 0f), Offset(size.width / 2, size.height),
                 1.5f * density, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8 * density, 6 * density)),
             )
-            chalkText(measurer, "axis ↻", Offset(size.width / 2 + 6 * density, 6 * density), DimTeal.copy(alpha = 0.8f), centre = false)
-            chalkText(measurer, "1 box = 1 cm", Offset(size.width - 90 * density, 6 * density), Chalk.copy(alpha = 0.5f), centre = false)
+            chalkText(measurer, axisLabel, Offset(size.width / 2 + 6 * density, 6 * density), DimTeal.copy(alpha = 0.8f), centre = false)
+            chalkText(measurer, scaleLabel, Offset(size.width - 90 * density, 6 * density), Chalk.copy(alpha = 0.5f), centre = false)
 
             // Unselected shapes faint and unlabelled, under the selected one.
             others.forEach { drawShape(it.shape, it.mode, measurer, ::px, selected = false) }
@@ -502,8 +509,7 @@ private fun ChalkBoard(
         }
         if (shape == null && stroke.isEmpty()) {
             Text(
-                "Draw a closed shape (circle, square, triangle…) → prism / cylinder\n" +
-                    "Draw an open line right of the axis → it turns into a vase or bowl",
+                stringResource(R.string.m3d_board_hint),
                 color = Chalk.copy(alpha = 0.75f), fontSize = 13.sp, textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
             )
@@ -600,6 +606,7 @@ private fun DrawScope.drawShape(
  * copies it into its own media store.
  */
 private fun saveSnapshot(context: Context, view: Bitmap, sheet: Sheet): File {
+    val res = context.resources
     // A hardware bitmap cannot be drawn into a software canvas; copy first.
     val src = view.copy(Bitmap.Config.ARGB_8888, false)
     val w = src.width
@@ -615,11 +622,14 @@ private fun saveSnapshot(context: Context, view: Bitmap, sheet: Sheet): File {
         color = SolidAmber.toArgb()
     }
     val x = textSize * 0.8f
-    canvas.drawText(sheet.name, x, src.height + textSize * 1.3f, paint)
+    canvas.drawText(sheet.name.resolve(res), x, src.height + textSize * 1.3f, paint)
     paint.typeface = Typeface.DEFAULT
     paint.textSize = textSize * 0.8f
     paint.color = DimTeal.toArgb()
-    canvas.drawText(sheet.summary, x, src.height + textSize * 2.6f, paint)
+    val summary = sheet.summary.joinToString("   ") { (label, answer) ->
+        res.getString(R.string.m3d_caption_item, res.getString(label), answer)
+    }
+    canvas.drawText(summary, x, src.height + textSize * 2.6f, paint)
     src.recycle()
 
     val dir = File(context.cacheDir, "maths3d").apply { mkdirs() }
@@ -628,3 +638,15 @@ private fun saveSnapshot(context: Context, view: Bitmap, sheet: Sheet): File {
     out.recycle()
     return file
 }
+
+// --- text -----------------------------------------------------------------------
+
+/** Resolves text built by the pure maths code; [Txt] args resolve too. */
+internal fun Txt.resolve(res: Resources): String = when (this) {
+    is Txt.Raw -> text
+    is Txt.Res -> res.getString(id, *args.map { if (it is Txt) it.resolve(res) else it }.toTypedArray())
+    is Txt.Plural -> res.getQuantityString(id, count, count)
+}
+
+@Composable
+private fun Txt.text() = resolve(LocalResources.current)

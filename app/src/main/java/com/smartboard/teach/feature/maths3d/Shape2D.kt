@@ -1,5 +1,7 @@
 package com.smartboard.teach.feature.maths3d
 
+import androidx.annotation.StringRes
+import com.smartboard.teach.R
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.acos
@@ -26,35 +28,35 @@ import kotlin.math.sqrt
 data class P(val x: Double, val y: Double)
 
 sealed interface Shape2D {
-    val name: String
+    @get:StringRes val name: Int
 
     data class Circle(val cx: Double, val cy: Double, val r: Double) : Shape2D {
-        override val name get() = "Circle"
+        override val name get() = R.string.m3d_shape_circle
     }
 
     data class Rect(val cx: Double, val cy: Double, val w: Double, val h: Double) : Shape2D {
         val square get() = w == h
-        override val name get() = if (square) "Square" else "Rectangle"
+        override val name get() = if (square) R.string.m3d_shape_square else R.string.m3d_shape_rectangle
     }
 
     data class Polygon(
         val pts: List<P>,
-        override val name: String,
+        @StringRes override val name: Int,
         val regular: Boolean = false,
         val free: Boolean = false,
     ) : Shape2D
 
     data class Profile(val pts: List<P>) : Shape2D {
-        override val name get() = "Profile curve"
+        override val name get() = R.string.m3d_shape_profile
     }
 }
 
-enum class Mode(val label: String) {
-    PRISM("Prism"), PYRAMID("Pyramid"), CYLINDER("Cylinder"),
-    CONE("Cone"), SPHERE("Sphere"), REVOLVE("Revolve"),
+enum class Mode(@StringRes val label: Int) {
+    PRISM(R.string.m3d_solid_prism), PYRAMID(R.string.m3d_solid_pyramid), CYLINDER(R.string.m3d_solid_cylinder),
+    CONE(R.string.m3d_solid_cone), SPHERE(R.string.m3d_solid_sphere), REVOLVE(R.string.m3d_mode_revolve),
 }
 
-data class ModeOption(val mode: Mode, val label: String, val enabled: Boolean = true)
+data class ModeOption(val mode: Mode, @StringRes val label: Int, val enabled: Boolean = true)
 
 const val SNAP = 0.5
 
@@ -151,9 +153,15 @@ fun angleAt(pts: List<P>, i: Int): Double {
 
 // --- recognition --------------------------------------------------------------
 
+// Only 5..8 corners reach makeNGon; 3 and 4 have their own recognisers.
 private val POLY_NAMES = mapOf(
-    3 to "Triangle", 4 to "Quadrilateral", 5 to "Pentagon",
-    6 to "Hexagon", 7 to "Heptagon", 8 to "Octagon",
+    5 to R.string.m3d_shape_pentagon, 6 to R.string.m3d_shape_hexagon,
+    7 to R.string.m3d_shape_heptagon, 8 to R.string.m3d_shape_octagon,
+)
+
+private val REGULAR_NAMES = mapOf(
+    5 to R.string.m3d_shape_regular_pentagon, 6 to R.string.m3d_shape_regular_hexagon,
+    7 to R.string.m3d_shape_regular_heptagon, 8 to R.string.m3d_shape_regular_octagon,
 )
 
 /** A raw stroke in board units → a shape, or null when it is too small to read. */
@@ -202,7 +210,7 @@ fun recognise(raw: List<P>): Shape2D? {
         else -> {
             // Anything else: keep the drawn outline, simplified.
             val outline = rdp(resample(stroke, 96, false), 0.12).dropLast(1)
-            if (outline.size < 3) null else Shape2D.Polygon(outline, "Free shape", free = true)
+            if (outline.size < 3) null else Shape2D.Polygon(outline, R.string.m3d_shape_free, free = true)
         }
     }
 }
@@ -212,10 +220,10 @@ private fun makeTriangle(corners: List<P>): Shape2D? {
     if (polyArea(pts) < 0.25) return null
     val s = sides(pts).sorted()
     val angles = pts.indices.map { angleAt(pts, it) }
-    var name = "Scalene Triangle"
+    var name = R.string.m3d_shape_scalene_triangle
     var regular = false
     if (s[2] - s[0] < 0.08 * s[2]) {
-        name = "Equilateral Triangle"
+        name = R.string.m3d_shape_equilateral_triangle
         regular = true
         // Make it exactly equilateral around its centroid, keeping the first vertex direction.
         val c = centroid(pts)
@@ -223,9 +231,9 @@ private fun makeTriangle(corners: List<P>): Shape2D? {
         val a0 = atan2(pts[0].y - c.y, pts[0].x - c.x)
         pts = (0 until 3).map { P(c.x + rr * cos(a0 + it * 2 * PI / 3), c.y + rr * sin(a0 + it * 2 * PI / 3)) }
     } else if (angles.any { abs(it - 90) < 6 }) {
-        name = "Right Triangle"
+        name = R.string.m3d_shape_right_triangle
     } else if (s[1] - s[0] < 0.08 * s[1] || s[2] - s[1] < 0.08 * s[2]) {
-        name = "Isosceles Triangle"
+        name = R.string.m3d_shape_isosceles_triangle
     }
     return Shape2D.Polygon(pts, name, regular)
 }
@@ -255,10 +263,10 @@ private fun makeQuad(corners: List<P>): Shape2D? {
         return abs(cross) / (dist(a, b) * dist(c, d)) < 0.12
     }
     val name = when {
-        rightAngles -> "Rectangle (tilted)"
-        parallel(0) && parallel(1) -> if (s.max() - s.min() < 0.1 * s.max()) "Rhombus" else "Parallelogram"
-        parallel(0) || parallel(1) -> "Trapezium"
-        else -> "Quadrilateral"
+        rightAngles -> R.string.m3d_shape_rectangle_tilted
+        parallel(0) && parallel(1) -> if (s.max() - s.min() < 0.1 * s.max()) R.string.m3d_shape_rhombus else R.string.m3d_shape_parallelogram
+        parallel(0) || parallel(1) -> R.string.m3d_shape_trapezium
+        else -> R.string.m3d_shape_quadrilateral
     }
     return Shape2D.Polygon(pts, name)
 }
@@ -275,7 +283,7 @@ private fun makeNGon(corners: List<P>): Shape2D {
     val dir = if (signedArea(corners) > 0) 1 else -1
     val cx = snap(c.x); val cy = snap(c.y)
     val pts = (0 until n).map { P(cx + rr * cos(a0 + dir * it * 2 * PI / n), cy + rr * sin(a0 + dir * it * 2 * PI / n)) }
-    return Shape2D.Polygon(pts, "Regular " + POLY_NAMES.getValue(n), regular = true)
+    return Shape2D.Polygon(pts, REGULAR_NAMES.getValue(n), regular = true)
 }
 
 private fun recogniseProfile(raw: List<P>): Shape2D? {
@@ -306,12 +314,12 @@ fun revolvable(shape: Shape2D): Boolean {
 }
 
 fun modesFor(shape: Shape2D): List<ModeOption> {
-    val revolve = ModeOption(Mode.REVOLVE, if (shape is Shape2D.Circle) "Torus (revolve)" else "Revolve", revolvable(shape))
+    val revolve = ModeOption(Mode.REVOLVE, if (shape is Shape2D.Circle) R.string.m3d_mode_torus_revolve else R.string.m3d_mode_revolve, revolvable(shape))
     return when (shape) {
-        is Shape2D.Circle -> listOf(ModeOption(Mode.CYLINDER, "Cylinder"), ModeOption(Mode.CONE, "Cone"), ModeOption(Mode.SPHERE, "Sphere"), revolve)
+        is Shape2D.Circle -> listOf(ModeOption(Mode.CYLINDER, R.string.m3d_solid_cylinder), ModeOption(Mode.CONE, R.string.m3d_solid_cone), ModeOption(Mode.SPHERE, R.string.m3d_solid_sphere), revolve)
         is Shape2D.Profile -> listOf(revolve)
-        is Shape2D.Rect -> listOf(ModeOption(Mode.PRISM, if (shape.square) "Cube / Cuboid" else "Cuboid"), ModeOption(Mode.PYRAMID, "Pyramid"), revolve)
-        is Shape2D.Polygon -> listOf(ModeOption(Mode.PRISM, "Prism"), ModeOption(Mode.PYRAMID, "Pyramid"), revolve)
+        is Shape2D.Rect -> listOf(ModeOption(Mode.PRISM, if (shape.square) R.string.m3d_solid_cube_cuboid else R.string.m3d_solid_cuboid), ModeOption(Mode.PYRAMID, R.string.m3d_solid_pyramid), revolve)
+        is Shape2D.Polygon -> listOf(ModeOption(Mode.PRISM, R.string.m3d_solid_prism), ModeOption(Mode.PYRAMID, R.string.m3d_solid_pyramid), revolve)
     }
 }
 
@@ -356,7 +364,7 @@ fun revolveStats(loop: List<RY>): RevolveStats {
 
 // --- presets ------------------------------------------------------------------
 
-data class Preset(val label: String, val shape: Shape2D, val mode: Mode, val h: Double)
+data class Preset(@StringRes val label: Int, val shape: Shape2D, val mode: Mode, val h: Double)
 
 private fun equilateral(side: Double): List<P> {
     val r = side / sqrt(3.0)
@@ -364,15 +372,15 @@ private fun equilateral(side: Double): List<P> {
 }
 
 val PRESETS = listOf(
-    Preset("Cube", Shape2D.Rect(0.0, 0.0, 4.0, 4.0), Mode.PRISM, 4.0),
-    Preset("Cuboid", Shape2D.Rect(0.0, 0.0, 6.0, 3.0), Mode.PRISM, 4.0),
-    Preset("Cylinder", Shape2D.Circle(0.0, 0.0, 3.0), Mode.CYLINDER, 6.0),
-    Preset("Cone", Shape2D.Circle(0.0, 0.0, 3.0), Mode.CONE, 6.0),
-    Preset("Sphere", Shape2D.Circle(0.0, 0.0, 3.0), Mode.SPHERE, 6.0),
-    Preset("Pyramid", Shape2D.Rect(0.0, 0.0, 4.0, 4.0), Mode.PYRAMID, 5.0),
-    Preset("Tri prism", Shape2D.Polygon(equilateral(4.0), "Equilateral Triangle", regular = true), Mode.PRISM, 6.0),
+    Preset(R.string.m3d_solid_cube, Shape2D.Rect(0.0, 0.0, 4.0, 4.0), Mode.PRISM, 4.0),
+    Preset(R.string.m3d_solid_cuboid, Shape2D.Rect(0.0, 0.0, 6.0, 3.0), Mode.PRISM, 4.0),
+    Preset(R.string.m3d_solid_cylinder, Shape2D.Circle(0.0, 0.0, 3.0), Mode.CYLINDER, 6.0),
+    Preset(R.string.m3d_solid_cone, Shape2D.Circle(0.0, 0.0, 3.0), Mode.CONE, 6.0),
+    Preset(R.string.m3d_solid_sphere, Shape2D.Circle(0.0, 0.0, 3.0), Mode.SPHERE, 6.0),
+    Preset(R.string.m3d_solid_pyramid, Shape2D.Rect(0.0, 0.0, 4.0, 4.0), Mode.PYRAMID, 5.0),
+    Preset(R.string.m3d_preset_tri_prism, Shape2D.Polygon(equilateral(4.0), R.string.m3d_shape_equilateral_triangle, regular = true), Mode.PRISM, 6.0),
     Preset(
-        "Vase", Shape2D.Profile(
+        R.string.m3d_preset_vase, Shape2D.Profile(
             listOf(P(0.0, 4.0), P(2.0, 4.0), P(3.0, 2.5), P(3.2, 0.5), P(2.3, -1.5), P(1.3, -2.5), P(1.4, -3.5), P(2.0, -4.0)),
         ), Mode.REVOLVE, 4.0,
     ),

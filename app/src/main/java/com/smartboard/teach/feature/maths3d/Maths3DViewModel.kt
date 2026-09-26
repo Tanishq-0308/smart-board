@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.smartboard.teach.R
 import kotlin.math.min
 
 /** A drawn shape and how it became a solid. */
@@ -25,7 +26,7 @@ class Maths3DViewModel : ViewModel() {
     var multi by mutableStateOf(false); private set
 
     var pi by mutableStateOf(PiValue.DECIMAL); private set
-    var message by mutableStateOf(NOTHING); private set
+    var message by mutableStateOf<Txt>(NOTHING); private set
 
     /** Bumped to (re)play the grow animation. */
     var growKey by mutableIntStateOf(0); private set
@@ -43,7 +44,7 @@ class Maths3DViewModel : ViewModel() {
             return
         }
         val recognised = recognise(points)
-        if (recognised == null) message = "Couldn't read that — draw it a little bigger and cleaner"
+        if (recognised == null) message = Txt.Res(R.string.m3d_msg_unreadable)
         else setShape(recognised)
     }
 
@@ -53,7 +54,7 @@ class Maths3DViewModel : ViewModel() {
 
     fun toggleMulti() {
         multi = !multi
-        if (multi) message = "Multi: each shape you draw is added. Tap a shape to select it."
+        if (multi) message = Txt.Res(R.string.m3d_msg_multi)
     }
 
     fun undo() {
@@ -123,15 +124,15 @@ class Maths3DViewModel : ViewModel() {
         growKey++
     }
 
-    private fun describe(s: Shape2D) = "Recognised: ${s.name} — " + when (s) {
-        is Shape2D.Circle -> "r = ${fmt(s.r)} cm"
-        is Shape2D.Rect -> if (s.square) "side = ${fmt(s.w)} cm" else "l = ${fmt(s.w)}, b = ${fmt(s.h)} cm"
-        is Shape2D.Profile -> "it will turn around the axis"
-        is Shape2D.Polygon -> "${s.pts.size} sides"
-    }
+    private fun describe(s: Shape2D) = Txt.Res(R.string.m3d_msg_recognised, Txt.Res(s.name), when (s) {
+        is Shape2D.Circle -> "r = ${fmt(s.r)} cm".raw
+        is Shape2D.Rect -> if (s.square) Txt.Res(R.string.m3d_detail_side, fmt(s.w)) else "l = ${fmt(s.w)}, b = ${fmt(s.h)} cm".raw
+        is Shape2D.Profile -> Txt.Res(R.string.m3d_detail_profile)
+        is Shape2D.Polygon -> Txt.Plural(R.plurals.m3d_sides, s.pts.size)
+    })
 
     private companion object {
-        const val NOTHING = "Nothing drawn yet"
+        val NOTHING = Txt.Res(R.string.m3d_msg_nothing)
 
         /** A stroke shorter than this (cm) is a tap, not a drawing. */
         const val TAP_CM = 0.5

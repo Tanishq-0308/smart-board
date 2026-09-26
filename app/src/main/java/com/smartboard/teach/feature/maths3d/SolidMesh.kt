@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.maths3d
 
+import com.smartboard.teach.R
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -25,7 +26,7 @@ private fun v(x: Double, y: Double, z: Double) = V(x.toFloat(), y.toFloat(), z.t
 /** A straight overlay line — dimension lines and the revolve profile. */
 data class Line(val pts: List<V>, val teal: Boolean)
 
-data class Label(val pos: V, val text: String, val teal: Boolean, val small: Boolean = false)
+data class Label(val pos: V, val text: Txt, val teal: Boolean, val small: Boolean = false)
 
 /** A crease edge, with the outward normals of the two faces that meet there. */
 data class Edge(val a: V, val b: V, val n1: V, val n2: V)
@@ -87,7 +88,7 @@ fun buildSolid(shape: Shape2D, mode: Mode, h: Double, t: Double = 1.0): Solid {
             b.dim(v(0.0, 0.0, 0.0), v(0.0, hh, 0.0), "h = ${fmt(hh)}", teal = false, at = 0.4f)
             if (isRegular(shape)) {
                 val p = poly[0]; val q = poly[1]
-                b.dim(v((p.x + q.x) / 2, 0.0, (p.y + q.y) / 2), v(0.0, hh, 0.0), "l (slant)")
+                b.dim(v((p.x + q.x) / 2, 0.0, (p.y + q.y) / 2), v(0.0, hh, 0.0), Txt.Res(R.string.m3d_label_slant))
             }
             if (poly.size <= 8) b.edgeLabels(poly)
         }
@@ -194,7 +195,9 @@ private class MeshBuilder {
 
     fun quad(a: V, b: V, c: V, d: V) { tri(a, b, c); tri(a, c, d) }
 
-    fun dim(a: V, b: V, text: String, teal: Boolean = true, at: Float = 0.5f) {
+    fun dim(a: V, b: V, text: String, teal: Boolean = true, at: Float = 0.5f) = dim(a, b, text.raw, teal, at)
+
+    fun dim(a: V, b: V, text: Txt, teal: Boolean = true, at: Float = 0.5f) {
         lines += Line(listOf(a, b), teal)
         labels += Label(a.lerp(b, at), text, teal)
     }
@@ -205,7 +208,7 @@ private class MeshBuilder {
             val p = poly[i]; val q = poly[(i + 1) % poly.size]
             val mx = (p.x + q.x) / 2; val mz = (p.y + q.y) / 2
             val len = hypot(mx - cx, mz - cz).takeIf { it > 0 } ?: 1.0
-            labels += Label(v(mx + (mx - cx) / len * 0.4, 0.0, mz + (mz - cz) / len * 0.4), fmt(dist(p, q)), teal = true, small = true)
+            labels += Label(v(mx + (mx - cx) / len * 0.4, 0.0, mz + (mz - cz) / len * 0.4), fmt(dist(p, q)).raw, teal = true, small = true)
         }
     }
 

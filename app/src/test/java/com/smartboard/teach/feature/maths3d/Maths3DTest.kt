@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.maths3d
 
+import com.smartboard.teach.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -58,17 +59,17 @@ class Maths3DTest {
 
     @Test fun cylinderAndCubeMaths() {
         val cyl = mathsFor(Shape2D.Circle(0.0, 0.0, 3.0), Mode.CYLINDER, 6.0, PiValue.DECIMAL)
-        assertEquals("169.56 cm³", cyl.cards.first { it.title == "Volume" }.answer)
-        val cube = PRESETS.first { it.label == "Cube" }
+        assertEquals("169.56 cm³", cyl.cards.first { it.title == R.string.m3d_card_volume }.answer)
+        val cube = PRESETS.first { it.label == R.string.m3d_solid_cube }
         val sheet = mathsFor(cube.shape, cube.mode, cube.h, PiValue.DECIMAL)
-        assertEquals("Cube", sheet.name)
-        assertEquals("64 cm³", sheet.cards.first { it.title == "Volume" }.answer)
-        assertEquals("96 cm²", sheet.cards.first { it.title == "Total surface area" }.answer)
+        assertEquals(R.string.m3d_solid_cube, (sheet.name as Txt.Res).id)
+        assertEquals("64 cm³", sheet.cards.first { it.title == R.string.m3d_card_volume }.answer)
+        assertEquals("96 cm²", sheet.cards.first { it.title == R.string.m3d_card_tsa }.answer)
     }
 
     @Test fun eulerHoldsForPrismsAndPyramids() {
         for (n in 3..8) {
-            val shape = Shape2D.Polygon(regular(n, 3.0), "n-gon", regular = true)
+            val shape = Shape2D.Polygon(regular(n, 3.0), R.string.m3d_shape_free, regular = true)
             for (mode in listOf(Mode.PRISM, Mode.PYRAMID)) {
                 val e = mathsFor(shape, mode, 4.0, PiValue.DECIMAL).euler!!
                 assertEquals("n=$n $mode", 2, e.f + e.v - e.e)
@@ -84,12 +85,12 @@ class Maths3DTest {
 
     @Test fun pyramidMeshAndZeroGrowth() {
         for (n in 3..8) {
-            val shape = Shape2D.Polygon(regular(n, 3.0), "n-gon", regular = true)
+            val shape = Shape2D.Polygon(regular(n, 3.0), R.string.m3d_shape_free, regular = true)
             assertEquals((n - 2) + n, buildSolid(shape, Mode.PYRAMID, 4.0).triangleCount)
         }
         for (p in PRESETS) buildSolid(p.shape, p.mode, p.h, t = 0.0)
         // A cube shows exactly its 12 edges.
-        val cube = PRESETS.first { it.label == "Cube" }
+        val cube = PRESETS.first { it.label == R.string.m3d_solid_cube }
         assertEquals(12, buildSolid(cube.shape, cube.mode, cube.h).edges.size)
     }
 

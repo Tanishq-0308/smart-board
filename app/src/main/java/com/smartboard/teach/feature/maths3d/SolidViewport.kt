@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -104,6 +105,7 @@ fun SolidViewport(
     modifier: Modifier = Modifier,
 ) {
     val measurer = rememberTextMeasurer(cacheSize = 32)
+    val res = LocalResources.current
     val spin by rememberUpdatedState(autoRotate)
     // three.js autoRotateSpeed 1.5 = one orbit every 40 s.
     LaunchedEffect(camera) {
@@ -143,7 +145,7 @@ fun SolidViewport(
             val at = view.project(label.pos) ?: continue
             val color = if (label.teal) DimTeal else SolidAmber
             val layout = measurer.measure(
-                label.text,
+                label.text.resolve(res),
                 TextStyle(color = color, fontSize = if (label.small) 11.sp else 13.sp, fontWeight = FontWeight.SemiBold),
             )
             val pad = Offset(6 * density, 1 * density)
