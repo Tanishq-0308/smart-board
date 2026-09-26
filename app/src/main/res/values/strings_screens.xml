@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Shared -->
-    <string name="screens_action_back">Back</string>
     <string name="screens_action_dismiss">Dismiss</string>
 
     <!-- Shell -->
@@ -39,7 +38,7 @@
     <string name="classes_empty_title">No classes assigned</string>
     <string name="classes_empty_detail">Classes assigned to you will appear here.</string>
     <plurals name="classes_student_count">
-        <item quantity="one">%1$d students</item>
+        <item quantity="one">%1$d student</item>
         <item quantity="other">%1$d students</item>
     </plurals>
 

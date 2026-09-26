@@ -77,7 +77,7 @@ fun AttendanceScreen(
                         tint = Accent,
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.screens_action_back), color = Accent)
+                    Text(stringResource(R.string.action_back), color = Accent)
                 }
 
                 Spacer(Modifier.width(dimens.gutterSmall))

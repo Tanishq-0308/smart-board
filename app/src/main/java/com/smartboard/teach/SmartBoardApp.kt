@@ -1,5 +1,6 @@
 package com.smartboard.teach
 
+import com.smartboard.teach.core.util.AppText
 import android.app.Application
 import com.smartboard.teach.data.local.seed.DatabaseSeeder
 import com.smartboard.teach.di.ApplicationScope
@@ -17,6 +18,7 @@ class SmartBoardApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppText.init(this)
         // Seeding runs off the main thread and is a no-op after first launch.
         // It must never block startup: guest mode (board + notes) does not
         // depend on any of the seeded roster.
