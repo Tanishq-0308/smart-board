@@ -540,6 +540,7 @@ fun WhiteboardScreen(
                         },
                         pages = uiState.pages,
                         currentPageId = pageId,
+                        takenPageIds = (secondaryPageIds + listOfNotNull(uiState.currentPageId)).toSet(),
                         onSelectPage = { selected ->
                             viewModel.loadSecondaryPage(paneIndex, selected) { snapshot ->
                                 applyToPane(paneState, paneRenderer, snapshot)
@@ -980,7 +981,17 @@ fun WhiteboardScreen(
         PageStrip(
             pages = uiState.pages,
             currentPageId = uiState.currentPageId,
-            onSelectPage = { viewModel.switchToPage(it, ::applySnapshot) },
+            onSelectPage = {
+                viewModel.switchToPage(
+                    pageId = it,
+                    onPaneReloaded = { index, snapshot ->
+                        paneStates.getOrNull(index)?.let { paneState ->
+                            applyToPane(paneState, paneRenderers[index], snapshot)
+                        }
+                    },
+                    onPageReady = ::applySnapshot,
+                )
+            },
             onAddPage = { viewModel.addPage(::applySnapshot) },
             onDeletePage = {
                 viewModel.deleteCurrentPage(

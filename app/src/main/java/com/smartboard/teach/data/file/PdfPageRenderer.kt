@@ -1,5 +1,7 @@
 package com.smartboard.teach.data.file
 
+import com.smartboard.teach.core.util.writeAtomically
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -100,7 +102,7 @@ class PdfPageRenderer @Inject constructor(
                 Canvas(bitmap).drawColor(Color.WHITE)
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
 
-                cached.outputStream().use { out ->
+                cached.writeAtomically { out ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
                 }
                 AppResult.Success(cached)

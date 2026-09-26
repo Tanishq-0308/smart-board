@@ -1,5 +1,7 @@
 package com.smartboard.teach.data.file
 
+import com.smartboard.teach.core.util.writeAtomically
+
 import android.content.Context
 import android.graphics.Bitmap
 import com.smartboard.teach.di.IoDispatcher
@@ -48,7 +50,7 @@ class NotesFileStore @Inject constructor(
     suspend fun writeSnapshot(noteId: String, bitmap: Bitmap, quality: Int = 85): File =
         withContext(ioDispatcher) {
             val file = File(noteDir(noteId), SNAPSHOT_NAME)
-            file.outputStream().use { out ->
+            file.writeAtomically { out ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
             }
             file
@@ -57,7 +59,7 @@ class NotesFileStore @Inject constructor(
     suspend fun writeMarkdown(noteId: String, notes: LessonNotes): File =
         withContext(ioDispatcher) {
             val file = File(noteDir(noteId), MARKDOWN_NAME)
-            file.writeText(renderMarkdown(notes))
+            file.writeAtomically { it.write(renderMarkdown(notes).toByteArray()) }
             file
         }
 

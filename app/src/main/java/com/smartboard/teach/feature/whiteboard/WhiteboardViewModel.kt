@@ -308,10 +308,32 @@ class WhiteboardViewModel @Inject constructor(
         }
     }
 
-    fun switchToPage(pageId: String, onPageReady: (PageContentSnapshot) -> Unit) {
-        if (pageId == _state.value.currentPageId) return
+    /**
+     * Moves the main board to [pageId]. If a split pane already shows that
+     * page, the two SWAP: one page must never be open in two places, because
+     * each surface holds its own copy and the later save overwrites the other.
+     */
+    fun switchToPage(
+        pageId: String,
+        onPaneReloaded: (Int, PageContentSnapshot) -> Unit = { _, _ -> },
+        onPageReady: (PageContentSnapshot) -> Unit,
+    ) {
+        val leaving = _state.value.currentPageId
+        if (pageId == leaving) return
         viewModelScope.launch {
             writeNow()
+            val paneIndex = paneSlots.indexOfFirst { it.pageId == pageId }
+            if (paneIndex >= 0 && leaving != null) {
+                val slot = paneSlots[paneIndex]
+                slot.saveJob?.cancel()
+                writePaneNow(slot)
+                boardRepository.loadPage(leaving)?.let { content ->
+                    slot.pageId = leaving
+                    fillSlot(slot, content)
+                    _secondaryPageIds.value = paneSlots.map { it.pageId }
+                    onPaneReloaded(paneIndex, content.toSnapshot())
+                }
+            }
             loadPage(pageId, onPageReady)
         }
     }
@@ -919,6 +941,10 @@ class WhiteboardViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val slot = paneSlots.getOrNull(paneIndex) ?: return@launch
+            // Never open a page that is already open elsewhere; see switchToPage.
+            if (pageId == _state.value.currentPageId || paneSlots.any { it.pageId == pageId }) {
+                return@launch
+            }
             writePaneNow(slot)
             val content = boardRepository.loadPage(pageId) ?: return@launch
             slot.pageId = pageId

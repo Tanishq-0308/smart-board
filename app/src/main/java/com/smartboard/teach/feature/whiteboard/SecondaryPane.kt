@@ -48,10 +48,14 @@ fun SecondaryPane(
     onPersist: () -> Unit,
     pages: List<BoardPage>,
     currentPageId: String?,
+    /** Pages open in the main board or another pane; the pager steps over them. */
+    takenPageIds: Set<String>,
     onSelectPage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val index = pages.indexOfFirst { it.id == currentPageId }
+    val previous = freeNeighbour(pages, index, -1, takenPageIds)
+    val next = freeNeighbour(pages, index, +1, takenPageIds)
 
     Row(modifier = modifier.fillMaxHeight()) {
         // A hairline divider, so the two panes read as separate surfaces
@@ -140,14 +144,14 @@ fun SecondaryPane(
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     IconButton(
-                        onClick = { pages.getOrNull(index - 1)?.let { onSelectPage(it.id) } },
-                        enabled = index > 0,
+                        onClick = { previous?.let { onSelectPage(it.id) } },
+                        enabled = previous != null,
                         modifier = Modifier.size(32.dp),
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "Previous page",
-                            tint = if (index > 0) TextOnChrome else TextOnChromeMuted,
+                            tint = if (previous != null) TextOnChrome else TextOnChromeMuted,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -160,14 +164,14 @@ fun SecondaryPane(
                     )
 
                     IconButton(
-                        onClick = { pages.getOrNull(index + 1)?.let { onSelectPage(it.id) } },
-                        enabled = index in 0 until pages.size - 1,
+                        onClick = { next?.let { onSelectPage(it.id) } },
+                        enabled = next != null,
                         modifier = Modifier.size(32.dp),
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "Next page",
-                            tint = if (index in 0 until pages.size - 1) {
+                            tint = if (next != null) {
                                 TextOnChrome
                             } else {
                                 TextOnChromeMuted
@@ -179,6 +183,27 @@ fun SecondaryPane(
             }
         }
     }
+}
+
+/**
+ * The nearest page from [from] in direction [step] that nobody else has open.
+ *
+ * Two surfaces editing one page is how split view lost ink: each holds its own
+ * copy, and whichever saves last overwrites the other's strokes.
+ */
+internal fun freeNeighbour(
+    pages: List<BoardPage>,
+    from: Int,
+    step: Int,
+    taken: Set<String>,
+): BoardPage? {
+    if (from < 0) return null
+    var i = from + step
+    while (i in pages.indices) {
+        if (pages[i].id !in taken) return pages[i]
+        i += step
+    }
+    return null
 }
 
 /** Loads a page snapshot into a pane's state and renderer. */

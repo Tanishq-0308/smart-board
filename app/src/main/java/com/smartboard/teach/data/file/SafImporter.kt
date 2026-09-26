@@ -1,5 +1,7 @@
 package com.smartboard.teach.data.file
 
+import com.smartboard.teach.core.util.writeAtomically
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -95,7 +97,7 @@ class SafImporter @Inject constructor(
 
         val posterFile = File(posterPathFor(copied.absolutePath))
         try {
-            posterFile.outputStream().use { out ->
+            posterFile.writeAtomically { out ->
                 poster.compress(Bitmap.CompressFormat.JPEG, POSTER_QUALITY, out)
             }
         } catch (error: IOException) {
@@ -152,7 +154,7 @@ class SafImporter @Inject constructor(
 
             val target = File(dir("imports"), "frame_${UUID.randomUUID()}.jpg")
             try {
-                target.outputStream().use { out ->
+                target.writeAtomically { out ->
                     frame.compress(Bitmap.CompressFormat.JPEG, FRAME_QUALITY, out)
                 }
             } catch (error: IOException) {
@@ -222,7 +224,7 @@ class SafImporter @Inject constructor(
                 )
 
             val target = File(dir("imports"), "web_${UUID.randomUUID()}.${extensionFor(transparent)}")
-            target.outputStream().use { out ->
+            target.writeAtomically { out ->
                 bitmap.compress(formatFor(transparent), IMAGE_QUALITY, out)
             }
             bitmap.recycle()
@@ -277,7 +279,7 @@ class SafImporter @Inject constructor(
                     dir("backgrounds"),
                     "img_${UUID.randomUUID()}.${extensionFor(transparent)}",
                 )
-                target.outputStream().use { out ->
+                target.writeAtomically { out ->
                     bitmap.compress(formatFor(transparent), IMAGE_QUALITY, out)
                 }
                 bitmap.recycle()
@@ -298,7 +300,7 @@ class SafImporter @Inject constructor(
         try {
             val target = File(dir(subDir), "${UUID.randomUUID()}.$extension")
             context.contentResolver.openInputStream(uri)?.use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
+                target.writeAtomically { output -> input.copyTo(output) }
             } ?: return AppResult.Failure(AppError.Storage("Could not open the selected file."))
 
             if (target.length() == 0L) {

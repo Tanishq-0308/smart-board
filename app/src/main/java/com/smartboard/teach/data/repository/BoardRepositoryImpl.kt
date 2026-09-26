@@ -32,6 +32,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import android.util.Log
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -90,6 +91,7 @@ class BoardRepositoryImpl @Inject constructor(
     override suspend fun deleteLesson(sessionId: String) = withContext(ioDispatcher) {
         // Pages first: they have no FK to lessons, so nothing cascades for us
         // and orphaned pages would linger as an invisible unsaved session.
+        Log.i(TAG, "delete lesson session=$sessionId")
         boardDao.deletePagesForSession(sessionId)
         boardDao.deleteLesson(sessionId)
     }
@@ -125,13 +127,20 @@ class BoardRepositoryImpl @Inject constructor(
                         createdAt = now,
                         updatedAt = now,
                     ),
+                    // Strokes and text boxes need NEW ids too: rows are keyed on
+                    // id with REPLACE/upsert, so reusing one MOVES it off the
+                    // original page rather than copying it — "Save as" used to
+                    // leave the original lesson with its tables but no ink.
                     strokes = boardDao.getStrokes(page.id).map { stroke ->
                         stroke.copy(
+                            id = UUID.randomUUID().toString(),
                             pageId = newPageId,
                             containerId = stroke.containerId?.let { idMap[it] },
                         )
                     },
-                    textBoxes = boardDao.getTextBoxes(page.id).map { it.copy(pageId = newPageId) },
+                    textBoxes = boardDao.getTextBoxes(page.id).map {
+                        it.copy(id = UUID.randomUUID().toString(), pageId = newPageId)
+                    },
                     containers = copiedContainers,
                     cells = copiedCells,
                 )
@@ -166,6 +175,7 @@ class BoardRepositoryImpl @Inject constructor(
             }
         }
 
+        Log.i(TAG, "load page=$pageId strokes=${strokes.size} boxes=${boxes.size} containers=${containers.size}")
         PageContent(page.toDomain(), strokes, boxes, background, containers)
     }
 
@@ -176,6 +186,17 @@ class BoardRepositoryImpl @Inject constructor(
         containers: List<Container>,
     ): AppResult<Unit> = withContext(ioDispatcher) {
         try {
+            // Tripwire for the "page came back almost empty" reports: a save
+            // that wipes most of a page's ink is logged loudly with its caller,
+            // so the next occurrence leaves evidence instead of a mystery.
+            val before = boardDao.strokeCount(page.id)
+            val msg = "save page=${page.id} session=${page.sessionId} " +
+                "strokes=$before->${strokes.size} boxes=${textBoxes.size} containers=${containers.size}"
+            if (before >= SHRINK_ALERT_MIN_STROKES && strokes.size < before / 2) {
+                Log.w(TAG, "SHRINK $msg", Throwable("save stack"))
+            } else {
+                Log.i(TAG, msg)
+            }
             boardDao.savePageContent(
                 page = page.toEntity(),
                 strokes = strokes.mapIndexed { index, stroke -> stroke.toEntity(page.id, index) },
@@ -185,6 +206,7 @@ class BoardRepositoryImpl @Inject constructor(
             )
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            Log.e(TAG, "save FAILED page=${page.id}", t)
             AppResult.Failure(AppError.Storage("Could not save the board: ${t.message}"))
         }
     }
@@ -212,6 +234,7 @@ class BoardRepositoryImpl @Inject constructor(
     override suspend fun deletePage(pageId: String): AppResult<Unit> = withContext(ioDispatcher) {
         try {
             // Strokes and text boxes cascade via foreign keys.
+            Log.i(TAG, "delete page=$pageId")
             boardDao.deletePage(pageId)
             AppResult.Success(Unit)
         } catch (t: Throwable) {
@@ -240,6 +263,11 @@ class BoardRepositoryImpl @Inject constructor(
         Unit
     }
 }
+
+private const val TAG = "BoardPersist"
+
+/** Pages this big that lose over half their ink in one save get a warning. */
+private const val SHRINK_ALERT_MIN_STROKES = 10
 
 // --- mapping -----------------------------------------------------------------
 
