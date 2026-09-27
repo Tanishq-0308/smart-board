@@ -237,7 +237,18 @@ private fun LessonRow(
             modifier = Modifier.size(16.dp),
         )
         Column(Modifier.weight(1f)) {
-            Text(lesson.name, color = TextOnChrome, fontSize = 13.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(lesson.name, color = TextOnChrome, fontSize = 13.sp)
+                // Tapping the lesson already on the board only closes the menu,
+                // so say so — otherwise the tap looks like it did nothing.
+                if (isCurrent) {
+                    Text(
+                        "  " + stringResource(R.string.panel_lesson_open_now),
+                        color = Accent,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
             Text(
                 text = pluralStringResource(R.plurals.panel_page_count, lesson.pageCount, lesson.pageCount) + " · " +
                     DATE_FORMAT.format(Date(lesson.updatedAt)),
