@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.shell
 
+import com.smartboard.teach.feature.attendance.AttendanceOverviewScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -152,12 +153,9 @@ fun AppNavHost(
 
         composable(Dest.Attendance.route) {
             AuthGate(authState, navController) {
-                // Attendance needs a class; send the teacher to pick one.
-                ClassListScreen(
-                    onOpenClass = { navController.navigate(DetailRoutes.attendanceForClass(it)) },
-                    onTakeAttendance = {
-                        navController.navigate(DetailRoutes.attendanceForClass(it))
-                    },
+                // Today's register across classes — distinct from My Classes.
+                AttendanceOverviewScreen(
+                    onTakeAttendance = { navController.navigate(DetailRoutes.attendanceForClass(it)) },
                 )
             }
         }

@@ -103,4 +103,12 @@
     <string name="settings_app_version">Smart Board %1$s</string>
     <string name="settings_about_phase">Phase 1 — local data. ERP and LMS integration follows in Phase 2.</string>
     <string name="settings_status_ok">OK</string>
+    <!-- Attendance overview -->
+    <string name="attendance_overview_title">Attendance today</string>
+    <string name="attendance_not_taken">Not taken yet</string>
+    <string name="attendance_count_present">P %1$d</string>
+    <string name="attendance_count_absent">A %1$d</string>
+    <string name="attendance_count_late">L %1$d</string>
+    <string name="attendance_take">Take attendance</string>
+    <string name="attendance_edit">Edit</string>
 </resources>
