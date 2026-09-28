@@ -44,7 +44,7 @@ sealed class Dest(
         )
 
         // Strip both the path arg and any query string, so
-        // "whiteboard?backgroundId=..." still resolves to Whiteboard and stays
+        // "whiteboard?documentPath=..." still resolves to Whiteboard and stays
         // highlighted in the sidebar.
         fun fromRoute(route: String?): Dest? = when (
             route?.substringBefore('/')?.substringBefore('?')
@@ -83,8 +83,9 @@ object DetailRoutes {
      * loads it through the normal path rather than the two screens sharing
      * state.
      */
-    const val WHITEBOARD_WITH_BACKGROUND = "whiteboard?backgroundId={backgroundId}"
-    const val ARG_BACKGROUND_ID = "backgroundId"
+    const val WHITEBOARD_WITH_DOCUMENT = "whiteboard?documentPath={documentPath}&documentPage={documentPage}"
+    const val ARG_DOCUMENT_PATH = "documentPath"
+    const val ARG_DOCUMENT_PAGE = "documentPage"
 
     /**
      * SavedStateHandle key on the whiteboard's back stack entry. 3D Maths
@@ -93,5 +94,7 @@ object DetailRoutes {
      */
     const val INSERT_IMAGE_KEY = "insertImagePath"
 
-    fun whiteboardWithBackground(backgroundId: String) = "whiteboard?backgroundId=$backgroundId"
+    /** The whole PDF at [path] goes onto the board, opened at [page]. */
+    fun whiteboardWithDocument(path: String, page: Int) =
+        "whiteboard?documentPath=${android.net.Uri.encode(path)}&documentPage=$page"
 }

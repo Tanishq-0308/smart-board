@@ -68,8 +68,11 @@ import java.util.UUID
 @Composable
 fun WhiteboardScreen(
     modifier: Modifier = Modifier,
-    /** Set when arriving from "Annotate on board" in the material viewer. */
-    pendingBackgroundId: String? = null,
+    /** Set when arriving from "Annotate on board": a PDF to lay out as a page. */
+    pendingDocumentPath: String? = null,
+    /** The page the teacher was reading, shown first. */
+    pendingDocumentPage: Int = 0,
+    onDocumentConsumed: () -> Unit = {},
     /** A PNG path handed back by 3D Maths "Insert on board". */
     pendingInsertImage: String? = null,
     onInsertConsumed: () -> Unit = {},
@@ -78,6 +81,8 @@ fun WhiteboardScreen(
     viewModel: WhiteboardViewModel = hiltViewModel(),
 ) {
     val state = remember { BoardState() }
+    /** Pictures being decoded now, so a second settle does not decode them twice. */
+    val mediaLoading = remember { mutableSetOf<String>() }
     val renderer = remember { BoardRenderer() }
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val snapshotPhase by viewModel.snapshotPhase.collectAsStateWithLifecycle()
@@ -195,8 +200,34 @@ fun WhiteboardScreen(
         }
     }
 
+    /**
+     * Keeps decoded only the pictures on or near the screen (see MediaWindow),
+     * so a board holding a whole PDF never holds every page in memory.
+     * Evicted bitmaps are dropped, not recycled: the renderer may still be
+     * drawing one this frame, and the GC frees them once unreferenced.
+     */
+    fun syncMedia() {
+        val visible = state.camera.visibleWorldBounds(
+            state.viewportWidth, state.viewportHeight, marginPx = state.viewportHeight,
+        )
+        val wanted = MediaWindow.wanted(state.containers, visible)
+        val evicted = state.mediaBitmaps.keys.filter { it !in wanted }
+        evicted.forEach { state.mediaBitmaps.remove(it) }
+        val missing = state.containers.filter {
+            it.id in wanted && it.id !in state.mediaBitmaps && it.id !in mediaLoading
+        }
+        mediaLoading += missing.map { it.id }
+        viewModel.loadMediaFor(missing) { id, bitmap ->
+            mediaLoading -= id
+            state.putMedia(id, bitmap)
+            renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+        }
+        if (evicted.isNotEmpty()) state.markCommittedDirty()
+    }
+
     /** Re-rasterizes the viewport cache once a pan or zoom has finished. */
     fun settleCamera() {
+        syncMedia()
         renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
         state.markCommittedDirty()
         persist()
@@ -216,10 +247,8 @@ fun WhiteboardScreen(
         }
         state.canvasStyle = snapshot.canvasStyle
         state.clearMedia()
-        viewModel.loadMediaFor(snapshot.containers) { id, bitmap ->
-            state.putMedia(id, bitmap)
-            renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
-        }
+        mediaLoading.clear()
+        syncMedia()
         renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
         state.markCommittedDirty()
         viewModel.loadBackgroundBitmap(snapshot.background)
@@ -382,16 +411,14 @@ fun WhiteboardScreen(
         }
     }
 
-    // Arriving from "Annotate on board": adopt the PDF page the material
-    // viewer prepared. Applied once per id.
-    LaunchedEffect(pendingBackgroundId) {
-        if (pendingBackgroundId != null) {
-            viewModel.adoptBackground(pendingBackgroundId) { background ->
-                val before = state.background
-                state.background = background
-                state.history.record(BoardCommand.SetBackground(before, background))
-                state.refreshHistoryFlags()
-            }
+    // Arriving from "Annotate on board": the whole PDF becomes a new page.
+    // Waits for the board's own page to be applied first, or that load would
+    // land on top of the document. Consumed once, so returning to the board
+    // does not add it again.
+    LaunchedEffect(pendingDocumentPath, pageApplied) {
+        if (pendingDocumentPath != null && pageApplied) {
+            onDocumentConsumed()
+            viewModel.adoptDocument(java.io.File(pendingDocumentPath), pendingDocumentPage, ::applySnapshot)
         }
     }
 

@@ -1277,10 +1277,12 @@ class WhiteboardViewModel @Inject constructor(
                 val path = if (container.kind == ContainerKind.VIDEO) {
                     posterPathFor(container.mediaPath!!)
                 } else {
-                    container.mediaPath
+                    container.mediaPath!!
                 }
+                // Capped: a 12 MP photo decoded at full size is ~48 MB. Media is
+                // drawn into its container rect, so the cap costs no layout.
                 val bitmap = withContext(Dispatchers.IO) {
-                    BitmapFactory.decodeFile(path)
+                    BitmapUtils.decodeSampled(path, BOARD_MEDIA_EDGE_PX)
                 }
                 // A missing file leaves the container drawn as an outline
                 // rather than removing what the teacher placed.
@@ -1472,32 +1474,62 @@ class WhiteboardViewModel @Inject constructor(
     }
 
     /**
-     * Adopts a background prepared elsewhere — currently the material
-     * viewer's "Annotate on board". Only the id crosses the screen boundary;
-     * the record is already in the database.
+     * "Annotate on board" from Study Material: puts EVERY page of [pdf] on a
+     * new board page, stacked top to bottom, and shows [startPage] first.
+     *
+     * A new page rather than the current page's backdrop, so nothing the
+     * teacher already has on the board is covered or replaced. Pages are
+     * rendered to disk one at a time (cached by PdfPageRenderer); only the
+     * ones on screen are ever decoded, see MediaWindow.
      */
-    fun adoptBackground(backgroundId: String, onApplied: (BoardBackground) -> Unit) {
+    fun adoptDocument(pdf: File, startPage: Int, onPageReady: (PageContentSnapshot) -> Unit) {
+        val sessionId = _state.value.sessionId ?: return
         viewModelScope.launch {
-            val background = boardRepository.getBackground(backgroundId) ?: return@launch
-
-            // The canvas may not have been sized yet, in which case no page
-            // exists and a save here would be dropped — or worse, the page
-            // load that follows would overwrite this background. Wait for the
-            // session to come up first.
-            var waited = 0
-            while (_state.value.currentPageId == null && waited < ADOPT_TIMEOUT_MS) {
-                delay(ADOPT_POLL_MS)
-                waited += ADOPT_POLL_MS.toInt()
+            val pageCount = (pdfPageRenderer.pageCount(pdf) as? AppResult.Success)?.data ?: 0
+            if (pageCount <= 0) {
+                _backgroundState.value = BackgroundImportState(errorMessage = AppText.get(R.string.error_pdf_no_pages))
+                return@launch
             }
-
-            val bitmap = withContext(Dispatchers.IO) {
-                BitmapFactory.decodeFile(background.renderedPath)
+            val files = ArrayList<String>(pageCount)
+            val sizes = ArrayList<Pair<Int, Int>>(pageCount)
+            for (index in 0 until pageCount) {
+                _backgroundState.value = BackgroundImportState(
+                    isBusy = true,
+                    busyMessage = AppText.get(R.string.status_preparing_page, index + 1, pageCount),
+                )
+                val rendered = pdfPageRenderer.renderPageToFile(pdf, index)
+                if (rendered !is AppResult.Success) {
+                    _backgroundState.value = BackgroundImportState(
+                        errorMessage = (rendered as AppResult.Failure).error.message,
+                    )
+                    return@launch
+                }
+                val bounds = withContext(Dispatchers.IO) {
+                    BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        .also { BitmapFactory.decodeFile(rendered.data.absolutePath, it) }
+                }
+                files += rendered.data.absolutePath
+                sizes += bounds.outWidth to bounds.outHeight
             }
-            _backgroundBitmap.value?.recycle()
-            _backgroundBitmap.value = bitmap
-            pendingBackgroundId = background.id
-            onApplied(background)
+            _backgroundState.value = null
+
+            // Persist the page being left, then add the document as a new page.
             writeNow()
+            val page = boardRepository.createPage(sessionId, _state.value.pages.size, boardWidthPx, boardHeightPx)
+            val width = boardWidthPx * DOCUMENT_WIDTH_FRACTION
+            val left = (boardWidthPx - width) / 2f
+            val containers = DocumentStack.layout(files, sizes, width, left, top = DocumentStack.GAP)
+            boardRepository.savePage(page, emptyList(), emptyList(), containers)
+
+            _state.update { it.copy(pages = it.pages + page, currentPageId = page.id) }
+            resetPendingContent()
+            pendingContainers = containers
+            // Open on the page the teacher was reading in the viewer.
+            val focusTop = containers.getOrNull(startPage)?.y ?: containers.first().y
+            val camera = CameraState(offsetX = 0f, offsetY = focusTop - DocumentStack.GAP, zoom = 1f)
+            pendingCamera = camera
+            onPageReady(PageContentSnapshot(emptyList(), emptyList(), null, camera, containers))
+            refreshCurrentLesson(sessionId)
         }
     }
 
@@ -1570,6 +1602,12 @@ class WhiteboardViewModel @Inject constructor(
         /** Pictures on exported pages never need more than this. */
         const val LESSON_EXPORT_MEDIA_EDGE_PX = 1600
 
+        /** Long edge a picture on the board is decoded at. */
+        const val BOARD_MEDIA_EDGE_PX = 2048
+
+        /** A study-material page spans this much of the board's width at 100%. */
+        const val DOCUMENT_WIDTH_FRACTION = 0.8f
+
         /**
          * How long the pen must be still before handwriting converts.
          *
@@ -1577,10 +1615,6 @@ class WhiteboardViewModel @Inject constructor(
          * up, short enough that it still feels immediate.
          */
         const val TEXT_CONVERT_DELAY_MS = 900L
-
-        /** How long adoptBackground waits for the board session to exist. */
-        private const val ADOPT_TIMEOUT_MS = 3_000
-        private const val ADOPT_POLL_MS = 50L
     }
 }
 

@@ -100,4 +100,5 @@
     <string name="status_pointer_finger">Finger</string>
     <string name="lesson_untitled">Untitled lesson</string>
     <string name="lesson_untitled_at">Untitled lesson, %1$s</string>
+    <string name="status_preparing_page">Preparing page %1$d of %2$d…</string>
 </resources>

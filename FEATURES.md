@@ -134,12 +134,13 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
 - **Take attendance** straight from a class.
 
 ## 5. Attendance 🔒 ✅
+- **Attendance today:** every class with today's status: "Not taken yet", or its P / A / L counts. One tap opens the register to take or edit it.
 - Large **P / A / L** (Present / Absent / Late) buttons for each student. Status is always shown as a letter as well as a colour.
 - Previous and next day, **Mark all present**, **Clear all**.
 
 ## 6. Study Material 🔒 ✅
 - A list of materials, and a PDF viewer with page navigation.
-- **Annotate on board:** opens the current page as a whiteboard background.
+- **Annotate on board:** puts the **whole document** on a new board page, every page top to bottom, and opens at the page you were reading. Write on any page; the ink stays with that page. Only the pages on or near the screen are held in memory, so a long chapter is safe on a 2 GB board.
 
 ## 7. Sign in ✅
 - Username and password sign-in, currently against local demo accounts.

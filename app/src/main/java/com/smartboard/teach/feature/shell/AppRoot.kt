@@ -109,13 +109,13 @@ fun AppRoot(
             currentRoute = currentRoute,
             onNavigate = { dest ->
                 val boardOnStack = runCatching {
-                    navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_BACKGROUND)
+                    navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_DOCUMENT)
                 }.isSuccess
                 if (dest == Dest.Whiteboard && boardOnStack) {
                     // The board is the root of the stack: go BACK to it. Navigating
                     // with restoreState could bring back the stack just popped —
                     // Notes opened from a snapshot — and leave the teacher on Notes.
-                    navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_BACKGROUND, inclusive = false)
+                    navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_DOCUMENT, inclusive = false)
                 } else if (currentRoute != dest.route) {
                     navController.navigate(dest.route) {
                         popUpTo(Dest.Whiteboard.route) { saveState = true }

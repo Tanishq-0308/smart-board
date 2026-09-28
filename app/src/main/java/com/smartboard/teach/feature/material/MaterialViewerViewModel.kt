@@ -8,10 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.smartboard.teach.core.util.AppResult
 import com.smartboard.teach.data.file.PdfPageRenderer
 import com.smartboard.teach.di.IoDispatcher
-import com.smartboard.teach.domain.model.BackgroundKind
-import com.smartboard.teach.domain.model.BoardBackground
 import com.smartboard.teach.domain.model.StudyMaterial
-import com.smartboard.teach.domain.repository.BoardRepository
 import com.smartboard.teach.domain.repository.MaterialRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
@@ -22,7 +19,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.UUID
 import javax.inject.Inject
 
 data class MaterialViewerUiState(
@@ -39,7 +35,6 @@ class MaterialViewerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val materialRepository: MaterialRepository,
     private val pdfPageRenderer: PdfPageRenderer,
-    private val boardRepository: BoardRepository,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -109,35 +104,14 @@ class MaterialViewerViewModel @Inject constructor(
     fun previousPage() = renderPage(_state.value.currentPage - 1)
 
     /**
-     * Sends the current page to the whiteboard as a background to annotate.
-     *
-     * This is the Phase 2 seam working already: the board consumes a
-     * BoardBackground and neither knows nor cares that the PDF came from the
-     * LMS rather than a local import.
+     * Hands the whole document to the whiteboard, which lays out every page
+     * top to bottom and opens at the page on screen here. The board consumes
+     * a local file, so it neither knows nor cares whether the PDF came from
+     * the device or the backend.
      */
-    fun sendCurrentPageToBoard(onReady: (String) -> Unit) {
+    fun sendDocumentToBoard(onReady: (String, Int) -> Unit) {
         val file = localFile ?: return
-        val pageIndex = _state.value.currentPage
-
-        viewModelScope.launch {
-            when (val rendered = pdfPageRenderer.renderPageToFile(file, pageIndex)) {
-                is AppResult.Success -> {
-                    val background = BoardBackground(
-                        id = UUID.randomUUID().toString(),
-                        kind = BackgroundKind.PDF_PAGE,
-                        sourcePath = file.absolutePath,
-                        pdfPageIndex = pageIndex,
-                        renderedPath = rendered.data.absolutePath,
-                    )
-                    boardRepository.saveBackground(background)
-                    onReady(background.id)
-                }
-
-                is AppResult.Failure -> _state.update {
-                    it.copy(errorMessage = rendered.error.message)
-                }
-            }
-        }
+        onReady(file.absolutePath, _state.value.currentPage)
     }
 
     override fun onCleared() {

@@ -37,27 +37,37 @@ fun AppNavHost(
         // Never a login wall at launch.
         // The optional-arg form. Navigating to the bare "whiteboard" route
         // still matches it, so the sidebar needs no special case.
-        startDestination = DetailRoutes.WHITEBOARD_WITH_BACKGROUND,
+        startDestination = DetailRoutes.WHITEBOARD_WITH_DOCUMENT,
         modifier = modifier,
     ) {
         // --- Guest-accessible ---
 
         composable(
-            route = DetailRoutes.WHITEBOARD_WITH_BACKGROUND,
+            route = DetailRoutes.WHITEBOARD_WITH_DOCUMENT,
             arguments = listOf(
-                navArgument(DetailRoutes.ARG_BACKGROUND_ID) {
+                navArgument(DetailRoutes.ARG_DOCUMENT_PATH) {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument(DetailRoutes.ARG_DOCUMENT_PAGE) {
+                    type = NavType.IntType
+                    defaultValue = 0
                 },
             ),
         ) { entry ->
             val pendingInsertImage by entry.savedStateHandle
                 .getStateFlow<String?>(DetailRoutes.INSERT_IMAGE_KEY, null)
                 .collectAsState()
+            // Read through the SavedStateHandle so it can be cleared once used:
+            // coming back to the board must not add the document again.
+            val pendingDocument by entry.savedStateHandle
+                .getStateFlow<String?>(DetailRoutes.ARG_DOCUMENT_PATH, null)
+                .collectAsState()
             WhiteboardScreen(
-                pendingBackgroundId = entry.arguments
-                    ?.getString(DetailRoutes.ARG_BACKGROUND_ID),
+                pendingDocumentPath = pendingDocument,
+                pendingDocumentPage = entry.arguments?.getInt(DetailRoutes.ARG_DOCUMENT_PAGE) ?: 0,
+                onDocumentConsumed = { entry.savedStateHandle[DetailRoutes.ARG_DOCUMENT_PATH] = null },
                 pendingInsertImage = pendingInsertImage,
                 onInsertConsumed = { entry.savedStateHandle[DetailRoutes.INSERT_IMAGE_KEY] = null },
                 onOpenNotes = {
@@ -81,9 +91,9 @@ fun AppNavHost(
                     // The board is always the root of the stack (sidebar
                     // navigation pops up to it), so hand the snapshot to its
                     // entry and return there.
-                    navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_BACKGROUND)
+                    navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_DOCUMENT)
                         .savedStateHandle[DetailRoutes.INSERT_IMAGE_KEY] = path
-                    navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_BACKGROUND, inclusive = false)
+                    navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_DOCUMENT, inclusive = false)
                 },
             )
         }
@@ -184,9 +194,9 @@ fun AppNavHost(
             AuthGate(authState, navController) {
                 MaterialViewerScreen(
                     onBack = { navController.popBackStack() },
-                    onAnnotateOnBoard = { backgroundId ->
+                    onAnnotateOnBoard = { path, page ->
                         navController.navigate(
-                            DetailRoutes.whiteboardWithBackground(backgroundId),
+                            DetailRoutes.whiteboardWithDocument(path, page),
                         ) {
                             popUpTo(Dest.Whiteboard.route) { inclusive = true }
                         }

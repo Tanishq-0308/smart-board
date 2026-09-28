@@ -43,7 +43,8 @@ import com.smartboard.teach.core.ui.theme.TextOnSurfaceMuted
 @Composable
 fun MaterialViewerScreen(
     onBack: () -> Unit,
-    onAnnotateOnBoard: (String) -> Unit,
+    /** The PDF's path and the page on screen; the board lays out every page. */
+    onAnnotateOnBoard: (String, Int) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MaterialViewerViewModel = hiltViewModel(),
 ) {
@@ -90,9 +91,9 @@ fun MaterialViewerScreen(
 
             Spacer(Modifier.width(dimens.gutter))
 
-            // The handoff: this page becomes the board background.
+            // The handoff: the whole document goes to the board, top to bottom.
             TextButton(
-                onClick = { viewModel.sendCurrentPageToBoard(onAnnotateOnBoard) },
+                onClick = { viewModel.sendDocumentToBoard(onAnnotateOnBoard) },
                 enabled = state.pageBitmap != null,
             ) {
                 Icon(Icons.Filled.Draw, contentDescription = null, tint = Accent)
