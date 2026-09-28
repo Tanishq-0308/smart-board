@@ -244,4 +244,6 @@ data class Lesson(
     val updatedAt: Long,
     /** Filled by the repository for the Open list; not stored. */
     val pageCount: Int = 0,
+    /** Still carries the automatic "Untitled lesson" name; see LessonEntity. */
+    val autoNamed: Boolean = false,
 )

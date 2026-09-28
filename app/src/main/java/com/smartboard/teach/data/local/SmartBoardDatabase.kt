@@ -1,5 +1,7 @@
 package com.smartboard.teach.data.local
 
+import com.smartboard.teach.R
+import com.smartboard.teach.core.util.AppText
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
@@ -46,7 +48,7 @@ import com.smartboard.teach.data.local.entity.TextBoxEntity
         AttendanceRecordEntity::class,
         StudyMaterialEntity::class,
     ],
-    version = 7,
+    version = 8,
     // Schemas are committed to app/schemas so Phase 2 can write real
     // migrations against a known baseline rather than guessing.
     exportSchema = true,
@@ -211,6 +213,36 @@ abstract class SmartBoardDatabase : RoomDatabase() {
                         "createdAt INTEGER NOT NULL, " +
                         "updatedAt INTEGER NOT NULL)",
                 )
+            }
+        }
+
+        /**
+         * v7 -> v8: lessons can be automatically named, and every board that
+         * already has content but was never named is recovered as an
+         * "Untitled lesson" — before this, such boards were saved but could
+         * not be found again from the Open list.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
+                    "ALTER TABLE lessons ADD COLUMN autoNamed INTEGER NOT NULL DEFAULT 0",
+                )
+                connection.prepare(
+                    "INSERT INTO lessons (sessionId, name, createdAt, updatedAt, autoNamed) " +
+                        "SELECT p.sessionId, ?, MIN(p.createdAt), MAX(p.updatedAt), 1 " +
+                        "FROM board_pages p " +
+                        "WHERE p.sessionId NOT IN (SELECT sessionId FROM lessons) AND (" +
+                        "EXISTS (SELECT 1 FROM strokes s JOIN board_pages q ON s.pageId = q.id " +
+                        "WHERE q.sessionId = p.sessionId) OR " +
+                        "EXISTS (SELECT 1 FROM text_boxes t JOIN board_pages q ON t.pageId = q.id " +
+                        "WHERE q.sessionId = p.sessionId) OR " +
+                        "EXISTS (SELECT 1 FROM containers c JOIN board_pages q ON c.pageId = q.id " +
+                        "WHERE q.sessionId = p.sessionId)) " +
+                        "GROUP BY p.sessionId",
+                ).use { statement ->
+                    statement.bindText(1, AppText.get(R.string.lesson_untitled))
+                    statement.step()
+                }
             }
         }
 

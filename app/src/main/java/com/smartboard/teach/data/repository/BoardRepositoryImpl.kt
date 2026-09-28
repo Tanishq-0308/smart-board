@@ -1,5 +1,8 @@
 package com.smartboard.teach.data.repository
 
+import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
 import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
@@ -63,13 +66,14 @@ class BoardRepositoryImpl @Inject constructor(
                 name = row.name,
                 updatedAt = row.updatedAt,
                 pageCount = boardDao.pageCount(row.sessionId),
+                autoNamed = row.autoNamed,
             )
         }
     }
 
     override suspend fun getLesson(sessionId: String): Lesson? = withContext(ioDispatcher) {
         boardDao.getLesson(sessionId)?.let {
-            Lesson(it.sessionId, it.name, it.updatedAt, boardDao.pageCount(it.sessionId))
+            Lesson(it.sessionId, it.name, it.updatedAt, boardDao.pageCount(it.sessionId), it.autoNamed)
         }
     }
 
@@ -85,6 +89,8 @@ class BoardRepositoryImpl @Inject constructor(
                     name = name,
                     createdAt = created,
                     updatedAt = now,
+                    // A name the teacher typed: from now on Save as copies.
+                    autoNamed = false,
                 ),
             )
             Lesson(sessionId, name, now, boardDao.pageCount(sessionId))
@@ -206,10 +212,40 @@ class BoardRepositoryImpl @Inject constructor(
                 containers = containers.mapIndexed { index, c -> c.toEntity(page.id, index) },
                 cells = containers.flatMap { it.cellEntities() },
             )
+            recordLessonChange(
+                sessionId = page.sessionId,
+                hasContent = strokes.isNotEmpty() || textBoxes.isNotEmpty() || containers.isNotEmpty(),
+            )
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             Log.e(TAG, "save FAILED page=${page.id}", t)
             AppResult.Failure(AppError.Storage(AppText.get(R.string.error_board_save, t.message.orEmpty())))
+        }
+    }
+
+    /**
+     * Every save is a lesson change: the lesson's time moves forward so the
+     * Open list shows real last-edit times. A board with content that has no
+     * lesson yet gets an automatic "Untitled lesson" one, so no work is ever
+     * saved somewhere the teacher cannot open it from again.
+     */
+    private suspend fun recordLessonChange(sessionId: String, hasContent: Boolean) {
+        val now = System.currentTimeMillis()
+        if (boardDao.getLesson(sessionId) != null) {
+            boardDao.touchLesson(sessionId, now)
+        } else if (hasContent) {
+            boardDao.upsertLesson(
+                LessonEntity(
+                    sessionId = sessionId,
+                    name = AppText.get(
+                        R.string.lesson_untitled_at,
+                        SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(now)),
+                    ),
+                    createdAt = now,
+                    updatedAt = now,
+                    autoNamed = true,
+                ),
+            )
         }
     }
 
@@ -237,7 +273,9 @@ class BoardRepositoryImpl @Inject constructor(
         try {
             // Strokes and text boxes cascade via foreign keys.
             Log.i(TAG, "delete page=$pageId")
+            val sessionId = boardDao.getPage(pageId)?.sessionId
             boardDao.deletePage(pageId)
+            sessionId?.let { boardDao.touchLesson(it, System.currentTimeMillis()) }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             AppResult.Failure(AppError.Storage(AppText.get(R.string.error_page_delete, t.message.orEmpty())))

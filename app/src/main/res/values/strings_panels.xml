@@ -111,4 +111,5 @@
     <string name="panel_instrument_flip">Flip</string>
     <string name="panel_instrument_reset_angle">Reset angle</string>
     <string name="panel_lesson_open_now">· Open now</string>
+    <string name="panel_lesson_autosave_hint">Every change is saved automatically. Save gives the lesson a name.</string>
 </resources>

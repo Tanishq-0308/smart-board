@@ -53,6 +53,10 @@ interface BoardDao {
     @Query("SELECT * FROM lessons WHERE sessionId = :sessionId")
     suspend fun getLesson(sessionId: String): LessonEntity?
 
+    /** Marks a lesson as changed now, so the Open list shows when it was last edited. */
+    @Query("UPDATE lessons SET updatedAt = :now WHERE sessionId = :sessionId")
+    suspend fun touchLesson(sessionId: String, now: Long)
+
     @Query("DELETE FROM lessons WHERE sessionId = :sessionId")
     suspend fun deleteLesson(sessionId: String)
 

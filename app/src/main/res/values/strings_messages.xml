@@ -98,4 +98,6 @@
     <string name="status_pointer_stylus">Stylus</string>
     <string name="status_pointer_mouse">Mouse</string>
     <string name="status_pointer_finger">Finger</string>
+    <string name="lesson_untitled">Untitled lesson</string>
+    <string name="lesson_untitled_at">Untitled lesson, %1$s</string>
 </resources>

@@ -126,11 +126,17 @@ fun LessonMenu(
 
             when (view) {
                 MenuView.ACTIONS -> {
+                    Text(
+                        stringResource(R.string.panel_lesson_autosave_hint),
+                        color = TextOnChromeMuted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(bottom = 2.dp),
+                    )
                     MenuRow(Icons.Filled.NoteAdd, stringResource(R.string.panel_lesson_new)) { onNew(); onClose() }
                     MenuRow(Icons.Filled.FolderOpen, stringResource(R.string.panel_lesson_open)) { view = MenuView.OPEN }
                     MenuRow(Icons.Filled.Save, stringResource(R.string.panel_save)) {
                         val existing = currentLesson
-                        if (existing == null) {
+                        if (existing == null || existing.autoNamed) {
                             // Never saved: Save must ask for a name rather than
                             // inventing one the teacher cannot find later.
                             namingAsCopy = false
@@ -142,8 +148,10 @@ fun LessonMenu(
                         }
                     }
                     MenuRow(Icons.Filled.SaveAs, stringResource(R.string.panel_lesson_save_as)) {
-                        namingAsCopy = currentLesson != null
-                        draftName = currentLesson?.let { context.getString(R.string.panel_lesson_copy_name, it.name) }.orEmpty()
+                        // Only a lesson the teacher named is copied; an untitled one is just named.
+                        val named = currentLesson?.takeUnless { it.autoNamed }
+                        namingAsCopy = named != null
+                        draftName = named?.let { context.getString(R.string.panel_lesson_copy_name, it.name) }.orEmpty()
                         view = MenuView.NAME
                     }
                     MenuRow(Icons.Filled.PictureAsPdf, stringResource(R.string.lesson_export_pdf)) {
@@ -237,22 +245,14 @@ private fun LessonRow(
             modifier = Modifier.size(16.dp),
         )
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(lesson.name, color = TextOnChrome, fontSize = 13.sp)
-                // Tapping the lesson already on the board only closes the menu,
-                // so say so — otherwise the tap looks like it did nothing.
-                if (isCurrent) {
-                    Text(
-                        "  " + stringResource(R.string.panel_lesson_open_now),
-                        color = Accent,
-                        fontSize = 11.sp,
-                    )
-                }
-            }
+            Text(lesson.name, color = TextOnChrome, fontSize = 13.sp)
             Text(
                 text = pluralStringResource(R.plurals.panel_page_count, lesson.pageCount, lesson.pageCount) + " · " +
-                    DATE_FORMAT.format(Date(lesson.updatedAt)),
-                color = TextOnChromeMuted,
+                    DATE_FORMAT.format(Date(lesson.updatedAt)) +
+                    // Tapping the lesson already on the board only closes the
+                    // menu, so say so — otherwise the tap looks like it did nothing.
+                    (if (isCurrent) " " + stringResource(R.string.panel_lesson_open_now) else ""),
+                color = if (isCurrent) Accent else TextOnChromeMuted,
                 fontSize = 11.sp,
             )
         }

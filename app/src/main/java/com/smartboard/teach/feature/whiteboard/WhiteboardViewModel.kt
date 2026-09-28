@@ -288,6 +288,18 @@ class WhiteboardViewModel @Inject constructor(
             textBoxes = pendingTextBoxes,
             containers = pendingContainers,
         )
+        refreshCurrentLesson(sessionId)
+    }
+
+    /**
+     * The first save with content creates the lesson automatically (see
+     * BoardRepository.savePage), so the menu must learn about it — otherwise
+     * it would still treat the board as never saved.
+     */
+    private suspend fun refreshCurrentLesson(sessionId: String) {
+        if (_currentLesson.value == null) {
+            _currentLesson.value = boardRepository.getLesson(sessionId)
+        }
     }
 
     fun addPage(onPageReady: (PageContentSnapshot) -> Unit) {
@@ -1128,6 +1140,7 @@ class WhiteboardViewModel @Inject constructor(
             textBoxes = slot.textBoxes,
             containers = slot.containers,
         )
+        refreshCurrentLesson(sessionId)
     }
 
     // --- Named lessons ---
@@ -1167,6 +1180,13 @@ class WhiteboardViewModel @Inject constructor(
      */
     fun saveLessonAs(name: String, onPageReady: (PageContentSnapshot) -> Unit) {
         val sessionId = _state.value.sessionId ?: return
+        // A board that only has its automatic name has nothing to keep a copy
+        // of: Save as simply names it, like a first Save.
+        val current = _currentLesson.value
+        if (current == null || current.autoNamed) {
+            saveLesson(name)
+            return
+        }
         viewModelScope.launch {
             writeNow()
             val newSessionId = boardRepository.duplicateSession(sessionId, name.trim())

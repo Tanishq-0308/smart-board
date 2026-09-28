@@ -83,7 +83,7 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
   - **Scores:** a team scoreboard with 2–6 teams you can rename, plus +/− and reset.
 - **Timer:** a movable HH:MM:SS timer with play/pause, reset, full screen and an on-screen number pad.
 - **Background:** paper colour, and grid styles (none, thin, mix, square, dotted, lined, rangoli). You can also use an image or a PDF page as the backdrop.
-- **Lessons:** New, Open, Save, Save as and Delete named lessons, stored on the board.
+- **Lessons:** New, Open, Save, Save as, Delete and Export as PDF, stored on the board. **Every change saves automatically.** A board becomes a lesson ("Untitled lesson, date, time") as soon as it has something on it, so it always appears in Open, and the list shows when each lesson was last changed. **Save** names an untitled lesson. **Save as** on an untitled lesson just names it; on a named lesson it makes a copy. The lesson already on the board is marked "Open now".
 
 ### Pages and view
 - Infinite canvas with pan and pinch-zoom, plus zoom buttons. Tap the percentage to go back to 100%.

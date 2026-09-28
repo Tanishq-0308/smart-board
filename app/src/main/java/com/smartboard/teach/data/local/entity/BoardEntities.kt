@@ -20,6 +20,12 @@ data class LessonEntity(
     val name: String,
     val createdAt: Long,
     val updatedAt: Long,
+    /**
+     * True while the name is the automatic "Untitled lesson …" one. Every
+     * board with content becomes a lesson on its first save so it is always
+     * findable; Save / Save as on such a lesson NAMES it rather than copying.
+     */
+    val autoNamed: Boolean = false,
 )
 
 @Entity(tableName = "board_pages", indices = [Index("sessionId")])
