@@ -106,10 +106,7 @@ data class StudyMaterialEntity(
     val localPath: String? = null,
     /** Phase 2: LMS download URL. */
     val remoteUrl: String? = null,
-    /**
-     * Phase 1 scaffolding: which file under assets/seed/files backs this
-     * material. Phase 2 populates remoteUrl instead and leaves this null.
-     */
+    /** Unused since the ERP switch; kept so the table needs no migration. */
     val seedAssetFile: String? = null,
     val sizeBytes: Long? = null,
     val remoteId: String? = null,

@@ -4,9 +4,9 @@
 <resources>
     <string name="error_network">No internet connection.</string>
     <string name="error_timeout">The request took too long.</string>
-    <string name="error_invalid_credentials">Incorrect username or password.</string>
+    <string name="error_invalid_credentials">Enter your email (or employee ID) and password.</string>
     <string name="error_not_signed_in">Please sign in to continue.</string>
-    <string name="error_ai_not_configured">AI notes are not configured. Add an OpenAI API key to local.properties.</string>
+    <string name="error_ai_not_configured">AI is not available for this school.</string>
     <string name="error_ai_response">The AI response could not be understood.</string>
     <string name="error_storage">Could not read or write local storage.</string>
     <string name="error_not_found">That item no longer exists.</string>
@@ -101,4 +101,9 @@
     <string name="lesson_untitled">Untitled lesson</string>
     <string name="lesson_untitled_at">Untitled lesson, %1$s</string>
     <string name="status_preparing_page">Preparing page %1$d of %2$d…</string>
+    <string name="error_not_a_teacher">This account is not a teacher at any school on Skolar.</string>
+    <string name="error_erp_read">The school server sent something the board could not read: %1$s</string>
+    <string name="error_erp_busy">The school server is busy. Try again in a minute.</string>
+    <string name="error_erp_unavailable">The school server is not responding. Try again shortly.</string>
+    <string name="error_erp_http">The school server refused the request (%1$d).</string>
 </resources>

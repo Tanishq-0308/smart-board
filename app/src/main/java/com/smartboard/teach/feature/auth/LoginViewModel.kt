@@ -14,13 +14,19 @@ import javax.inject.Inject
 
 data class LoginUiState(
     val username: String = "",
+    val schoolCode: String = "",
     val password: String = "",
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
     val loggedIn: Boolean = false,
 ) {
+    /** An email signs in on its own; an employee ID needs the school's code. */
+    val needsSchoolCode: Boolean
+        get() = username.isNotBlank() && '@' !in username
+
     val canSubmit: Boolean
-        get() = username.isNotBlank() && password.isNotEmpty() && !isSubmitting
+        get() = username.isNotBlank() && password.isNotEmpty() && !isSubmitting &&
+            (!needsSchoolCode || schoolCode.isNotBlank())
 }
 
 @HiltViewModel
@@ -34,6 +40,9 @@ class LoginViewModel @Inject constructor(
     fun onUsernameChange(value: String) =
         _state.update { it.copy(username = value, errorMessage = null) }
 
+    fun onSchoolCodeChange(value: String) =
+        _state.update { it.copy(schoolCode = value, errorMessage = null) }
+
     fun onPasswordChange(value: String) =
         _state.update { it.copy(password = value, errorMessage = null) }
 
@@ -43,7 +52,10 @@ class LoginViewModel @Inject constructor(
 
         _state.update { it.copy(isSubmitting = true, errorMessage = null) }
         viewModelScope.launch {
-            when (val result = authRepository.login(current.username, current.password)) {
+            when (val result = authRepository.login(
+                current.username, current.password,
+                schoolCode = current.schoolCode.takeIf { current.needsSchoolCode },
+            )) {
                 is AppResult.Success ->
                     _state.update { it.copy(isSubmitting = false, loggedIn = true) }
 

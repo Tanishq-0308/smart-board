@@ -1,6 +1,7 @@
 package com.smartboard.teach.data.session
 
 import android.content.Context
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -16,13 +17,22 @@ import javax.inject.Singleton
 
 private val Context.sessionDataStore by preferencesDataStore(name = "session")
 
+/** The signed-in teacher's ERP tokens and school, as the ERP issued them. */
+data class ErpSession(
+    val accessToken: String,
+    val refreshToken: String,
+    val schoolId: String,
+    val schoolName: String,
+    val role: String,
+)
+
 /**
- * Persists which teacher is signed in across app restarts.
+ * Persists who is signed in across app restarts: the teacher id the app keys
+ * its data on, and the ERP session behind it.
  *
- * Phase 1 stores only a teacher id — there is no token because there is no
- * server. Phase 2 adds access/refresh tokens here; because the app reads auth
- * through `AuthState` rather than through this class directly, that addition
- * does not reach the UI.
+ * ponytail: tokens sit in app-private DataStore, not the Android Keystore. A
+ * board is a shared device whose real protection is Sign Out; move them to
+ * Keystore-backed storage if boards ever leave the school's control.
  */
 @Singleton
 class SessionManager @Inject constructor(
@@ -30,19 +40,52 @@ class SessionManager @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val teacherIdKey = stringPreferencesKey("teacher_id")
+    private val accessKey = stringPreferencesKey("erp_access")
+    private val refreshKey = stringPreferencesKey("erp_refresh")
+    private val schoolIdKey = stringPreferencesKey("erp_school_id")
+    private val schoolNameKey = stringPreferencesKey("erp_school_name")
+    private val roleKey = stringPreferencesKey("erp_role")
 
+    /**
+     * Null unless there is also an ERP session: a teacher id left over from the
+     * pre-ERP demo sign-in has no tokens behind it, so that board is a guest.
+     */
     val teacherId: Flow<String?> =
-        context.sessionDataStore.data.map { it[teacherIdKey] }
+        context.sessionDataStore.data.map { prefs -> prefs[teacherIdKey]?.takeIf { prefs[accessKey] != null } }
 
     suspend fun currentTeacherId(): String? = teacherId.first()
+
+    suspend fun erpSession(): ErpSession? = context.sessionDataStore.data.first().toErpSession()
 
     suspend fun setTeacherId(id: String) = withContext(ioDispatcher) {
         context.sessionDataStore.edit { it[teacherIdKey] = id }
         Unit
     }
 
-    suspend fun clear() = withContext(ioDispatcher) {
-        context.sessionDataStore.edit { it.remove(teacherIdKey) }
+    suspend fun saveErpSession(s: ErpSession) = withContext(ioDispatcher) {
+        context.sessionDataStore.edit {
+            it[accessKey] = s.accessToken
+            it[refreshKey] = s.refreshToken
+            it[schoolIdKey] = s.schoolId
+            it[schoolNameKey] = s.schoolName
+            it[roleKey] = s.role
+        }
         Unit
+    }
+
+    suspend fun clear() = withContext(ioDispatcher) {
+        context.sessionDataStore.edit { it.clear() }
+        Unit
+    }
+
+    private fun Preferences.toErpSession(): ErpSession? {
+        val access = this[accessKey] ?: return null
+        return ErpSession(
+            accessToken = access,
+            refreshToken = this[refreshKey].orEmpty(),
+            schoolId = this[schoolIdKey].orEmpty(),
+            schoolName = this[schoolNameKey].orEmpty(),
+            role = this[roleKey] ?: "teacher",
+        )
     }
 }

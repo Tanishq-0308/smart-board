@@ -11,16 +11,16 @@ plugins {
 }
 
 /**
- * Reads OPENAI_API_KEY from local.properties (gitignored), falling back to an
- * environment variable so CI can inject it. Absent key is NOT a build failure —
- * the app runs fine and simply reports that AI notes are unconfigured.
+ * The school's Skolar server. Every school on the central server uses the
+ * default; a school on its own server sets ERP_BASE_URL in local.properties
+ * (or the environment) and builds its own APK.
  */
-val openAiApiKey: String = run {
+val erpBaseUrl: String = run {
     val fromLocalProps = rootProject.file("local.properties")
         .takeIf { it.exists() }
         ?.let { file -> Properties().apply { file.inputStream().use(::load) } }
-        ?.getProperty("OPENAI_API_KEY")
-    (fromLocalProps ?: System.getenv("OPENAI_API_KEY") ?: "").trim()
+        ?.getProperty("ERP_BASE_URL")
+    (fromLocalProps ?: System.getenv("ERP_BASE_URL") ?: "https://app.skolarbot.com").trim()
 }
 
 android {
@@ -37,7 +37,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
 
-        buildConfigField("String", "OPENAI_API_KEY", "\"$openAiApiKey\"")
+        buildConfigField("String", "ERP_BASE_URL", "\"$erpBaseUrl\"")
 
         // Room schema export — required for Phase 2 migrations.
         ksp { arg("room.schemaLocation", "$projectDir/schemas") }

@@ -1,0 +1,112 @@
+package com.smartboard.teach.data.repository
+
+import com.smartboard.teach.core.util.AppError
+import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.data.local.dao.ClassWithCount
+import com.smartboard.teach.data.local.dao.MaterialDao
+import com.smartboard.teach.data.local.dao.RosterDao
+import com.smartboard.teach.data.local.entity.SchoolClassEntity
+import com.smartboard.teach.data.local.entity.StudentEntity
+import com.smartboard.teach.data.local.entity.StudyMaterialEntity
+import com.smartboard.teach.data.remote.erp.BoardClassDto
+import com.smartboard.teach.data.remote.erp.BoardMaterialDto
+import com.smartboard.teach.data.remote.erp.BoardStudentDto
+import com.smartboard.teach.data.remote.erp.ErpApi
+import com.smartboard.teach.data.session.SessionManager
+import com.smartboard.teach.domain.model.SchoolClass
+import com.smartboard.teach.domain.model.Student
+import com.smartboard.teach.domain.repository.AttendanceRepository
+import com.smartboard.teach.domain.repository.RosterRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.net.URLEncoder
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * The teacher's classes, rosters and class materials, from the ERP.
+ *
+ * Screens read Room, so a board that lost its network keeps showing the last
+ * roster; [refresh] replaces that cache with the ERP's lists (the teacher's
+ * timetabled and class-teacher sections only, as the ERP scopes them).
+ */
+@Singleton
+class ErpRosterRepository @Inject constructor(
+    private val api: ErpApi,
+    private val rosterDao: RosterDao,
+    private val materialDao: MaterialDao,
+    private val sessionManager: SessionManager,
+    private val attendance: dagger.Lazy<AttendanceRepository>,
+) : RosterRepository {
+
+    private val refreshing = Mutex()
+
+    override fun classesForTeacher(teacherId: String): Flow<List<SchoolClass>> =
+        rosterDao.observeClassesForTeacher(teacherId).map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeClass(classId: String): Flow<SchoolClass?> =
+        rosterDao.observeClass(classId).map { it?.toDomain() }
+
+    override fun studentsInClass(classId: String): Flow<List<Student>> =
+        rosterDao.observeStudentsInClass(classId).map { rows -> rows.map { it.toDomain() } }
+
+    override suspend fun refresh(): AppResult<Unit> = refreshing.withLock {
+        val teacherId = sessionManager.currentTeacherId()
+            ?: return AppResult.Failure(AppError.NotAuthenticated())
+
+        val classes = when (val r = api.getList("/api/ai/board/classes", BoardClassDto.serializer())) {
+            is AppResult.Success -> r.data
+            is AppResult.Failure -> return r
+        }
+        rosterDao.upsertClasses(classes.map {
+            SchoolClassEntity(id = it.id, name = it.name, section = it.section, subject = it.subject,
+                teacherId = teacherId, remoteId = it.id)
+        })
+        rosterDao.deleteClassesExcept(teacherId, classes.map { it.id })
+
+        for (c in classes) {
+            val students = api.getList("/api/ai/board/classes/${c.id}/students", BoardStudentDto.serializer())
+            if (students is AppResult.Success) {
+                rosterDao.replaceRoster(c.id, students.data.map {
+                    StudentEntity(id = it.id, rollNumber = it.rollNumber, fullName = it.fullName, remoteId = it.id)
+                })
+            }
+            val materials = api.getList("/api/ai/board/materials?class_id=${enc(c.id)}", BoardMaterialDto.serializer())
+            if (materials is AppResult.Success) {
+                // Keep a material's downloaded copy across refreshes.
+                val known = materialDao.getForClass(c.id).associateBy { it.id }
+                materialDao.upsertAll(materials.data.map {
+                    StudyMaterialEntity(id = it.id, teacherId = teacherId, classId = c.id, title = it.title,
+                        kind = it.kind, localPath = known[it.id]?.localPath, remoteUrl = it.remoteUrl,
+                        sizeBytes = it.sizeBytes, remoteId = it.id)
+                })
+                materialDao.deleteForClassExcept(c.id, materials.data.map { it.id })
+            }
+        }
+        // Registers taken while offline go up now that the ERP answers.
+        (attendance.get() as? ErpAttendanceRepository)?.pushPending()
+        AppResult.Success(Unit)
+    }
+}
+
+internal fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+internal fun ClassWithCount.toDomain() = SchoolClass(
+    id = id,
+    name = name,
+    section = section,
+    subject = subject,
+    teacherId = teacherId,
+    studentCount = studentCount,
+    remoteId = remoteId,
+)
+
+internal fun StudentEntity.toDomain() = Student(
+    id = id,
+    rollNumber = rollNumber,
+    fullName = fullName,
+    avatarPath = avatarPath,
+    remoteId = remoteId,
+)

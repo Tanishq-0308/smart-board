@@ -24,12 +24,12 @@
 
     <!-- Login -->
     <string name="login_title">Teacher Sign In</string>
-    <string name="login_intro">Sign in to see your classes, attendance and study material. The whiteboard and notes work without signing in.</string>
-    <string name="login_username">Username</string>
+    <string name="login_intro">Sign in with your Skolar staff account to see your classes, attendance and study material, and to create AI notes. The whiteboard works without signing in.</string>
+    <string name="login_username">Email or employee ID</string>
+    <string name="login_school_code">School code</string>
     <string name="login_password">Password</string>
     <string name="login_hide_password">Hide password</string>
     <string name="login_show_password">Show password</string>
-    <string name="login_demo_accounts">Demo accounts (Phase 1)</string>
 
     <!-- Classes -->
     <string name="classes_back_label">Classes</string>
@@ -94,14 +94,14 @@
     <string name="settings_24h_clock_detail">Show the header clock in 24-hour time.</string>
     <string name="settings_section_ai">AI notes</string>
     <string name="settings_ai_configured">Configured — model %1$s</string>
-    <string name="settings_ai_not_configured">No API key. Add OPENAI_API_KEY to local.properties and rebuild. Board snapshots are still saved and can be summarised later.</string>
+    <string name="settings_ai_not_configured">AI runs through your school\'s Skolar server once a teacher signs in. Board snapshots are kept until then.</string>
     <string name="settings_section_storage">Storage</string>
     <string name="settings_storage_detail">Removes saved board pages and imported backgrounds. Notes and class lists are kept.</string>
     <string name="settings_clearing">Clearing…</string>
     <string name="settings_clear_board_data">Clear board data</string>
     <string name="settings_section_about">About</string>
     <string name="settings_app_version">Smart Board %1$s</string>
-    <string name="settings_about_phase">Phase 1 — local data. ERP and LMS integration follows in Phase 2.</string>
+    <string name="settings_about_phase">Classes, attendance, study material and AI come from your school\'s Skolar server.</string>
     <string name="settings_status_ok">OK</string>
     <!-- Attendance overview -->
     <string name="attendance_overview_title">Attendance today</string>

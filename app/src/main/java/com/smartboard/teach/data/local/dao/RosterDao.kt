@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import com.smartboard.teach.data.local.entity.EnrollmentEntity
 import com.smartboard.teach.data.local.entity.SchoolClassEntity
@@ -97,4 +98,19 @@ interface RosterDao {
 
     @Query("SELECT COUNT(*) FROM classes")
     suspend fun classCount(): Int
+
+    /** Drops classes the ERP no longer lists for this teacher. */
+    @Query("DELETE FROM classes WHERE teacherId = :teacherId AND id NOT IN (:keep)")
+    suspend fun deleteClassesExcept(teacherId: String, keep: List<String>)
+
+    @Query("DELETE FROM enrollments WHERE classId = :classId")
+    suspend fun clearEnrollments(classId: String)
+
+    /** Replaces a class's roster with the ERP's, in one transaction. */
+    @Transaction
+    suspend fun replaceRoster(classId: String, students: List<StudentEntity>) {
+        upsertStudents(students)
+        clearEnrollments(classId)
+        insertEnrollments(students.map { EnrollmentEntity(classId, it.id) })
+    }
 }

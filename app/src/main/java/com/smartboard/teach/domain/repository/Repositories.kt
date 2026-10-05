@@ -33,7 +33,11 @@ import java.time.LocalDate
 
 interface AuthRepository {
     val authState: Flow<AuthState>
-    suspend fun login(username: String, password: String): AppResult<Teacher>
+    /**
+     * [username] is the teacher's email, or their employee ID when [schoolCode]
+     * (the school's short code) is given.
+     */
+    suspend fun login(username: String, password: String, schoolCode: String? = null): AppResult<Teacher>
     suspend fun logout()
     suspend fun currentTeacher(): Teacher?
 }
@@ -43,7 +47,7 @@ interface RosterRepository {
     fun observeClass(classId: String): Flow<SchoolClass?>
     fun studentsInClass(classId: String): Flow<List<Student>>
 
-    /** Phase 1: no-op. Phase 2: pulls the roster from the ERP. */
+    /** Pulls the teacher's classes, rosters and materials from the ERP. */
     suspend fun refresh(): AppResult<Unit>
 }
 
@@ -66,6 +70,6 @@ interface MaterialRepository {
     fun materialsForTeacher(teacherId: String): Flow<List<StudyMaterial>>
     fun materialsForClass(classId: String): Flow<List<StudyMaterial>>
 
-    /** Phase 1: copies from assets. Phase 2: downloads and caches. Same signature. */
+    /** Downloads the file on first use and keeps it on the board. */
     suspend fun ensureLocalFile(materialId: String): AppResult<File>
 }

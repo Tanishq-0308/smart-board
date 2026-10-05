@@ -27,6 +27,12 @@ interface MaterialDao {
 
     @Query("SELECT COUNT(*) FROM study_materials")
     suspend fun count(): Int
+
+    @Query("SELECT * FROM study_materials WHERE classId = :classId")
+    suspend fun getForClass(classId: String): List<StudyMaterialEntity>
+
+    @Query("DELETE FROM study_materials WHERE classId = :classId AND id NOT IN (:keep)")
+    suspend fun deleteForClassExcept(classId: String, keep: List<String>)
 }
 
 @Dao

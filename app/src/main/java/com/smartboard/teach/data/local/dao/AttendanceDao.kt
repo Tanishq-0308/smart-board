@@ -33,6 +33,13 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance_sessions WHERE classId = :classId ORDER BY date DESC LIMIT :limit")
     fun observeRecentSessions(classId: String, limit: Int = 30): Flow<List<SessionWithRecords>>
 
+    @Transaction
+    @Query("SELECT * FROM attendance_sessions WHERE syncState = 'PENDING_SYNC'")
+    suspend fun getPendingSessions(): List<SessionWithRecords>
+
+    @Query("UPDATE attendance_sessions SET syncState = :state WHERE id = :id")
+    suspend fun setSyncState(id: String, state: String)
+
     @Upsert
     suspend fun upsertSession(session: AttendanceSessionEntity)
 

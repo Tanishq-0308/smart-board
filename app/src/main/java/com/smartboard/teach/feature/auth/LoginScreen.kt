@@ -1,7 +1,6 @@
 package com.smartboard.teach.feature.auth
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,7 +24,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -99,6 +97,23 @@ fun LoginScreen(
                 ),
             )
 
+            // An employee ID only means something within one school.
+            if (state.needsSchoolCode) {
+                Spacer(Modifier.height(dimens.gutter))
+                OutlinedTextField(
+                    value = state.schoolCode,
+                    onValueChange = viewModel::onSchoolCodeChange,
+                    label = { Text(stringResource(R.string.login_school_code)) },
+                    singleLine = true,
+                    enabled = !state.isSubmitting,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next,
+                    ),
+                )
+            }
+
             Spacer(Modifier.height(dimens.gutter))
 
             OutlinedTextField(
@@ -161,8 +176,6 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(Modifier.height(dimens.gutterLarge))
-            DemoCredentialsHint()
         }
     }
 }
@@ -185,34 +198,5 @@ private fun ErrorBanner(message: String) {
         )
         Spacer(Modifier.width(dimens.gutterSmall))
         Text(text = message, color = ErrorRed, fontSize = dimens.bodySize)
-    }
-}
-
-/**
- * Phase 1 only. This block disappears when the ERP provides real credentials —
- * it exists so the app is demonstrable without a backend.
- */
-@Composable
-private fun DemoCredentialsHint() {
-    val dimens = SmartBoardTheme.dimens
-    Surface(
-        shape = RoundedCornerShape(dimens.cornerRadius),
-        color = TextOnSurfaceMuted.copy(alpha = 0.07f),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            Modifier.padding(dimens.gutter),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.login_demo_accounts),
-                fontSize = dimens.labelSize,
-                fontWeight = FontWeight.SemiBold,
-                color = TextOnSurfaceMuted,
-            )
-            Text("demo / demo", fontSize = dimens.labelSize, color = TextOnSurfaceMuted)
-            Text("asharma / board123", fontSize = dimens.labelSize, color = TextOnSurfaceMuted)
-            Text("rmehta / board123", fontSize = dimens.labelSize, color = TextOnSurfaceMuted)
-        }
     }
 }
