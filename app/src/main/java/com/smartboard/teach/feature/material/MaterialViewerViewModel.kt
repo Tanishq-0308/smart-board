@@ -5,7 +5,10 @@ import android.graphics.BitmapFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppResult
+import com.smartboard.teach.core.util.AppText
+import com.smartboard.teach.core.util.BitmapUtils
 import com.smartboard.teach.data.file.PdfPageRenderer
 import com.smartboard.teach.di.IoDispatcher
 import com.smartboard.teach.domain.model.StudyMaterial
@@ -56,6 +59,21 @@ class MaterialViewerViewModel @Inject constructor(
             when (val result = materialRepository.ensureLocalFile(materialId)) {
                 is AppResult.Success -> {
                     localFile = result.data
+                    if (isImageFile(result.data)) {
+                        // A picture is a one-page document: shown as it is.
+                        val bitmap = withContext(ioDispatcher) {
+                            BitmapUtils.decodeSampled(result.data.absolutePath, IMAGE_MAX_EDGE_PX)
+                        }
+                        _state.update {
+                            if (bitmap == null) it.copy(isLoading = false, errorMessage = AppText.get(R.string.error_image_unreadable))
+                            else it.copy(pageCount = 1, pageBitmap = bitmap, isLoading = false)
+                        }
+                        return@launch
+                    }
+                    if (!isPdfFile(result.data)) {
+                        _state.update { it.copy(isLoading = false, errorMessage = AppText.get(R.string.material_unsupported)) }
+                        return@launch
+                    }
                     when (val count = pdfPageRenderer.pageCount(result.data)) {
                         is AppResult.Success -> {
                             _state.update { it.copy(pageCount = count.data) }
@@ -77,6 +95,7 @@ class MaterialViewerViewModel @Inject constructor(
 
     fun renderPage(index: Int) {
         val file = localFile ?: return
+        if (isImageFile(file)) return
         val count = _state.value.pageCount
         if (count > 0 && index !in 0 until count) return
 
@@ -119,3 +138,14 @@ class MaterialViewerViewModel @Inject constructor(
         _state.value.pageBitmap?.recycle()
     }
 }
+
+private const val IMAGE_MAX_EDGE_PX = 2048
+
+/** Study material the board shows as a picture rather than a PDF. */
+internal fun isImageFile(file: File): Boolean =
+    file.extension.lowercase() in setOf("png", "jpg", "jpeg", "webp")
+
+/** By its first bytes, so a PDF saved without its extension still opens. */
+internal fun isPdfFile(file: File): Boolean =
+    file.extension.equals("pdf", ignoreCase = true) ||
+        runCatching { file.inputStream().use { String(it.readNBytes(5)) == "%PDF-" } }.getOrDefault(false)

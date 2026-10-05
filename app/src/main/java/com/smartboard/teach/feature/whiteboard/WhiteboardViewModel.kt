@@ -1633,6 +1633,19 @@ class WhiteboardViewModel @Inject constructor(
     fun adoptDocument(pdf: File, startPage: Int, onPageReady: (PageContentSnapshot) -> Unit) {
         val sessionId = _state.value.sessionId ?: return
         viewModelScope.launch {
+            // A picture from Study Material goes on the board as a one-page document.
+            if (pdf.extension.lowercase() in setOf("png", "jpg", "jpeg", "webp")) {
+                val bounds = withContext(Dispatchers.IO) {
+                    BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        .also { BitmapFactory.decodeFile(pdf.absolutePath, it) }
+                }
+                if (bounds.outWidth <= 0) {
+                    _backgroundState.value = BackgroundImportState(errorMessage = AppText.get(R.string.error_image_unreadable))
+                    return@launch
+                }
+                placeDocument(sessionId, documentTitle(pdf), listOf(pdf.absolutePath), listOf(bounds.outWidth to bounds.outHeight), 0, onPageReady)
+                return@launch
+            }
             val pageCount = (pdfPageRenderer.pageCount(pdf) as? AppResult.Success)?.data ?: 0
             if (pageCount <= 0) {
                 _backgroundState.value = BackgroundImportState(errorMessage = AppText.get(R.string.error_pdf_no_pages))
@@ -1660,13 +1673,21 @@ class WhiteboardViewModel @Inject constructor(
                 sizes += bounds.outWidth to bounds.outHeight
             }
             _backgroundState.value = null
+            placeDocument(sessionId, documentTitle(pdf), files, sizes, startPage, onPageReady)
+        }
+    }
 
+    /** Adds the rendered pages as a new board page, stacked, and opens at [startPage]. */
+    private suspend fun placeDocument(
+        sessionId: String, title: String, files: List<String>, sizes: List<Pair<Int, Int>>,
+        startPage: Int, onPageReady: (PageContentSnapshot) -> Unit,
+    ) {
+        run {
             // Persist the page being left, then add the document as a new page.
             writeNow()
             val page = boardRepository.createPage(sessionId, _state.value.pages.size, boardWidthPx, boardHeightPx)
             val width = boardWidthPx * DOCUMENT_WIDTH_FRACTION
             val left = (boardWidthPx - width) / 2f
-            val title = documentTitle(pdf)
             val containers = DocumentStack.layout(files, sizes, width, left, top = DocumentStack.GAP)
                 .mapIndexed { i, c -> c.copy(label = AppText.get(R.string.document_page_label, title, i + 1)) }
             boardRepository.savePage(page, emptyList(), emptyList(), containers)

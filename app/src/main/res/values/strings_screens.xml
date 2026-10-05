@@ -52,6 +52,7 @@
     <string name="material_page">Page %1$d</string>
     <string name="material_annotate_on_board">Annotate on board</string>
     <string name="material_nothing_to_show">Nothing to show.</string>
+    <string name="material_unsupported">The board can open PDFs and pictures. Open this file on a computer, or upload it to Skolar as a PDF.</string>
 
     <!-- Notes -->
     <string name="notes_export">Export</string>
