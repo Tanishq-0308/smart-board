@@ -52,10 +52,10 @@ class ClassListViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ClassListUiState())
     val uiState: StateFlow<ClassListUiState> = _uiState.asStateFlow()
 
-    /**
-     * Phase 1: a no-op that still drives real loading and error states, so
-     * Phase 2's ERP fetch lights up here with no UI change.
-     */
+    // Classes and rosters changed on Skolar show up when the list opens.
+    init { refresh() }
+
+    /** Pulls classes, rosters and materials from the ERP. */
     fun refresh() {
         if (_uiState.value.isRefreshing) return
         _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
