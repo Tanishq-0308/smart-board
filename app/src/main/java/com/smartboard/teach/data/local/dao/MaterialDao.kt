@@ -33,6 +33,13 @@ interface MaterialDao {
 
     @Query("DELETE FROM study_materials WHERE classId = :classId AND id NOT IN (:keep)")
     suspend fun deleteForClassExcept(classId: String, keep: List<String>)
+
+    /** The teacher's own uploads that belong to no class. */
+    @Query("SELECT * FROM study_materials WHERE teacherId = :teacherId AND classId IS NULL")
+    suspend fun getPersonal(teacherId: String): List<StudyMaterialEntity>
+
+    @Query("DELETE FROM study_materials WHERE teacherId = :teacherId AND classId IS NULL AND id NOT IN (:keep)")
+    suspend fun deletePersonalExcept(teacherId: String, keep: List<String>)
 }
 
 @Dao

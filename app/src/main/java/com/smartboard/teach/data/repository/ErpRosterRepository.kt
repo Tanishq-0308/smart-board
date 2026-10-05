@@ -12,6 +12,7 @@ import com.smartboard.teach.data.local.entity.TimetableSlotEntity
 import com.smartboard.teach.data.remote.erp.BoardClassDto
 import com.smartboard.teach.data.remote.erp.BoardMaterialDto
 import com.smartboard.teach.data.remote.erp.BoardStudentDto
+import com.smartboard.teach.data.remote.erp.CourseMaterialDto
 import com.smartboard.teach.data.remote.erp.ErpApi
 import com.smartboard.teach.data.remote.erp.Page
 import com.smartboard.teach.data.remote.erp.SubjectDto
@@ -96,11 +97,30 @@ class ErpRosterRepository @Inject constructor(
                 materialDao.deleteForClassExcept(c.id, materials.data.map { it.id })
             }
         }
+        refreshPersonalMaterials(teacherId)
         refreshTimetable(teacherId)
         // Registers taken while offline go up now that the ERP answers.
         (attendance.get() as? ErpAttendanceRepository)?.pushPending()
         AppResult.Success(Unit)
     }
+    /**
+     * The teacher's own uploads that belong to no class ("for myself" on
+     * Skolar). The board's materials route lists only class material, so these
+     * come from the course-materials list, filtered to the teacher's uploads.
+     */
+    private suspend fun refreshPersonalMaterials(teacherId: String) {
+        val rows = (api.getList("/api/erp/course-materials?mine_only=true", CourseMaterialDto.serializer())
+            as? AppResult.Success)?.data ?: return
+        val personal = rows.filter { it.sectionId == null }
+        val known = materialDao.getPersonal(teacherId).associateBy { it.id }
+        materialDao.upsertAll(personal.map {
+            StudyMaterialEntity(id = it.id, teacherId = teacherId, classId = null, title = it.title,
+                kind = materialKind(it.fileName, it.fileType), localPath = known[it.id]?.localPath,
+                remoteUrl = "/api/erp/course-materials/${it.id}/file", sizeBytes = it.fileSize, remoteId = it.id)
+        })
+        materialDao.deletePersonalExcept(teacherId, personal.map { it.id })
+    }
+
     /**
      * The teacher's periods, with subject names: where a class's subject ids
      * come from. ponytail: reads one 100-row page (the demo teacher has 66);
@@ -115,6 +135,16 @@ class ErpRosterRepository @Inject constructor(
             TimetableSlotEntity(classId = it.sectionId, subjectId = it.subjectId, subjectName = names[it.subjectId],
                 dayOfWeek = it.dayOfWeek, startTime = it.startTime, endTime = it.endTime)
         })
+    }
+}
+
+/** As the ERP's board route classifies files. */
+private fun materialKind(name: String, mime: String): String {
+    val ext = name.substringAfterLast('.', "").lowercase()
+    return when {
+        ext == "pdf" || "pdf" in mime -> "PDF"
+        mime.startsWith("image/") || ext in setOf("png", "jpg", "jpeg", "webp") -> "IMAGE"
+        else -> "BOOK"
     }
 }
 

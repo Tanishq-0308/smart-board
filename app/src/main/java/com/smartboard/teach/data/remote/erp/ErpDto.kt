@@ -117,6 +117,17 @@ data class BoardMaterialDto(
     val sizeBytes: Long? = null,
 )
 
+/** A row of `GET /api/erp/course-materials` (metadata only). */
+@Serializable
+data class CourseMaterialDto(
+    val id: String,
+    @SerialName("section_id") val sectionId: String? = null,
+    val title: String = "",
+    @SerialName("file_name") val fileName: String = "",
+    @SerialName("file_type") val fileType: String = "",
+    @SerialName("file_size") val fileSize: Long? = null,
+)
+
 @Serializable
 data class MaterialFileDto(
     @SerialName("file_name") val fileName: String = "",
