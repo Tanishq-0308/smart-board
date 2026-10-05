@@ -1,9 +1,8 @@
 # Smart Board: Features
 
-A teaching app for interactive smart boards: large landscape Android panels, often sideloaded and often without Google Play Services. A teacher can walk up and write straight away without signing in. Signing in adds their classes, attendance and study material.
+A teaching app for interactive smart boards: large landscape Android panels, often sideloaded and often without Google Play Services. A teacher can walk up and write straight away without signing in. Signing in with their Skolar staff account adds their classes, attendance, study material, and AI notes and assignments.
 
-- **Phase 1 (current):** everything runs on the board, using local data.
-- **Phase 2 (upcoming):** connects to the school's ERP/LMS.
+Boards, lessons and notes live on the board. Everything the school owns (sign-in, classes, students, attendance, study material, AI) comes from the school's Skolar ERP. No AI key is stored on the board.
 
 Status key: ✅ available now · 🔜 planned · 💡 idea, not yet scheduled
 
@@ -15,7 +14,7 @@ Status key: ✅ available now · 🔜 planned · 💡 idea, not yet scheduled
 |---|---|---|
 | Whiteboard | ✅ | ✅ |
 | 3D Maths | ✅ | ✅ |
-| Notes (AI snapshot notes) | ✅ | ✅ |
+| Notes (AI snapshot notes) | ✅ (made after sign-in) | ✅ |
 | Settings | ✅ | ✅ |
 | My Classes | 🔒 | ✅ |
 | Attendance | 🔒 | ✅ |
@@ -93,7 +92,7 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
 
 ### Tools drawer (right edge)
 - **Web:** web search docked beside the board. Hidden on boards without a working WebView.
-- **Snapshot → AI notes:** turns the whole board into structured lesson notes.
+- **Snapshot → notes and assignment:** see section 3.
 - **3D Maths:** opens the 3D Maths screen (see section 2).
 
 ---
@@ -119,13 +118,16 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
 
 ---
 
-## 3. Notes ✅
-- AI-generated notes from a board snapshot:
-  - title and summary
-  - topics and key points
-  - definitions and formulas
-  - follow-up questions
-- Notes list with delete, and **Retry** for notes whose AI request failed. The snapshot is saved before the request is sent, so it isn't lost if the request fails.
+## 3. Notes and assignments ✅
+- **Snapshot** (tools drawer) turns the lesson into notes and an NCERT-style assignment for one class:
+  - The teacher picks the class (preselected from the period on the timetable), the subject and a length: Short (10 questions, 21 marks), Standard (15, 33) or Long (20, 45).
+  - **Only what was taught is used.** That means board pages with writing, plus PDF pages and pictures that were written on or kept on screen for 20 seconds or more. Teaching two pages of a 100-page chapter sends those two pages, not the chapter. At most 8 parts are sent per lesson, ink first; the teacher is told if any were left out.
+  - **Notes:** title and summary per part, topics, key points, definitions, formulas and follow-up questions, all labelled with where they came from ("Board, page 1", "Chapter 11, page 2").
+  - **Assignment** in NCERT/CBSE sections: A multiple choice (1 mark), B fill in the blanks / true or false (1), C very short answer (2), D short answer (3), E long answer (5), F HOTS or case-based (4). Each question has an expected answer for the teacher. Questions are written only from the notes of this lesson.
+- **Review before anything is shared:** notes beside the assignment, grouped by section. Edit any question, option, answer or mark; delete a question; write a new assignment; set the due date (a week by default). Questions with no answer, the wrong number of options, or an answer that matches no option are flagged.
+- **Publish to class:** shares the notes with the class and publishes the assignment, which notifies students and parents. Students answer it in the Skolar student portal; answers stay with the teacher and the school's AI marker.
+- Nothing is lost on a failure: the lesson's images are saved before any network call, and **Retry** carries on from the step that failed (no network, the school's AI allowance used up). A guest's snapshot is saved and finished after a teacher signs in.
+- Notes list with delete. A note made by Look up "Save to notes" is a plain note.
 - Formatted note view (headings, bullets, code, bold).
 - Export a note as Markdown, for example to a USB drive.
 
@@ -143,13 +145,15 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
 - **Annotate on board:** puts the **whole document** on a new board page, every page top to bottom, and opens at the page you were reading. Write on any page; the ink stays with that page. Only the pages on or near the screen are held in memory, so a long chapter is safe on a 2 GB board.
 
 ## 7. Sign in ✅
-- Username and password sign-in, currently against local demo accounts.
+- Skolar staff account: email and password, or employee ID with the school code. The board stays signed in (tokens refresh on their own) until Sign Out, or until the school ends the session.
+- Classes, students, timetable and class materials are pulled from the ERP after sign-in and kept on the board, so screens still work with no network.
+- Attendance is saved on the board first, then sent to the ERP. A register saved offline is sent at the next refresh.
 
 ## 8. Settings ✅
 - **Pen and touch:** Stylus only, Pressure sensitivity, Pen eraser button, Pointer debug overlay (for setting up new hardware).
 - **Device diagnostics** (for installers): Android version, memory, storage, screen, declared touch points, stylus, Google Play Services, WebView and network, each marked OK or warning. A **touch test pad** shows how many contacts the panel really tracks, which input types it sends (finger, stylus, eraser) and whether pressure varies.
 - **Display:** 24-hour clock.
-- **AI notes:** shows whether an AI key is configured and which model is used.
+- **AI notes:** run through the school's Skolar server; no key on the board.
 - **Storage:** Clear board data. Removes pages and backgrounds; keeps notes and classes.
 - **About:** app version.
 
@@ -157,17 +161,13 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
 
 ## Upcoming
 
-### 🔜 Phase 2: school ERP/LMS integration
-The app already has a single place where each on-device data source will be swapped for the school's system (`di/RepositoryModule.kt`). No screen changes should be needed.
-- **Sign in with the school ERP**, using tokens instead of local demo accounts.
-- **Class rosters** fetched from the ERP. The refresh action already exists but does nothing yet.
-- **Attendance sync** to the ERP. Each record already stores whether it has been synced.
-- **Study material** downloaded from the LMS instead of bundled files.
-- **Move the OpenAI key behind a school server.** It currently ships inside the app, where it can be extracted. It is mitigated by a dedicated, spend-capped key.
-- Boards, lessons and notes stay on the device.
+### 🔜 Next
+- **Rotate the OpenAI key** that earlier builds carried. Builds since the ERP switch do not contain it.
+- **Formulas in Look up** come back as raw LaTeX (`\( A \)`), which the answer panel does not render yet.
+- **Notify the class when notes are shared on their own.** The school ERP notifies only for assignments today.
 
 ### 💡 Ideas and gaps, not yet scheduled
-- **Lesson sharing:** cloud upload, scan, email. These were left out on purpose for Phase 1.
+- **Lesson sharing** beyond the class: cloud upload, scan, email.
 - **Multi-writer touch.** Palm rejection currently allows one writer at a time.
 - **3D Maths:**
   - a proper depth-buffer renderer (OpenGL ES), if the current shortcut shows glitches on deep concave solids
@@ -187,3 +187,6 @@ Runs on Android 9 and later, with or without Google Play Services. Tested on a 2
   - **Split view** could open one page in two panes, and the later save overwrote the other's ink.
 
   Every page save and load is now logged under the `BoardPersist` tag. A save that removes more than half of a page's ink logs a warning with a stack trace, so any remaining cause will leave evidence.
+
+## Privacy
+Board images (for notes, Look up and assignments), class lists and attendance go to the school's own Skolar server. The board calls no other service with them. The Web panel and Search with Lens are opened by the teacher and go to Google.

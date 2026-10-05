@@ -8,6 +8,7 @@ import com.smartboard.teach.domain.model.SchoolClass
 import com.smartboard.teach.domain.model.Student
 import com.smartboard.teach.domain.model.StudyMaterial
 import com.smartboard.teach.domain.model.Teacher
+import com.smartboard.teach.domain.model.TimetableSlot
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 import java.time.LocalDate
@@ -49,6 +50,9 @@ interface RosterRepository {
 
     /** Pulls the teacher's classes, rosters and materials from the ERP. */
     suspend fun refresh(): AppResult<Unit>
+
+    /** The teacher's periods as last pulled; empty before the first refresh. */
+    suspend fun timetable(): List<TimetableSlot>
 }
 
 interface AttendanceRepository {

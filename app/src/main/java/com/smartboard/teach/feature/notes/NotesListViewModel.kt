@@ -11,6 +11,7 @@ import com.smartboard.teach.domain.model.NoteDocument
 import com.smartboard.teach.domain.repository.NotesAiService
 import com.smartboard.teach.domain.repository.NotesRepository
 import com.smartboard.teach.domain.usecase.GenerateNotesFromSnapshotUseCase
+import com.smartboard.teach.domain.usecase.LessonPackUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,6 +32,7 @@ data class NotesListUiState(
 class NotesListViewModel @Inject constructor(
     private val notesRepository: NotesRepository,
     private val generateNotes: GenerateNotesFromSnapshotUseCase,
+    private val lessonPack: LessonPackUseCase,
     private val aiService: NotesAiService,
 ) : ViewModel() {
 
@@ -54,6 +56,17 @@ class NotesListViewModel @Inject constructor(
         _uiState.update { it.copy(retryingNoteId = note.id, message = null) }
 
         viewModelScope.launch {
+            // A lesson pack carries on from the step that failed; its parts are on disk.
+            if (note.pack != null) {
+                val result = lessonPack.resume(note.id)
+                _uiState.update {
+                    it.copy(retryingNoteId = null, message = when (result) {
+                        is AppResult.Success -> AppText.get(R.string.status_notes_generated)
+                        is AppResult.Failure -> result.error.message
+                    })
+                }
+                return@launch
+            }
             val bitmap = decodeSnapshot(note.snapshotPath)
             if (bitmap == null) {
                 _uiState.update {

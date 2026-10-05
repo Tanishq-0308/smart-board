@@ -73,6 +73,7 @@ fun AppNavHost(
                 onOpenNotes = {
                     navController.navigate(Dest.Notes.route) { launchSingleTop = true }
                 },
+                onOpenNote = { noteId -> navController.navigate(DetailRoutes.noteDetail(noteId)) },
                 // Same options as the sidebar, so the board stays at the root of
                 // the stack and 3D Maths can hand a snapshot back to it.
                 onOpenMaths3D = {

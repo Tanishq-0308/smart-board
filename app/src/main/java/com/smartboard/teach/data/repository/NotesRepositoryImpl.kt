@@ -10,7 +10,9 @@ import com.smartboard.teach.data.local.dao.NotesDao
 import com.smartboard.teach.data.local.entity.NoteDocumentEntity
 import com.smartboard.teach.di.IoDispatcher
 import com.smartboard.teach.domain.model.NoteDocument
+import com.smartboard.teach.domain.model.LessonPack
 import com.smartboard.teach.domain.model.NoteStatus
+import kotlinx.serialization.json.Json
 import com.smartboard.teach.domain.repository.NotesRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -81,6 +83,9 @@ private fun NoteDocumentEntity.toDomain() = NoteDocument(
     createdAt = epochMillisToDateTime(createdAt),
     status = runCatching { NoteStatus.valueOf(status) }.getOrDefault(NoteStatus.COMPLETE),
     failureMessage = failureMessage,
+    lessonId = lessonId,
+    // A pack this build cannot read degrades to a plain note rather than crashing the list.
+    pack = packJson?.let { runCatching { PackJson.decodeFromString(LessonPack.serializer(), it) }.getOrNull() },
 )
 
 private fun NoteDocument.toEntity() = NoteDocumentEntity(
@@ -94,4 +99,8 @@ private fun NoteDocument.toEntity() = NoteDocumentEntity(
     createdAt = createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
     status = status.name,
     failureMessage = failureMessage,
+    lessonId = lessonId,
+    packJson = pack?.let { PackJson.encodeToString(LessonPack.serializer(), it) },
 )
+
+private val PackJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }

@@ -1,5 +1,6 @@
 package com.smartboard.teach.domain.model
 
+import kotlinx.serialization.Serializable
 import java.time.LocalDateTime
 
 /**
@@ -23,9 +24,14 @@ data class NoteDocument(
     val status: NoteStatus,
     /** Why the AI call failed, retained so the retry UI can explain itself. */
     val failureMessage: String? = null,
+    /** The lesson (board session) this note came from. */
+    val lessonId: String? = null,
+    /** Present for a lesson pack: notes per taught part, the assignment, sharing. */
+    val pack: LessonPack? = null,
 )
 
 /** Structured lesson notes returned by the AI, before rendering to Markdown. */
+@Serializable
 data class LessonNotes(
     val title: String,
     val summary: String,
@@ -35,5 +41,6 @@ data class LessonNotes(
     val formulas: List<String> = emptyList(),
     val followUpQuestions: List<String> = emptyList(),
 ) {
+    @Serializable
     data class Definition(val term: String, val meaning: String)
 }

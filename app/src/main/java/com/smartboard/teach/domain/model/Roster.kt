@@ -75,3 +75,14 @@ data class StudyMaterial(
     val sizeBytes: Long? = null,
     val remoteId: String? = null,
 )
+
+/** One of the teacher's periods: which class, which subject, when. */
+data class TimetableSlot(
+    val classId: String,
+    val subjectId: String?,
+    val subjectName: String?,
+    /** 0 = Monday, as the ERP counts. */
+    val dayOfWeek: Int,
+    val start: java.time.LocalTime?,
+    val end: java.time.LocalTime?,
+)

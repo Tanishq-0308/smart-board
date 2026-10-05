@@ -1,5 +1,6 @@
 package com.smartboard.teach.di
 
+import com.smartboard.teach.data.remote.erp.ErpLessonShareService
 import com.smartboard.teach.data.remote.erp.ErpLookupService
 import com.smartboard.teach.data.remote.erp.ErpNotesAiService
 import com.smartboard.teach.data.repository.BoardRepositoryImpl
@@ -11,6 +12,7 @@ import com.smartboard.teach.data.repository.NotesRepositoryImpl
 import com.smartboard.teach.domain.repository.AttendanceRepository
 import com.smartboard.teach.domain.repository.AuthRepository
 import com.smartboard.teach.domain.repository.BoardRepository
+import com.smartboard.teach.domain.repository.LessonShareService
 import com.smartboard.teach.domain.repository.MaterialRepository
 import com.smartboard.teach.domain.repository.NotesAiService
 import com.smartboard.teach.domain.repository.NotesRepository
@@ -63,4 +65,9 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindVisualLookupService(impl: ErpLookupService): VisualLookupService
+
+    /** Saving, generating and sharing a lesson pack, through the ERP. */
+    @Binds
+    @Singleton
+    abstract fun bindLessonShareService(impl: ErpLessonShareService): LessonShareService
 }

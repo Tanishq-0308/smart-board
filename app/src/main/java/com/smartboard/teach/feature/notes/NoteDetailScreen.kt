@@ -78,6 +78,34 @@ fun NoteDetailScreen(
                 CircularProgressIndicator()
             }
 
+            // A lesson pack: the notes beside the assignment to review and publish.
+            state.note?.pack != null -> Row(
+                Modifier.fillMaxSize().padding(horizontal = dimens.gutterLarge, vertical = dimens.gutter),
+                horizontalArrangement = Arrangement.spacedBy(dimens.gutterLarge),
+            ) {
+                Box(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    state.markdown?.let { MarkdownText(markdown = it) }
+                        ?: Text(stringResource(R.string.notes_no_summary), color = TextOnSurfaceMuted, fontSize = dimens.bodySize)
+                }
+                val note = state.note!!
+                LessonPackPanel(
+                    pack = note.pack!!,
+                    status = note.status,
+                    failure = state.message ?: note.failureMessage,
+                    busy = state.busy,
+                    actions = PackActions(
+                        onEdit = viewModel::editQuestion,
+                        onDelete = viewModel::deleteQuestion,
+                        onDueDate = viewModel::setDueDate,
+                        onRegenerate = viewModel::regenerate,
+                        onPublish = viewModel::publish,
+                        onResume = viewModel::resume,
+                        onChooseClass = viewModel::chooseClass,
+                    ),
+                    modifier = Modifier.weight(1.15f),
+                )
+            }
+
             state.markdown == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Text(
                     stringResource(R.string.notes_no_summary),
@@ -98,6 +126,11 @@ fun NoteDetailScreen(
                 )
             }
         }
+    }
+
+    state.setup?.let { setup ->
+        PackSetupDialog(setup = setup, onChange = viewModel::updateSetup, onConfirm = viewModel::confirmSetup,
+            onDismiss = viewModel::cancelSetup)
     }
 }
 

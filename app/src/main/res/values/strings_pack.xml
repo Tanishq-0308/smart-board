@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lesson pack: Snapshot -> notes + NCERT-style assignment -> shared with the class. -->
+<resources>
+    <!-- Snapshot setup -->
+    <string name="pack_setup_title">Notes and assignment</string>
+    <string name="pack_setup_intro">Notes and an assignment are made from what you taught in this lesson: your writing, and the PDF pages and pictures you wrote on or kept on screen. You review everything before the class sees it.</string>
+    <string name="pack_setup_class">Class</string>
+    <string name="pack_setup_no_classes">No classes yet. Notes will be made; choose a class later for the assignment.</string>
+    <string name="pack_setup_subject">Subject</string>
+    <string name="pack_setup_size">Assignment length</string>
+    <!-- e.g. "Standard · 15 questions · 33 marks" -->
+    <string name="pack_setup_size_option">%1$s · %2$d questions · %3$d marks</string>
+    <string name="pack_size_short">Short</string>
+    <string name="pack_size_standard">Standard</string>
+    <string name="pack_size_long">Long</string>
+    <string name="pack_setup_create">Create</string>
+
+    <!-- Progress -->
+    <string name="pack_capturing">Collecting what was taught…</string>
+    <string name="pack_title_working">Writing notes and assignment</string>
+    <string name="pack_progress_notes">Reading the lesson: %1$d of %2$d parts</string>
+    <string name="pack_progress_saving">Saving the notes to the class…</string>
+    <string name="pack_progress_assignment">Writing the assignment…</string>
+    <string name="pack_title_done">Ready to review</string>
+    <string name="pack_done_detail">Notes and an assignment for \"%1$s\" are ready. Nothing is shared until you publish it.</string>
+    <string name="pack_review">Review</string>
+    <string name="pack_left_out">%1$d more taught parts were left out to keep the lesson within 8 parts.</string>
+    <string name="pack_title_nothing">Nothing to make notes from</string>
+    <string name="pack_failed_detail">The lesson was saved. Notes or the assignment could not be finished yet.</string>
+
+    <!-- Parts -->
+    <string name="pack_part_board">Board, page %1$d</string>
+    <string name="pack_part_picture">Picture, board page %1$d</string>
+
+    <!-- Use case -->
+    <string name="pack_summary_waiting">Waiting to be read.</string>
+    <!-- e.g. "Area of a Circle: Assignment" -->
+    <string name="pack_assignment_title">%1$s: Assignment</string>
+    <string name="pack_error_nothing_taught">Write on the board, or keep a PDF page on screen for a while, then take the snapshot.</string>
+    <string name="pack_error_no_class">Choose the class first.</string>
+    <string name="pack_error_no_assignment">There is no assignment yet.</string>
+    <string name="pack_error_not_indexed">The school server has not finished reading the notes. Try again in a minute.</string>
+    <!-- Review -->
+    <string name="pack_review_no_class">No class chosen</string>
+    <string name="pack_review_choose_class">Choose a class for the assignment</string>
+    <string name="pack_review_change_class">Change class</string>
+    <string name="pack_review_write_assignment">Write the assignment</string>
+    <!-- e.g. "Shared with Class 6 - A on 5 Oct 2026. Students and parents were notified." -->
+    <string name="pack_review_shared">Shared with %1$s on %2$s. Students and parents were notified.</string>
+    <string name="pack_review_publishing">Sharing with the class…</string>
+    <string name="pack_review_summary">%1$d questions · %2$d marks</string>
+    <string name="pack_review_due">Due: %1$s</string>
+    <string name="pack_review_change">Change</string>
+    <string name="pack_review_flagged">%1$d questions need a look before you publish.</string>
+    <!-- e.g. "Section A · Multiple choice · 1 mark each" -->
+    <string name="pack_review_section">Section %1$s · %2$s · %3$d mark(s) each</string>
+    <string name="pack_review_marks">[%1$d]</string>
+    <string name="pack_review_answer">Answer: %1$s</string>
+    <string name="pack_review_edit">Edit question</string>
+    <string name="pack_review_regenerate">Write a new assignment</string>
+    <string name="pack_review_publish">Publish to class</string>
+    <string name="pack_publish_title">Share with %1$s?</string>
+    <string name="pack_publish_body">The notes and the assignment go to every student in the class, and students and parents are notified. Answers stay with you; students only see the questions.</string>
+    <string name="pack_edit_question">Question</string>
+    <string name="pack_edit_answer">Answer (only you see this)</string>
+    <string name="pack_edit_marks">Marks</string>
+    <string name="pack_problem_no_answer">No answer yet: add the expected answer.</string>
+    <string name="pack_problem_mcq_options">A multiple-choice question needs exactly 4 options.</string>
+    <string name="pack_problem_answer_not_option">The answer does not match any option.</string>
+    <string name="pack_problem_no_blank">A fill-in-the-blank needs a ____ in the sentence.</string>
+    <string name="pack_problem_empty">The question is empty.</string>
+</resources>

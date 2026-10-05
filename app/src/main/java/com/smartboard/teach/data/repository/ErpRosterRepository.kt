@@ -19,6 +19,7 @@ import com.smartboard.teach.data.remote.erp.TimetableSlotDto
 import com.smartboard.teach.data.session.SessionManager
 import com.smartboard.teach.domain.model.SchoolClass
 import com.smartboard.teach.domain.model.Student
+import com.smartboard.teach.domain.model.TimetableSlot
 import com.smartboard.teach.domain.repository.AttendanceRepository
 import com.smartboard.teach.domain.repository.RosterRepository
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.net.URLEncoder
+import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -55,6 +57,11 @@ class ErpRosterRepository @Inject constructor(
 
     override fun studentsInClass(classId: String): Flow<List<Student>> =
         rosterDao.observeStudentsInClass(classId).map { rows -> rows.map { it.toDomain() } }
+
+    override suspend fun timetable(): List<TimetableSlot> = rosterDao.getTimetable().map {
+        TimetableSlot(it.classId, it.subjectId, it.subjectName, it.dayOfWeek,
+            it.startTime?.let(::parseTime), it.endTime?.let(::parseTime))
+    }
 
     override suspend fun refresh(): AppResult<Unit> = refreshing.withLock {
         val teacherId = sessionManager.currentTeacherId()
@@ -110,6 +117,8 @@ class ErpRosterRepository @Inject constructor(
         })
     }
 }
+
+private fun parseTime(s: String): LocalTime? = runCatching { LocalTime.parse(s) }.getOrNull()
 
 internal fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
 

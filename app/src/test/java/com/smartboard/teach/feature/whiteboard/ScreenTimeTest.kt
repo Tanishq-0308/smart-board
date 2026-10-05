@@ -38,6 +38,7 @@ class ScreenTimeTest {
         assertEquals("Chapter 4 Linear Equations",
             documentTitle(File("/x/0b1c2d3e-0000-4000-8000-123456789abc_Chapter_4_Linear_Equations.pdf")))
         assertEquals("worksheet", documentTitle(File("/x/worksheet.pdf")))
+        assertEquals("PDF", documentTitle(File("/x/fd6ae006-3144-41b6-b83f-dc67d5e09048.pdf")))
         assertEquals("Board 23 Sept 2026", documentTitle(File("/x/Board__23_Sept_2026.pdf")))
     }
 }

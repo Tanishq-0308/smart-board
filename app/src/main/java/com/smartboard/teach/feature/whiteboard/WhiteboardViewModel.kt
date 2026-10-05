@@ -36,7 +36,16 @@ import com.smartboard.teach.domain.repository.NotesAiService
 import com.smartboard.teach.data.file.LookupCropStore
 import com.smartboard.teach.domain.usecase.ExplainBoardRegionUseCase
 import com.smartboard.teach.domain.usecase.SaveLookupAsNoteUseCase
-import com.smartboard.teach.domain.usecase.GenerateNotesFromSnapshotUseCase
+import com.smartboard.teach.domain.usecase.LessonPackUseCase
+import com.smartboard.teach.domain.lessonpack.LessonPartPlanner
+import com.smartboard.teach.domain.lessonpack.PackDefaults
+import com.smartboard.teach.domain.model.AssignmentSize
+import com.smartboard.teach.domain.model.LessonPack
+import com.smartboard.teach.domain.model.LessonPart
+import com.smartboard.teach.domain.repository.AuthRepository
+import com.smartboard.teach.domain.repository.RosterRepository
+import com.smartboard.teach.feature.notes.PackSetup
+import kotlinx.coroutines.flow.first
 import com.smartboard.teach.feature.notes.SnapshotPhase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -74,7 +83,9 @@ data class WhiteboardUiState(
 @HiltViewModel
 class WhiteboardViewModel @Inject constructor(
     private val boardRepository: BoardRepository,
-    private val generateNotes: GenerateNotesFromSnapshotUseCase,
+    private val lessonPack: LessonPackUseCase,
+    private val authRepository: AuthRepository,
+    private val rosterRepository: RosterRepository,
     private val explainRegion: ExplainBoardRegionUseCase,
     private val saveLookupAsNote: SaveLookupAsNoteUseCase,
     private val lookupCropStore: LookupCropStore,
@@ -436,30 +447,167 @@ class WhiteboardViewModel @Inject constructor(
 
     // --- Snapshot -> AI -> notes ------------------------------------------
 
-    /**
-     * @param composeBitmap produces the flattened board image. The canvas
-     *        owns the layers, so it supplies this rather than the ViewModel
-     *        reaching into the UI.
-     */
-    fun captureAndSummarize(composeBitmap: () -> Bitmap?) {
-        if (_snapshotPhase.value != null) return
-        _snapshotPhase.value = SnapshotPhase.Capturing
+    // --- Lesson pack (Snapshot) ------------------------------------------
 
+    private val _packSetup = MutableStateFlow<PackSetup?>(null)
+
+    /** The class and size choice shown before a signed-in teacher's snapshot. */
+    val packSetup: StateFlow<PackSetup?> = _packSetup.asStateFlow()
+
+    /** Draws one taught part; set by the board, which owns the renderer. */
+    private var partRenderer: ((LessonPartPlanner.Spec, PageContent, Bitmap?, Map<String, Bitmap>) -> Bitmap?)? = null
+
+    fun setPartRenderer(render: (LessonPartPlanner.Spec, PageContent, Bitmap?, Map<String, Bitmap>) -> Bitmap?) {
+        partRenderer = render
+    }
+
+    private var lastPackClass: String? = null
+    private var lastPackSize: AssignmentSize = AssignmentSize.STANDARD
+
+    /**
+     * Snapshot: a signed-in teacher first picks the class (preselected from the
+     * period being taught) and the assignment length; a guest's lesson is
+     * captured straight away and waits for a teacher to sign in.
+     */
+    fun onSnapshot() {
+        if (_snapshotPhase.value != null || _packSetup.value != null) return
         viewModelScope.launch {
-            val bitmap = composeBitmap()
-            if (bitmap == null) {
-                _snapshotPhase.value = SnapshotPhase.Failed(AppText.get(R.string.error_board_capture))
+            val teacher = authRepository.currentTeacher()
+            if (teacher == null) {
+                captureLessonPack(null)
                 return@launch
             }
+            val classes = rosterRepository.classesForTeacher(teacher.id).first()
+            val slots = rosterRepository.timetable()
+            val now = PackDefaults.current(slots, java.time.LocalDateTime.now())
+            val chosen = classes.firstOrNull { it.id == now?.classId }
+                ?: lastPackClass?.let { id -> classes.firstOrNull { it.id == id } }
+            _packSetup.value = PackSetup(
+                classes = classes,
+                subjects = classes.associate { it.id to PackDefaults.subjectsOf(it, slots) },
+                classId = chosen?.id,
+                subjectId = now?.subjectId.takeIf { chosen != null && chosen.id == now?.classId },
+                size = lastPackSize,
+            )
+        }
+    }
 
-            _snapshotPhase.value = SnapshotPhase.Summarizing
-            val result = generateNotes(bitmap, _state.value.currentPageId)
-            bitmap.recycle()
+    fun updatePackSetup(setup: PackSetup) {
+        _packSetup.value = setup
+    }
 
-            _snapshotPhase.value = when (result) {
-                is AppResult.Success -> SnapshotPhase.Done(result.data.title)
-                is AppResult.Failure -> SnapshotPhase.Failed(result.error.message)
+    fun cancelPackSetup() {
+        _packSetup.value = null
+    }
+
+    fun confirmPackSetup() {
+        val setup = _packSetup.value ?: return
+        _packSetup.value = null
+        lastPackClass = setup.classId
+        lastPackSize = setup.size
+        viewModelScope.launch { captureLessonPack(setup) }
+    }
+
+    /**
+     * Captures what was taught in this lesson (see LessonPartPlanner), one part
+     * at a time so a long chapter costs the memory of one page, and hands it to
+     * the lesson pack, which writes the notes and the assignment.
+     */
+    private suspend fun captureLessonPack(setup: PackSetup?) {
+        val sessionId = _state.value.sessionId ?: return
+        val render = partRenderer ?: return
+        _snapshotPhase.value = SnapshotPhase.Capturing
+        try {
+            // What is on screen must be in the database before it is read back.
+            writeNow()
+            paneSlots.forEach { writePaneNow(it) }
+            val contents = boardRepository.getPages(sessionId).mapNotNull { boardRepository.loadPage(it.id) }
+            val ids = contents.flatMap { c ->
+                c.containers.filter { it.kind == ContainerKind.IMAGE }.map { it.id } + c.page.id
             }
+            val plan = LessonPartPlanner.plan(contents, boardRepository.screenTime(ids))
+            if (plan.parts.isEmpty()) {
+                _snapshotPhase.value = SnapshotPhase.Failed(AppText.get(R.string.pack_error_nothing_taught), null)
+                return
+            }
+
+            val noteId = lessonPack.newNoteId()
+            val parts = mutableListOf<LessonPart>()
+            plan.parts.forEachIndexed { index, spec ->
+                val content = contents.first { it.page.id == spec.pageId }
+                val bitmap = renderPart(spec, content, render) ?: return@forEachIndexed
+                val file = lessonPack.partFile(noteId, index)
+                withContext(Dispatchers.IO) {
+                    file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, PART_JPEG_QUALITY, it) }
+                }
+                bitmap.recycle()
+                parts += LessonPart(label = partLabel(spec), path = file.absolutePath)
+            }
+            if (parts.isEmpty()) {
+                _snapshotPhase.value = SnapshotPhase.Failed(AppText.get(R.string.error_board_capture), null)
+                return
+            }
+
+            val classId = setup?.classId
+            val chosenClass = setup?.classes?.firstOrNull { it.id == classId }
+            val subjects = classId?.let { setup.subjects[it] }.orEmpty()
+            val subject = subjects.firstOrNull { it.id != null && it.id == setup?.subjectId } ?: subjects.firstOrNull()
+            val pack = LessonPack(
+                classId = classId,
+                className = chosenClass?.displayName.orEmpty(),
+                subjectId = subject?.id,
+                subjectName = subject?.name.orEmpty(),
+                size = setup?.size ?: AssignmentSize.STANDARD,
+                parts = parts,
+                leftOut = plan.leftOut,
+            )
+            _snapshotPhase.value = SnapshotPhase.Working(null)
+            val result = lessonPack.start(noteId, sessionId, pack) { _snapshotPhase.value = SnapshotPhase.Working(it) }
+            _snapshotPhase.value = when (result) {
+                is AppResult.Success -> SnapshotPhase.Done(
+                    noteId = noteId,
+                    title = result.data.title,
+                    leftOut = plan.leftOut,
+                    hasAssignment = result.data.pack?.assignment != null,
+                )
+                is AppResult.Failure -> SnapshotPhase.Failed(result.error.message, noteId)
+            }
+        } catch (e: OutOfMemoryError) {
+            // Degrade, never crash: the lesson itself is untouched.
+            _snapshotPhase.value = SnapshotPhase.Failed(AppText.get(R.string.error_export_oom), null)
+        }
+    }
+
+    /** Loads what one part needs (a backdrop or one picture), draws it, frees it. */
+    private suspend fun renderPart(
+        spec: LessonPartPlanner.Spec,
+        content: PageContent,
+        render: (LessonPartPlanner.Spec, PageContent, Bitmap?, Map<String, Bitmap>) -> Bitmap?,
+    ): Bitmap? {
+        val background = if (spec.withBackground) content.background?.let { ensureRendered(it) } else null
+        val bg = background?.let {
+            withContext(Dispatchers.IO) { BitmapUtils.decodeSampled(it.renderedPath, PART_MEDIA_EDGE_PX) }
+        }
+        val media = spec.containerId?.let { id ->
+            content.containers.firstOrNull { it.id == id }?.mediaPath?.let { path ->
+                withContext(Dispatchers.IO) { BitmapUtils.decodeSampled(path, PART_MEDIA_EDGE_PX) }?.let { mapOf(id to it) }
+            }
+        }.orEmpty()
+        return try {
+            render(spec, content.copy(background = background ?: content.background), bg, media)
+        } finally {
+            bg?.recycle()
+            media.values.forEach { it.recycle() }
+        }
+    }
+
+    private fun partLabel(spec: LessonPartPlanner.Spec): String {
+        val pdf = spec.backdropPdf
+        return when {
+            spec.kind == LessonPartPlanner.Kind.PICTURE ->
+                spec.sourceLabel ?: AppText.get(R.string.pack_part_picture, spec.pageNumber)
+            pdf != null -> AppText.get(R.string.document_page_label, pdf.first, pdf.second)
+            else -> AppText.get(R.string.pack_part_board, spec.pageNumber)
         }
     }
 
@@ -1613,6 +1761,12 @@ class WhiteboardViewModel @Inject constructor(
         /** Long edge a picture on the board is decoded at. */
         const val BOARD_MEDIA_EDGE_PX = 2048
 
+        /** Pictures in a snapshot part; the part itself is capped at 2048 too. */
+        const val PART_MEDIA_EDGE_PX = 2048
+
+        /** Handwriting is thin line art; heavy JPEG artefacts cost the AI letters. */
+        const val PART_JPEG_QUALITY = 88
+
         /** A study-material page spans this much of the board's width at 100%. */
         const val DOCUMENT_WIDTH_FRACTION = 0.8f
 
@@ -1637,14 +1791,4 @@ data class PageContentSnapshot(
     val canvasStyle: BoardCanvasStyle = BoardCanvasStyle(),
 )
 
-/**
- * A readable name for a PDF: study material arrives as "<material id>_<file name>",
- * so the id prefix and the extension are dropped.
- */
-internal fun documentTitle(pdf: File): String =
-    pdf.nameWithoutExtension
-        .replace(Regex("^[0-9a-fA-F-]{36}_"), "")
-        .replace('_', ' ')
-        .replace(Regex("\\s+"), " ")
-        .trim()
-        .ifEmpty { pdf.nameWithoutExtension }
+internal fun documentTitle(pdf: File): String = com.smartboard.teach.domain.lessonpack.pdfTitle(pdf)

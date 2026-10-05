@@ -54,7 +54,10 @@ class SafImporter @Inject constructor(
 ) {
 
     suspend fun importPdf(uri: Uri): AppResult<File> = withContext(ioDispatcher) {
-        copyToAppStorage(uri, "imports", "pdf")
+        // The file's own name rides along after the id, so the board can call
+        // its pages "Chapter 4, page 2" (see documentTitle).
+        val name = displayName(uri)?.substringBeforeLast('.')?.replace(Regex("[^A-Za-z0-9 _-]"), "_")?.take(80)
+        copyToAppStorage(uri, "imports", "pdf", name)
     }
 
     /**
@@ -298,9 +301,10 @@ class SafImporter @Inject constructor(
         }
     }.getOrNull()
 
-    private fun copyToAppStorage(uri: Uri, subDir: String, extension: String): AppResult<File> =
+    private fun copyToAppStorage(uri: Uri, subDir: String, extension: String, name: String? = null): AppResult<File> =
         try {
-            val target = File(dir(subDir), "${UUID.randomUUID()}.$extension")
+            val stem = UUID.randomUUID().toString() + (name?.takeIf { it.isNotBlank() }?.let { "_$it" } ?: "")
+            val target = File(dir(subDir), "$stem.$extension")
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.writeAtomically { output -> input.copyTo(output) }
             } ?: return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_file_open)))

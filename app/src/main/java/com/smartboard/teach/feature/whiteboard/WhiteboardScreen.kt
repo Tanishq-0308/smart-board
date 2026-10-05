@@ -48,6 +48,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.smartboard.teach.core.ui.theme.SmartBoardTheme
 import com.smartboard.teach.domain.model.BackgroundKind
+import com.smartboard.teach.feature.notes.PackSetupDialog
+import com.smartboard.teach.domain.lessonpack.LessonPartPlanner
 import com.smartboard.teach.domain.model.BoardBackground
 import com.smartboard.teach.domain.model.Container
 import com.smartboard.teach.domain.model.ContainerCell
@@ -79,6 +81,8 @@ fun WhiteboardScreen(
     pendingInsertImage: String? = null,
     onInsertConsumed: () -> Unit = {},
     onOpenNotes: () -> Unit = {},
+    /** Opens one note (a lesson pack's review). */
+    onOpenNote: (String) -> Unit = {},
     onOpenMaths3D: () -> Unit = {},
     viewModel: WhiteboardViewModel = hiltViewModel(),
 ) {
@@ -88,6 +92,7 @@ fun WhiteboardScreen(
     val renderer = remember { BoardRenderer() }
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val snapshotPhase by viewModel.snapshotPhase.collectAsStateWithLifecycle()
+    val packSetup by viewModel.packSetup.collectAsStateWithLifecycle()
     val lookupState by viewModel.lookupState.collectAsStateWithLifecycle()
     val backgroundState by viewModel.backgroundState.collectAsStateWithLifecycle()
     val exportPhase by viewModel.exportPhase.collectAsStateWithLifecycle()
@@ -172,33 +177,47 @@ fun WhiteboardScreen(
         )
     }
 
-    /** Captures the whole board and hands it to the AI for notes. */
-    fun takeSnapshot() {
-        viewModel.captureAndSummarize {
-            // The renderer owns every layer, so the flattened export is
-            // composed here rather than screenshotting the View. On an
-            // infinite canvas this exports CONTENT bounds, not the
-            // viewport — a snapshot should capture the whole lesson.
-            renderer.exportBitmap(
-                strokes = state.strokes.toList(),
-                textBoxes = state.textBoxes.map { box ->
-                    TextBoxRender(
-                        x = box.x,
-                        y = box.y,
-                        text = box.text,
-                        colorArgb = box.colorArgb,
-                        fontSizePx = with(density) { box.fontSizeSp.sp.toPx() },
+    /**
+     * Draws one taught part for a lesson pack (see LessonPartPlanner). The
+     * renderer owns every layer, so the export is composed here rather than
+     * screenshotting the View.
+     *
+     * - A board part is everything written outside pictures, plus the page's
+     *   backdrop when that backdrop was taught.
+     * - A picture part is one PDF page or picture with the ink written on it.
+     */
+    LaunchedEffect(Unit) {
+        viewModel.setPartRenderer { spec, content, background, media ->
+            val pictureIds = content.containers.filter { it.kind == ContainerKind.IMAGE }.map { it.id }.toSet()
+            fun boxes(list: List<TextBox>) = list.map { box ->
+                TextBoxRender(
+                    x = box.x, y = box.y, text = box.text, colorArgb = box.colorArgb,
+                    fontSizePx = with(density) { box.fontSizeSp.sp.toPx() },
+                )
+            }
+            when (spec.kind) {
+                LessonPartPlanner.Kind.BOARD -> renderer.exportBitmap(
+                    strokes = content.strokes.filter { it.containerId == null || it.containerId !in pictureIds },
+                    textBoxes = boxes(content.textBoxes),
+                    background = background,
+                    backgroundPlacement = content.background.takeIf { background != null },
+                    containers = content.containers.filter { it.kind == ContainerKind.TABLE || it.kind == ContainerKind.MINDMAP },
+                    maxEdgePx = PART_MAX_EDGE_PX,
+                )
+                LessonPartPlanner.Kind.PICTURE -> {
+                    val picture = content.containers.first { it.id == spec.containerId }
+                    renderer.exportBitmap(
+                        strokes = content.strokes.filter { it.containerId == picture.id },
+                        textBoxes = emptyList(),
+                        regionBounds = picture.bounds(),
+                        containers = listOf(picture),
+                        media = media,
+                        maxEdgePx = PART_MAX_EDGE_PX,
+                        paddingWorld = 8f,
+                        maxScale = 4f,
                     )
-                },
-                // Background deliberately OMITTED. An imported photo or
-                // worksheet is reference material the teacher wrote
-                // ON TOP of, not lesson content they produced. Flattening
-                // it in made the AI summarise the source document
-                // instead of the teaching, so notes for a page annotated
-                // over a textbook scan came back describing the scan.
-                background = null,
-                containers = state.containers.toList(),
-            )
+                }
+            }
         }
     }
 
@@ -456,6 +475,8 @@ fun WhiteboardScreen(
             while (true) {
                 delay(SCREEN_TIME_TICK_MS)
                 if (state.viewportWidth <= 0f) continue
+                // A dialog over the board (Snapshot, a panel's picker) is not teaching.
+                if (viewModel.snapshotPhase.value != null || viewModel.packSetup.value != null) continue
                 val visible = state.camera.visibleWorldBounds(state.viewportWidth, state.viewportHeight)
                 val ids = ScreenTime.onScreen(state.containers, visible).toMutableList()
                 // A page from Insert > PDF is its backdrop; it is keyed by the board page.
@@ -740,7 +761,7 @@ fun WhiteboardScreen(
                 onDismiss = { showToolsDrawer = false },
                 onWebSearch = { showWebSearch = true },
                 showWeb = webViewAvailable,
-                onSnapshot = ::takeSnapshot,
+                onSnapshot = viewModel::onSnapshot,
                 onMaths3D = onOpenMaths3D,
             )
         }
@@ -1261,13 +1282,22 @@ fun WhiteboardScreen(
         )
     }
 
+    packSetup?.let { setup ->
+        PackSetupDialog(
+            setup = setup,
+            onChange = viewModel::updatePackSetup,
+            onConfirm = viewModel::confirmPackSetup,
+            onDismiss = viewModel::cancelPackSetup,
+        )
+    }
+
     snapshotPhase?.let { phase ->
         SnapshotDialog(
             phase = phase,
             onDismiss = viewModel::dismissSnapshotDialog,
-            onOpenNotes = {
+            onOpenNote = { noteId ->
                 viewModel.dismissSnapshotDialog()
-                onOpenNotes()
+                if (noteId != null) onOpenNote(noteId) else onOpenNotes()
             },
         )
     }
@@ -2025,3 +2055,6 @@ private const val LESSON_EXPORT_EDGE_PX = 2048
 
 /** How often screen time is sampled. */
 private const val SCREEN_TIME_TICK_MS = 2_000L
+
+/** A lesson-pack part's long edge: legible handwriting, well inside the ERP's 6 MB image cap. */
+private const val PART_MAX_EDGE_PX = 2048
