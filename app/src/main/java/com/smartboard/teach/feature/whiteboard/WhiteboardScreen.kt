@@ -41,6 +41,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -444,6 +446,25 @@ fun WhiteboardScreen(
 
     DisposableEffect(Unit) {
         onDispose { renderer.release() }
+    }
+
+    // Screen time for PDF pages and pictures, while the board is in front.
+    // A snapshot counts a page as taught if it was inked on or watched long
+    // enough (LessonPartPlanner); this is the "watched" half.
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                delay(SCREEN_TIME_TICK_MS)
+                if (state.viewportWidth <= 0f) continue
+                val visible = state.camera.visibleWorldBounds(state.viewportWidth, state.viewportHeight)
+                val ids = ScreenTime.onScreen(state.containers, visible).toMutableList()
+                // A page from Insert > PDF is its backdrop; it is keyed by the board page.
+                if (state.background?.kind == BackgroundKind.PDF_PAGE || state.background?.kind == BackgroundKind.IMAGE) {
+                    uiState.currentPageId?.let(ids::add)
+                }
+                viewModel.addScreenTime(ids, SCREEN_TIME_TICK_MS)
+            }
+        }
     }
 
     // Canvas first and FULL-BLEED; every control floats on top of it. No
@@ -2001,3 +2022,6 @@ private fun StatusPill(message: String, modifier: Modifier = Modifier) {
 
 /** Long edge of an exported lesson page: legible when printed on A4. */
 private const val LESSON_EXPORT_EDGE_PX = 2048
+
+/** How often screen time is sampled. */
+private const val SCREEN_TIME_TICK_MS = 2_000L

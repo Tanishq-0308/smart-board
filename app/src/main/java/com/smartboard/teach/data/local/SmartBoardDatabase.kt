@@ -19,6 +19,8 @@ import com.smartboard.teach.data.local.entity.AttendanceSessionEntity
 import com.smartboard.teach.data.local.entity.BoardBackgroundEntity
 import com.smartboard.teach.data.local.entity.BoardPageEntity
 import com.smartboard.teach.data.local.entity.LessonEntity
+import com.smartboard.teach.data.local.entity.MediaDwellEntity
+import com.smartboard.teach.data.local.entity.TimetableSlotEntity
 import com.smartboard.teach.data.local.entity.ContainerCellEntity
 import com.smartboard.teach.data.local.entity.ContainerEntity
 import com.smartboard.teach.data.local.entity.EnrollmentEntity
@@ -47,8 +49,10 @@ import com.smartboard.teach.data.local.entity.TextBoxEntity
         AttendanceSessionEntity::class,
         AttendanceRecordEntity::class,
         StudyMaterialEntity::class,
+        MediaDwellEntity::class,
+        TimetableSlotEntity::class,
     ],
-    version = 8,
+    version = 9,
     // Schemas are committed to app/schemas so Phase 2 can write real
     // migrations against a known baseline rather than guessing.
     exportSchema = true,
@@ -243,6 +247,47 @@ abstract class SmartBoardDatabase : RoomDatabase() {
                     statement.bindText(1, AppText.get(R.string.lesson_untitled))
                     statement.step()
                 }
+            }
+        }
+
+        /**
+         * v8 -> v9: the lesson pack.
+         *
+         * - `media_dwell`: screen time per PDF page or picture.
+         * - `containers.label`: where a picture came from.
+         * - `timetable_slots`: the teacher's ERP timetable.
+         * - `note_documents.lessonId / packJson`: notes and assignment per lesson.
+         *
+         * Also drops the pre-ERP demo roster (seed ids like t-001, c-001). The
+         * ERP refresh refills the roster tables; boards and notes are untouched.
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `media_dwell` (`targetId` TEXT NOT NULL, " +
+                        "`ms` INTEGER NOT NULL, PRIMARY KEY(`targetId`))",
+                )
+                connection.execSQL("ALTER TABLE containers ADD COLUMN label TEXT")
+                connection.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `timetable_slots` (`rowId` INTEGER PRIMARY KEY " +
+                        "AUTOINCREMENT NOT NULL, `classId` TEXT NOT NULL, `subjectId` TEXT, " +
+                        "`subjectName` TEXT, `dayOfWeek` INTEGER NOT NULL, `startTime` TEXT, `endTime` TEXT)",
+                )
+                connection.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_timetable_slots_classId` ON `timetable_slots` (`classId`)",
+                )
+                connection.execSQL("ALTER TABLE note_documents ADD COLUMN lessonId TEXT")
+                connection.execSQL("ALTER TABLE note_documents ADD COLUMN packJson TEXT")
+
+                val seed = "GLOB '[tcsm]-[0-9][0-9][0-9]'"
+                connection.execSQL(
+                    "DELETE FROM attendance_sessions WHERE classId GLOB 'c-[0-9][0-9][0-9]'",
+                )
+                connection.execSQL("DELETE FROM enrollments WHERE classId GLOB 'c-[0-9][0-9][0-9]'")
+                connection.execSQL("DELETE FROM classes WHERE id $seed")
+                connection.execSQL("DELETE FROM students WHERE id $seed")
+                connection.execSQL("DELETE FROM study_materials WHERE id $seed")
+                connection.execSQL("DELETE FROM teachers WHERE id $seed")
             }
         }
 

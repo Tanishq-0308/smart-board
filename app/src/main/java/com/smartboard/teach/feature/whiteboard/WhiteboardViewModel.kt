@@ -1518,7 +1518,9 @@ class WhiteboardViewModel @Inject constructor(
             val page = boardRepository.createPage(sessionId, _state.value.pages.size, boardWidthPx, boardHeightPx)
             val width = boardWidthPx * DOCUMENT_WIDTH_FRACTION
             val left = (boardWidthPx - width) / 2f
+            val title = documentTitle(pdf)
             val containers = DocumentStack.layout(files, sizes, width, left, top = DocumentStack.GAP)
+                .mapIndexed { i, c -> c.copy(label = AppText.get(R.string.document_page_label, title, i + 1)) }
             boardRepository.savePage(page, emptyList(), emptyList(), containers)
 
             _state.update { it.copy(pages = it.pages + page, currentPageId = page.id) }
@@ -1531,6 +1533,12 @@ class WhiteboardViewModel @Inject constructor(
             onPageReady(PageContentSnapshot(emptyList(), emptyList(), null, camera, containers))
             refreshCurrentLesson(sessionId)
         }
+    }
+
+    /** Screen time for PDF pages and pictures, sampled by the board (see ScreenTime). */
+    fun addScreenTime(targetIds: List<String>, ms: Long) {
+        if (targetIds.isEmpty()) return
+        viewModelScope.launch { boardRepository.addScreenTime(targetIds, ms) }
     }
 
     /** Restores a saved background bitmap when a page loads. */
@@ -1628,3 +1636,15 @@ data class PageContentSnapshot(
     /** The page's paper, so a reopened lesson looks as it was left. */
     val canvasStyle: BoardCanvasStyle = BoardCanvasStyle(),
 )
+
+/**
+ * A readable name for a PDF: study material arrives as "<material id>_<file name>",
+ * so the id prefix and the extension are dropped.
+ */
+internal fun documentTitle(pdf: File): String =
+    pdf.nameWithoutExtension
+        .replace(Regex("^[0-9a-fA-F-]{36}_"), "")
+        .replace('_', ' ')
+        .replace(Regex("\\s+"), " ")
+        .trim()
+        .ifEmpty { pdf.nameWithoutExtension }

@@ -76,6 +76,12 @@ interface BoardRepository {
     suspend fun getBackground(id: String): BoardBackground?
 
     suspend fun setPageThumbnail(pageId: String, path: String)
+
+    /** Adds screen time to PDF pages and pictures (container or page ids). */
+    suspend fun addScreenTime(targetIds: List<String>, ms: Long)
+
+    /** Screen time so far, in ms; ids never on screen are absent. */
+    suspend fun screenTime(targetIds: List<String>): Map<String, Long>
 }
 
 interface NotesRepository {

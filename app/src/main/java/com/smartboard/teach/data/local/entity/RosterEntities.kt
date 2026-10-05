@@ -125,4 +125,25 @@ data class NoteDocumentEntity(
     val createdAt: Long,
     val status: String,
     val failureMessage: String? = null,
+    /** The lesson (board session) this note was made from. */
+    val lessonId: String? = null,
+    /** The lesson pack (parts, notes per part, assignment, sharing) as JSON. */
+    val packJson: String? = null,
+)
+
+/**
+ * One period of the signed-in teacher's ERP timetable. It is where a class's
+ * subject ids come from, and what preselects the class at Snapshot.
+ */
+@Entity(tableName = "timetable_slots", indices = [Index("classId")])
+data class TimetableSlotEntity(
+    @PrimaryKey(autoGenerate = true) val rowId: Long = 0,
+    val classId: String,
+    val subjectId: String?,
+    val subjectName: String?,
+    /** 0 = Monday, as the ERP counts. */
+    val dayOfWeek: Int,
+    /** "HH:mm:ss", or null. */
+    val startTime: String?,
+    val endTime: String?,
 )

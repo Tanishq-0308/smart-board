@@ -9,6 +9,7 @@ import androidx.room.Upsert
 import com.smartboard.teach.data.local.entity.BoardBackgroundEntity
 import com.smartboard.teach.data.local.entity.BoardPageEntity
 import com.smartboard.teach.data.local.entity.LessonEntity
+import com.smartboard.teach.data.local.entity.MediaDwellEntity
 import com.smartboard.teach.data.local.entity.ContainerCellEntity
 import com.smartboard.teach.data.local.entity.ContainerEntity
 import com.smartboard.teach.data.local.entity.StrokeEntity
@@ -156,4 +157,24 @@ interface BoardDao {
             if (cells.isNotEmpty()) insertContainerCells(cells)
         }
     }
+
+    // --- Screen time per PDF page or picture (what a snapshot counts as taught) ---
+
+    @Query("INSERT OR IGNORE INTO media_dwell (targetId, ms) VALUES (:targetId, 0)")
+    suspend fun ensureDwell(targetId: String)
+
+    @Query("UPDATE media_dwell SET ms = ms + :ms WHERE targetId = :targetId")
+    suspend fun bumpDwell(targetId: String, ms: Long)
+
+    /** Adds [ms]. Two statements, not an UPSERT: Android 9's SQLite predates it. */
+    @Transaction
+    suspend fun addDwell(targetIds: List<String>, ms: Long) {
+        targetIds.forEach {
+            ensureDwell(it)
+            bumpDwell(it, ms)
+        }
+    }
+
+    @Query("SELECT * FROM media_dwell WHERE targetId IN (:targetIds)")
+    suspend fun getDwell(targetIds: List<String>): List<MediaDwellEntity>
 }

@@ -249,6 +249,14 @@ class BoardRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun addScreenTime(targetIds: List<String>, ms: Long) {
+        if (targetIds.isNotEmpty()) withContext(ioDispatcher) { boardDao.addDwell(targetIds, ms) }
+    }
+
+    override suspend fun screenTime(targetIds: List<String>): Map<String, Long> =
+        if (targetIds.isEmpty()) emptyMap()
+        else withContext(ioDispatcher) { boardDao.getDwell(targetIds).associate { it.targetId to it.ms } }
+
     override suspend fun createPage(
         sessionId: String,
         pageIndex: Int,
@@ -405,6 +413,7 @@ private fun ContainerEntity.toDomain(cells: List<ContainerCellEntity>): Containe
         strokeColorArgb = strokeColorArgb,
         lineWidthPx = lineWidthPx,
         mediaPath = mediaPath,
+        label = label,
     )
 }
 
@@ -429,6 +438,7 @@ private fun Container.toEntity(pageId: String, orderIndex: Int) = ContainerEntit
     strokeColorArgb = strokeColorArgb,
     lineWidthPx = lineWidthPx,
     mediaPath = mediaPath,
+    label = label,
 )
 
 private fun Container.cellEntities(): List<ContainerCellEntity> =

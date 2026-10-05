@@ -41,6 +41,7 @@ object AppModule {
                 SmartBoardDatabase.MIGRATION_5_6,
                 SmartBoardDatabase.MIGRATION_6_7,
                 SmartBoardDatabase.MIGRATION_7_8,
+                SmartBoardDatabase.MIGRATION_8_9,
             )
             .build()
 

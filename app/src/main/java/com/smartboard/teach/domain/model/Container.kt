@@ -114,6 +114,8 @@ data class Container(
      * keeps its own id-keyed bitmap cache.
      */
     val mediaPath: String? = null,
+    /** Where a picture came from, e.g. "Chapter 4 - Linear Equations, page 2". */
+    val label: String? = null,
 ) {
     /** Union of every cell, or an empty rect when there are none. */
     fun bounds(): FloatArray {

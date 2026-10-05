@@ -8,10 +8,14 @@ import com.smartboard.teach.data.local.dao.RosterDao
 import com.smartboard.teach.data.local.entity.SchoolClassEntity
 import com.smartboard.teach.data.local.entity.StudentEntity
 import com.smartboard.teach.data.local.entity.StudyMaterialEntity
+import com.smartboard.teach.data.local.entity.TimetableSlotEntity
 import com.smartboard.teach.data.remote.erp.BoardClassDto
 import com.smartboard.teach.data.remote.erp.BoardMaterialDto
 import com.smartboard.teach.data.remote.erp.BoardStudentDto
 import com.smartboard.teach.data.remote.erp.ErpApi
+import com.smartboard.teach.data.remote.erp.Page
+import com.smartboard.teach.data.remote.erp.SubjectDto
+import com.smartboard.teach.data.remote.erp.TimetableSlotDto
 import com.smartboard.teach.data.session.SessionManager
 import com.smartboard.teach.domain.model.SchoolClass
 import com.smartboard.teach.domain.model.Student
@@ -85,9 +89,25 @@ class ErpRosterRepository @Inject constructor(
                 materialDao.deleteForClassExcept(c.id, materials.data.map { it.id })
             }
         }
+        refreshTimetable(teacherId)
         // Registers taken while offline go up now that the ERP answers.
         (attendance.get() as? ErpAttendanceRepository)?.pushPending()
         AppResult.Success(Unit)
+    }
+    /**
+     * The teacher's periods, with subject names: where a class's subject ids
+     * come from. ponytail: reads one 100-row page (the demo teacher has 66);
+     * follow `meta.has_next` if a timetable ever outgrows it.
+     */
+    private suspend fun refreshTimetable(teacherId: String) {
+        val slots = (api.get("/api/erp/timetable?teacher_id=${enc(teacherId)}&limit=100",
+            Page.serializer(TimetableSlotDto.serializer())) as? AppResult.Success)?.data?.items ?: return
+        val names = (api.get("/api/erp/subjects?limit=100", Page.serializer(SubjectDto.serializer()))
+            as? AppResult.Success)?.data?.items.orEmpty().associate { it.id to it.name }
+        rosterDao.replaceTimetable(slots.filter { !it.isBreak }.map {
+            TimetableSlotEntity(classId = it.sectionId, subjectId = it.subjectId, subjectName = names[it.subjectId],
+                dayOfWeek = it.dayOfWeek, startTime = it.startTime, endTime = it.endTime)
+        })
     }
 }
 

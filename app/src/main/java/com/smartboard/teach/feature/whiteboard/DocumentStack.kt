@@ -65,3 +65,26 @@ object MediaWindow {
         }.mapTo(HashSet()) { it.id }
     }
 }
+
+/**
+ * Which PDF pages and pictures are being looked at right now, for the
+ * screen-time record a snapshot reads (see LessonPartPlanner). A picture counts
+ * when at least half of it is on screen, or when it fills at least half the
+ * screen (a page zoomed in on is never "half visible").
+ */
+object ScreenTime {
+
+    const val MIN_SHARE = 0.5f
+
+    fun onScreen(containers: List<Container>, visible: FloatArray): List<String> {
+        val screenArea = area(visible)
+        return containers.filter { it.kind == ContainerKind.IMAGE }.filter { c ->
+            val b = c.bounds()
+            val shown = area(floatArrayOf(maxOf(b[0], visible[0]), maxOf(b[1], visible[1]),
+                minOf(b[2], visible[2]), minOf(b[3], visible[3])))
+            shown > 0f && (shown >= MIN_SHARE * area(b) || shown >= MIN_SHARE * screenArea)
+        }.map { it.id }
+    }
+
+    private fun area(r: FloatArray): Float = maxOf(0f, r[2] - r[0]) * maxOf(0f, r[3] - r[1])
+}

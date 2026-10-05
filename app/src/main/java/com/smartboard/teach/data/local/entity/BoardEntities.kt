@@ -151,6 +151,21 @@ data class ContainerEntity(
     val lineWidthPx: Float,
     /** File backing an IMAGE container; null for frames. */
     val mediaPath: String? = null,
+    /** Where a picture came from, e.g. "Chapter 4 - Linear Equations, page 2". */
+    val label: String? = null,
+)
+
+/**
+ * How long a PDF page or picture has been on screen, keyed by the container id
+ * (a page from Annotate on board, a picture) or the board page id (a page from
+ * Insert > PDF, whose PDF page is the backdrop). It decides what a snapshot
+ * counts as taught. Its own table so a page save, which rewrites containers,
+ * never resets it.
+ */
+@Entity(tableName = "media_dwell")
+data class MediaDwellEntity(
+    @PrimaryKey val targetId: String,
+    val ms: Long,
 )
 
 /**

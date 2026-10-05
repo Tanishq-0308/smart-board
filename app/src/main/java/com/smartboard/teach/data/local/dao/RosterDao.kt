@@ -10,6 +10,7 @@ import com.smartboard.teach.data.local.entity.EnrollmentEntity
 import com.smartboard.teach.data.local.entity.SchoolClassEntity
 import com.smartboard.teach.data.local.entity.StudentEntity
 import com.smartboard.teach.data.local.entity.TeacherEntity
+import com.smartboard.teach.data.local.entity.TimetableSlotEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -113,4 +114,19 @@ interface RosterDao {
         clearEnrollments(classId)
         insertEnrollments(students.map { EnrollmentEntity(classId, it.id) })
     }
+
+    @Query("DELETE FROM timetable_slots")
+    suspend fun clearTimetable()
+
+    @Insert
+    suspend fun insertTimetable(slots: List<TimetableSlotEntity>)
+
+    @Transaction
+    suspend fun replaceTimetable(slots: List<TimetableSlotEntity>) {
+        clearTimetable()
+        if (slots.isNotEmpty()) insertTimetable(slots)
+    }
+
+    @Query("SELECT * FROM timetable_slots")
+    suspend fun getTimetable(): List<TimetableSlotEntity>
 }

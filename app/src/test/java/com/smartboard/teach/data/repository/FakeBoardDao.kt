@@ -6,6 +6,7 @@ import com.smartboard.teach.data.local.entity.BoardPageEntity
 import com.smartboard.teach.data.local.entity.ContainerCellEntity
 import com.smartboard.teach.data.local.entity.ContainerEntity
 import com.smartboard.teach.data.local.entity.LessonEntity
+import com.smartboard.teach.data.local.entity.MediaDwellEntity
 import com.smartboard.teach.data.local.entity.StrokeEntity
 import com.smartboard.teach.data.local.entity.TextBoxEntity
 import kotlinx.coroutines.flow.Flow
@@ -75,4 +76,10 @@ internal class FakeBoardDao : BoardDao {
         containers.keys.removeAll(gone)
         cells.keys.removeAll { it.first in gone }
     }
+
+    val dwell = mutableMapOf<String, Long>()
+    override suspend fun ensureDwell(targetId: String) { dwell.putIfAbsent(targetId, 0L) }
+    override suspend fun bumpDwell(targetId: String, ms: Long) { dwell[targetId] = (dwell[targetId] ?: 0L) + ms }
+    override suspend fun getDwell(targetIds: List<String>) =
+        targetIds.mapNotNull { id -> dwell[id]?.let { MediaDwellEntity(id, it) } }
 }
