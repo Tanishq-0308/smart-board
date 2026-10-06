@@ -108,7 +108,11 @@
     <string name="error_erp_http">The school server refused the request (%1$d).</string>
     <!-- Quiz on the board -->
     <string name="quiz_present">Present as quiz</string>
-    <string name="quiz_progress">Question %1$d of %2$d · %3$d marks</string>
+    <string name="quiz_progress">Question %1$d of %2$d · %3$s</string>
+    <plurals name="quiz_marks">
+        <item quantity="one">%1$d mark</item>
+        <item quantity="other">%1$d marks</item>
+    </plurals>
     <string name="quiz_reveal">Reveal answer</string>
     <string name="quiz_hide_answer">Hide answer</string>
     <string name="quiz_answer">Answer: %1$s</string>
