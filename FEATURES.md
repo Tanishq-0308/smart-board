@@ -166,7 +166,6 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
 
 ### 🔜 Next
 - **Rotate the OpenAI key** that earlier builds carried. Builds since the ERP switch do not contain it.
-- **Formulas in Look up** come back as raw LaTeX (`\( A \)`), which the answer panel does not render yet.
 - **Notify the class when notes are shared on their own.** The school ERP notifies only for assignments today.
 
 ### 💡 Ideas and gaps, not yet scheduled
@@ -176,7 +175,6 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
   - a proper depth-buffer renderer (OpenGL ES), if the current shortcut shows glitches on deep concave solids
   - optional Hindi names for solids
   - the rest of the prototype's Hinglish teaching text
-- **Board clear button.** The action is wired up in code but has no button.
 
 ## Languages
 The app's own text is English only for now; the Text pen also reads Hindi. All user-facing text is in string resources (`res/values/strings*.xml`, about 500 strings), so another language is a translated copy of those files, not code changes. Maths notation such as V = πr²h stays as written.
