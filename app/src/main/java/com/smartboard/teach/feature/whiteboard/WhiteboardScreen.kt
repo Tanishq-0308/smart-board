@@ -1845,9 +1845,11 @@ private fun replaceInkWithText(
     // starting a new one. A teacher writing "hello" who pauses after the "h"
     // gets two conversions, and two boxes would leave "h" and "ello" sitting
     // apart on the board.
-    val previous = state.lastTextBoxId
-        ?.let { id -> state.textBoxes.firstOrNull { it.id == id } }
-        ?.takeIf { continuesFrom(it, state.lastTextInkRight, bounds, fontSizePx) }
+    val last = state.lastTextBoxId?.let { id -> state.textBoxes.firstOrNull { it.id == id } }
+    val continuation = last?.let {
+        continuationOf(it, with(density) { it.fontSizeSp.sp.toPx() }, state.lastTextInkRight, bounds, fontSizePx)
+    }
+    val previous = last?.takeIf { continuation != null }
 
     // Width is the point the text WRAPS at, not the width it occupies, so it
     // needs room to keep growing: sized to the ink it replaced, the next word
@@ -1858,8 +1860,15 @@ private fun replaceInkWithText(
     val box = if (previous != null) {
         // Keeps the earlier box's origin: the teacher wrote one word, so it
         // should read as one word set the way the word started.
+        // Same word: joined as written. Next word: after a space. Next line:
+        // on a new line of the same box, so a paragraph stays one box.
+        val joiner = when (continuation) {
+            Continuation.NEXT_WORD -> " "
+            Continuation.NEXT_LINE -> "\n"
+            else -> ""
+        }
         previous.copy(
-            text = previous.text + text,
+            text = previous.text + joiner + text,
             widthPx = (bounds[2] - previous.x + fontSizePx * WRAP_HEADROOM)
                 .coerceAtLeast(previous.widthPx),
         )
@@ -1892,30 +1901,60 @@ private fun replaceInkWithText(
     state.markCommittedDirty()
 }
 
+/** How fresh handwriting relates to the last converted box. */
+internal enum class Continuation { SAME_WORD, NEXT_WORD, NEXT_LINE }
+
 /**
- * Whether fresh ink continues [box] rather than starting a new word.
+ * Whether fresh ink continues [box], and how; null starts a new box.
  *
- * Two tests, both needed: the ink must sit on the same line (vertical overlap)
- * and follow closely enough to be the same word. Distance is measured in font
- * sizes rather than pixels so the rule holds at any zoom or handwriting size.
- * Ink written to the LEFT fails the gap test, so going back to annotate
- * earlier work correctly starts something new. [inkRight] is where the previous
- * handwriting ENDED, which is not the box's right edge — see BoardState.
+ *  - Same line (overlapping the box's last line) and starting soon after the
+ *    previous ink: a pause mid-word ([Continuation.SAME_WORD], joined as is) or
+ *    the next word ([Continuation.NEXT_WORD], after a space).
+ *  - Just below the box's last line and starting near its left edge, as when
+ *    writing carries on to the next line: [Continuation.NEXT_LINE].
+ *
+ * Distances are in font sizes, so the rule holds at any zoom or handwriting
+ * size. Ink written well to the left, far to the right or far below starts a
+ * new box, so going back to annotate earlier work never appends to it.
+ * [inkRight] is where the previous handwriting ENDED, not the box's edge.
  */
-internal fun continuesFrom(
+internal fun continuationOf(
     box: TextBox,
+    boxFontPx: Float,
     inkRight: Float,
     bounds: FloatArray,
     fontSizePx: Float,
-): Boolean {
-    val boxBottom = box.y + fontSizePx
-    val overlaps = bounds[1] < boxBottom && bounds[3] > box.y
+): Continuation? {
+    val font = maxOf(boxFontPx, fontSizePx)
+    val lineHeight = boxFontPx * TEXT_LINE_HEIGHT
+    val lastLineTop = box.y + (box.text.count { it == '\n' }) * lineHeight
+    val lastLineBottom = lastLineTop + lineHeight
+
+    val sameLine = bounds[1] < lastLineBottom && bounds[3] > lastLineTop
     val gap = bounds[0] - inkRight
-    return overlaps && gap > -fontSizePx * 0.5f && gap < fontSizePx * CONTINUE_GAP_RATIO
+    if (sameLine && gap > -font * 0.5f && gap < font * CONTINUE_GAP_RATIO) {
+        return if (gap < font * SPACE_GAP_RATIO) Continuation.SAME_WORD else Continuation.NEXT_WORD
+    }
+
+    val belowLast = bounds[1] >= lastLineTop + lineHeight * 0.5f && bounds[1] <= lastLineBottom + lineHeight * NEXT_LINE_REACH
+    val nearLeftEdge = kotlin.math.abs(bounds[0] - box.x) <= font * NEXT_LINE_INDENT
+    return if (belowLast && nearLeftEdge) Continuation.NEXT_LINE else null
 }
 
-/** How far past a box new ink may start and still count as the same word. */
-internal const val CONTINUE_GAP_RATIO = 1.5f
+/** How far past the last word new ink may start and still be on the same line of text. */
+internal const val CONTINUE_GAP_RATIO = 3f
+
+/** A gap smaller than this (in font sizes) is a pause mid-word, so no space is added. */
+internal const val SPACE_GAP_RATIO = 0.35f
+
+/** How far below the last line (in line heights) the next line may start. */
+internal const val NEXT_LINE_REACH = 1.2f
+
+/** How far from the box's left edge (in font sizes) a next line may start. */
+internal const val NEXT_LINE_INDENT = 3f
+
+/** Line height of a text box, as a multiple of its font size; matches BoardRenderer. */
+internal const val TEXT_LINE_HEIGHT = 1.25f
 
 /** Extra room past the ink, in font sizes, before recognised text wraps. */
 private const val WRAP_HEADROOM = 8f

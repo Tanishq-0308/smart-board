@@ -30,8 +30,10 @@ enum class BoardLanguage(
     /** Rough size of the handwriting model download, in MB, for the user. */
     val inkModelMb: Int,
 ) {
-    ENGLISH("en", R.string.lang_english, listOf("en-US"), inkPauseMs = 900, inkModelMb = 20),
-    HINDI("hi", R.string.lang_hindi, listOf("hi", "en-US"), inkPauseMs = 1_700, inkModelMb = 40),
+    // Long enough to cover the natural gap between words, so a phrase like
+    // "hello world" converts as one line rather than word by word.
+    ENGLISH("en", R.string.lang_english, listOf("en-US"), inkPauseMs = 1_500, inkModelMb = 20),
+    HINDI("hi", R.string.lang_hindi, listOf("hi", "en-US"), inkPauseMs = 2_000, inkModelMb = 40),
     ;
 
     companion object {
