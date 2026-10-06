@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.notes
 
+import com.smartboard.teach.core.util.MathText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -290,7 +291,7 @@ private fun QuestionCard(q: AssignmentQuestion, number: Int, locked: Boolean, on
             .padding(dimens.gutterSmall),
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            Text("$number. ${q.text}", fontSize = dimens.bodySize, color = TextOnSurface, modifier = Modifier.weight(1f))
+            Text("$number. ${MathText.readable(q.text)}", fontSize = dimens.bodySize, color = TextOnSurface, modifier = Modifier.weight(1f))
             Text(stringResource(R.string.pack_review_marks, q.marks), fontSize = dimens.labelSize, color = TextOnSurfaceMuted)
             if (!locked) {
                 IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.pack_review_edit)) }
@@ -298,10 +299,10 @@ private fun QuestionCard(q: AssignmentQuestion, number: Int, locked: Boolean, on
             }
         }
         q.options.forEachIndexed { i, o ->
-            Text("(${'a' + i}) $o", fontSize = dimens.labelSize, color = TextOnSurface, modifier = Modifier.padding(start = dimens.gutter))
+            Text("(${'a' + i}) ${MathText.readable(o)}", fontSize = dimens.labelSize, color = TextOnSurface, modifier = Modifier.padding(start = dimens.gutter))
         }
         if (q.answer.isNotBlank()) {
-            Text(stringResource(R.string.pack_review_answer, q.answer), fontSize = dimens.labelSize, color = TextOnSurfaceMuted,
+            Text(stringResource(R.string.pack_review_answer, MathText.readable(q.answer)), fontSize = dimens.labelSize, color = TextOnSurfaceMuted,
                 modifier = Modifier.padding(top = 4.dp))
         }
         q.problems.forEach { code ->

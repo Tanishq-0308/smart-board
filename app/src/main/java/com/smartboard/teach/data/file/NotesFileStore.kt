@@ -1,5 +1,6 @@
 package com.smartboard.teach.data.file
 
+import com.smartboard.teach.core.util.MathText
 import com.smartboard.teach.R
 import com.smartboard.teach.core.util.writeAtomically
 
@@ -74,7 +75,8 @@ class NotesFileStore @Inject constructor(
 
     suspend fun readMarkdown(path: String): String? = withContext(ioDispatcher) {
         val file = File(path)
-        if (file.exists()) file.readText() else null
+        // Line by line, so notes written before MathText existed read as maths too.
+        if (file.exists()) file.readLines().joinToString("\n") { MathText.readable(it) } else null
     }
 
     suspend fun deleteNote(noteId: String) = withContext(ioDispatcher) {
@@ -91,7 +93,21 @@ class NotesFileStore @Inject constructor(
      * Markdown loses the structure and invites formatting drift between calls.
      * Formatting is a local, deterministic concern.
      */
-    fun renderMarkdown(notes: LessonNotes): String = buildString {
+    fun renderMarkdown(notes: LessonNotes): String = renderReadable(
+        // The AI writes formulas as LaTeX; the note view and a Markdown export
+        // read far better as Unicode maths (see MathText).
+        notes.copy(
+            title = MathText.readable(notes.title),
+            summary = MathText.readable(notes.summary),
+            topics = notes.topics.map(MathText::readable),
+            keyPoints = notes.keyPoints.map(MathText::readable),
+            definitions = notes.definitions.map { it.copy(term = MathText.readable(it.term), meaning = MathText.readable(it.meaning)) },
+            formulas = notes.formulas.map(MathText::readable),
+            followUpQuestions = notes.followUpQuestions.map(MathText::readable),
+        ),
+    )
+
+    private fun renderReadable(notes: LessonNotes): String = buildString {
         appendLine("# ${notes.title}")
         appendLine()
 

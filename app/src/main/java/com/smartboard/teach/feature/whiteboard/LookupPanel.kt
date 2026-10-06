@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.core.util.MathText
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
@@ -192,13 +193,13 @@ private fun ReadyBody(state: LookupState.Ready, dimens: Dimens) {
                 modifier = Modifier.size(dimens.iconSize),
             )
             Spacer(Modifier.width(dimens.gutterSmall))
-            Text(lookup.explanation, fontSize = dimens.bodySize, color = TextOnChrome)
+            Text(MathText.readable(lookup.explanation), fontSize = dimens.bodySize, color = TextOnChrome)
         }
         return
     }
 
     Column {
-        Text(lookup.explanation, fontSize = dimens.bodySize, color = TextOnChrome)
+        Text(MathText.readable(lookup.explanation), fontSize = dimens.bodySize, color = TextOnChrome)
 
         if (lookup.transcription.isNotBlank()) {
             Spacer(Modifier.height(dimens.gutter))
@@ -212,7 +213,7 @@ private fun ReadyBody(state: LookupState.Ready, dimens: Dimens) {
             // Monospace: this is a verbatim transcription, and a teacher is
             // checking it character by character against their own writing.
             Text(
-                lookup.transcription,
+                MathText.readable(lookup.transcription),
                 fontSize = dimens.labelSize,
                 fontFamily = FontFamily.Monospace,
                 color = TextOnChrome,
@@ -240,7 +241,7 @@ private fun shareUriOf(state: LookupState) = when (state) {
 @Composable
 private fun headerTitle(state: LookupState): String = when (state) {
     is LookupState.Working -> stringResource(R.string.panel_lookup_working)
-    is LookupState.Ready -> state.lookup.title
+    is LookupState.Ready -> MathText.readable(state.lookup.title)
     is LookupState.Failed -> stringResource(R.string.panel_lookup_failed)
     is LookupState.NotConfigured -> stringResource(R.string.panel_lookup_visual_search)
 }
