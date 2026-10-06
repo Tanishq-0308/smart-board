@@ -7,6 +7,7 @@ import com.google.mlkit.vision.digitalink.DigitalInkRecognitionModelIdentifier
 import com.google.mlkit.vision.digitalink.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.DigitalInkRecognizerOptions
 import com.google.mlkit.vision.digitalink.Ink
+import com.google.mlkit.vision.digitalink.RecognitionContext
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
 import com.smartboard.teach.R
@@ -96,7 +97,7 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
      * A language with several models (Hindi reads with Hindi and English, for
      * mixed lines) runs each and keeps the reading in the right script; see InkChoice.
      */
-    override suspend fun recognize(strokes: List<Stroke>, language: BoardLanguage): AppResult<String> {
+    override suspend fun recognize(strokes: List<Stroke>, language: BoardLanguage, preContext: String): AppResult<String> {
         val engines = language.inkModels.mapNotNull { recognizers[it] }
         if (engines.isEmpty()) {
             return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_ink_not_ready)))
@@ -112,12 +113,15 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
             inkBuilder.addStroke(strokeBuilder.build())
         }
         val ink = inkBuilder.build()
+        // The words just written, so a new word is read in context (ML Kit uses
+        // up to the last 20 characters).
+        val context = RecognitionContext.builder().setPreContext(preContext.takeLast(PRE_CONTEXT_CHARS)).build()
 
         val readings = ArrayList<String>(engines.size)
         var failure: String? = null
         for (engine in engines) {
             suspendCancellableCoroutine { cont ->
-                engine.recognize(ink)
+                engine.recognize(ink, context)
                     .addOnSuccessListener { result ->
                         readings += result.candidates.firstOrNull()?.text.orEmpty()
                         cont.resume(Unit)
@@ -132,6 +136,10 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
             return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_ink_read, failure.orEmpty())))
         }
         return AppResult.Success(InkChoice.best(readings, language.script))
+    }
+
+    private companion object {
+        const val PRE_CONTEXT_CHARS = 20
     }
 
     override fun close() {

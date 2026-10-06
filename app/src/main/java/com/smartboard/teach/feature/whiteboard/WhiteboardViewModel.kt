@@ -1121,7 +1121,13 @@ class WhiteboardViewModel @Inject constructor(
     fun scheduleTextConversion(
         strokes: List<Stroke>,
         toScreen: (Stroke) -> Stroke,
-        onConverted: (text: String, consumed: List<Stroke>) -> Unit,
+        /**
+         * What was written before this ink, decided once the pause is over:
+         * the earlier strokes of the same word (read again WITH the new ink,
+         * so a word written in two goes is read whole) and the preceding text.
+         */
+        context: (batch: List<Stroke>) -> TextContext,
+        onConverted: (text: String, consumed: List<Stroke>, rewroteWord: Boolean) -> Unit,
     ) {
         convertJob?.cancel()
         if (strokes.isEmpty()) return
@@ -1133,13 +1139,15 @@ class WhiteboardViewModel @Inject constructor(
             val batch = strokes.toList()
             if (batch.isEmpty()) return@launch
 
-            when (val result = handwriting.recognize(batch.map(toScreen), language)) {
+            val ctx = context(batch)
+            val ink = (ctx.wordSoFar + batch).map(toScreen)
+            when (val result = handwriting.recognize(ink, language, ctx.preContext)) {
                 is AppResult.Success -> {
                     val text = result.data.trim()
                     // Empty means the model could not read it. Leaving the ink
                     // alone is the right failure: a teacher keeps what they
                     // wrote rather than watching it vanish into nothing.
-                    if (text.isNotEmpty()) onConverted(text, batch)
+                    if (text.isNotEmpty()) onConverted(text, batch, ctx.wordSoFar.isNotEmpty())
                 }
 
                 is AppResult.Failure -> Unit
@@ -1824,6 +1832,9 @@ class WhiteboardViewModel @Inject constructor(
         const val DOCUMENT_WIDTH_FRACTION = 0.8f
     }
 }
+
+/** See WhiteboardViewModel.scheduleTextConversion. */
+data class TextContext(val wordSoFar: List<Stroke> = emptyList(), val preContext: String = "")
 
 data class PageContentSnapshot(
     val strokes: List<Stroke>,

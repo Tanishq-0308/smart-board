@@ -161,8 +161,7 @@ fun WhiteboardScreen(
             // ink into text a second later.
             viewModel.cancelTextConversion()
             state.pendingTextStrokes.clear()
-            state.lastTextBoxId = null
-            state.lastTextInkRight = 0f
+            state.forgetLastText()
         }
     }
 
@@ -582,8 +581,9 @@ fun WhiteboardScreen(
                     viewModel.scheduleTextConversion(
                         state.pendingTextStrokes,
                         toScreen = { st -> Selection.scaleStrokeToScreen(st, state.camera) },
-                    ) { text, consumed ->
-                        replaceInkWithText(state, renderer, text, consumed, density)
+                        context = { batch -> textContextFor(state, batch, density) },
+                    ) { text, consumed, rewroteWord ->
+                        replaceInkWithText(state, renderer, text, consumed, density, rewroteWord)
                         persist()
                     }
                 }
@@ -1480,8 +1480,7 @@ internal fun performUndo(state: BoardState, renderer: BoardRenderer) {
             state.strokes.addAll(command.strokes)
             // The merge target is gone, so the next conversion must not try to
             // continue it.
-            state.lastTextBoxId = null
-            state.lastTextInkRight = 0f
+            state.forgetLastText()
         }
 
         is BoardCommand.AddContainer -> {
@@ -1559,8 +1558,7 @@ internal fun performRedo(state: BoardState, renderer: BoardRenderer) {
             state.strokes.removeAll { s -> command.strokes.any { it === s } }
             command.replaced?.let { old -> state.textBoxes.removeAll { it.id == old.id } }
             state.textBoxes.add(command.box)
-            state.lastTextBoxId = null
-            state.lastTextInkRight = 0f
+            state.forgetLastText()
         }
 
         is BoardCommand.AddContainer -> {
@@ -1819,6 +1817,8 @@ private fun replaceInkWithText(
     text: String,
     consumed: List<Stroke>,
     density: Density,
+    /** [text] is the WHOLE last word, re-read with its earlier ink; it replaces that word. */
+    rewroteWord: Boolean = false,
 ) {
     // Strokes may already be gone: the teacher can erase or undo during the
     // pause before conversion runs.
@@ -1834,11 +1834,7 @@ private fun replaceInkWithText(
         return
     }
 
-    val heightWorld = bounds[3] - bounds[1]
-    // Cap height is roughly 70% of a font's point size, so scaling by the
-    // written height directly would render text noticeably smaller than the
-    // handwriting it replaced.
-    val fontSizePx = (heightWorld / CAP_HEIGHT_RATIO).coerceIn(MIN_TEXT_PX, MAX_TEXT_PX)
+    val fontSizePx = inkFontPx(bounds)
     val fontSizeSp = with(density) { fontSizePx.toSp().value }
 
     // Writing that continues the last conversion extends that box instead of
@@ -1857,7 +1853,14 @@ private fun replaceInkWithText(
     val wrapWidth = (bounds[2] - bounds[0] + fontSizePx * WRAP_HEADROOM)
         .coerceAtLeast(fontSizePx * MIN_WRAP_CHARS)
 
-    val box = if (previous != null) {
+    val box = if (previous != null && rewroteWord) {
+        // The last word, read again whole: it replaces what that word had become.
+        previous.copy(
+            text = previous.text.take(state.lastTextSegmentStart) + text,
+            widthPx = (bounds[2] - previous.x + fontSizePx * WRAP_HEADROOM)
+                .coerceAtLeast(previous.widthPx),
+        )
+    } else if (previous != null) {
         // Keeps the earlier box's origin: the teacher wrote one word, so it
         // should read as one word set the way the word started.
         // Same word: joined as written. Next word: after a space. Next line:
@@ -1890,6 +1893,14 @@ private fun replaceInkWithText(
     if (previous != null) state.textBoxes.removeAll { it.id == previous.id }
     state.textBoxes.add(box)
     state.pendingTextStrokes.clear()
+    // Where this conversion's word starts in the box, and its ink, so writing
+    // that carries on the same word can be read again as a whole.
+    if (previous != null && rewroteWord) {
+        state.lastTextInk = state.lastTextInk + present
+    } else {
+        state.lastTextSegmentStart = if (previous != null) box.text.length - text.length else 0
+        state.lastTextInk = present
+    }
     state.lastTextBoxId = box.id
     state.lastTextInkRight = bounds[2]
 
@@ -1899,6 +1910,27 @@ private fun replaceInkWithText(
     state.refreshHistoryFlags()
     renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
     state.markCommittedDirty()
+}
+
+/** Font size matching handwriting of these bounds; cap height is ~70% of a font's size. */
+private fun inkFontPx(bounds: FloatArray): Float =
+    ((bounds[3] - bounds[1]) / CAP_HEIGHT_RATIO).coerceIn(MIN_TEXT_PX, MAX_TEXT_PX)
+
+/**
+ * What the recognizer should know about [batch]: if it carries on the last
+ * word, that word's earlier ink (read again with it); otherwise the text just
+ * written, as context for reading the new word.
+ */
+internal fun textContextFor(state: BoardState, batch: List<Stroke>, density: Density): TextContext {
+    val box = state.lastTextBoxId?.let { id -> state.textBoxes.firstOrNull { it.id == id } } ?: return TextContext()
+    val bounds = Selection.boundsOf(batch, emptyList())
+    if (Selection.isEmpty(bounds)) return TextContext()
+    val boxFontPx = with(density) { box.fontSizeSp.sp.toPx() }
+    return when (continuationOf(box, boxFontPx, state.lastTextInkRight, bounds, inkFontPx(bounds))) {
+        Continuation.SAME_WORD -> TextContext(state.lastTextInk, box.text.take(state.lastTextSegmentStart))
+        Continuation.NEXT_WORD -> TextContext(preContext = box.text + " ")
+        Continuation.NEXT_LINE, null -> TextContext()
+    }
 }
 
 /** How fresh handwriting relates to the last converted box. */

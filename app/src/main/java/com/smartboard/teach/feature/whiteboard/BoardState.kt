@@ -411,6 +411,23 @@ class BoardState {
      */
     var lastTextInkRight: Float = 0f
 
+    /**
+     * The handwriting behind the last conversion's word, and where that word
+     * starts in the box's text. When writing carries on the same word after a
+     * pause, this ink is read again together with the new ink, so "v" + "ery"
+     * becomes "very" rather than "v" + a misread "ory".
+     */
+    var lastTextInk: List<com.smartboard.teach.domain.model.Stroke> = emptyList()
+    var lastTextSegmentStart: Int = 0
+
+    /** Next writing starts a new box (pen changed, undo, …). */
+    fun forgetLastText() {
+        lastTextBoxId = null
+        lastTextInkRight = 0f
+        lastTextInk = emptyList()
+        lastTextSegmentStart = 0
+    }
+
     /** Native pixel size of the decoded background, set by the canvas. */
     var backgroundWidthPx by mutableStateOf(0f)
     var backgroundHeightPx by mutableStateOf(0f)

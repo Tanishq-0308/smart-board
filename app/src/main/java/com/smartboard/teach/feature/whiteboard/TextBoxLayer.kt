@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartboard.teach.domain.model.DrawTool
 import com.smartboard.teach.domain.model.TextBox
 import java.util.UUID
 
@@ -104,6 +105,10 @@ fun TextBoxLayer(
                     box = box,
                     camera = state.camera,
                     isEditing = state.editingTextBoxId == box.id,
+                    // The Text pen writes next to (and over) the text it just
+                    // converted; a box taking that press opened the keyboard
+                    // and dropped the rest of the word.
+                    passThrough = state.tool == DrawTool.PEN && state.penType.isTextPen,
                     onStartEdit = { if (!isPlacementMode) state.editingTextBoxId = box.id },
                     onTextChanged = { newText ->
                         val index = state.textBoxes.indexOfFirst { it.id == box.id }
@@ -155,6 +160,7 @@ private fun TextBoxItem(
     box: TextBox,
     camera: Camera,
     isEditing: Boolean,
+    passThrough: Boolean,
     onStartEdit: () -> Unit,
     onTextChanged: (String) -> Unit,
     onCommit: (TextBox) -> Unit,
@@ -221,18 +227,27 @@ private fun TextBoxItem(
                 style = textStyle,
                 modifier = Modifier
                     .widthIn(max = maxWidthDp)
-                    .pointerInput(box.id) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull() ?: continue
-                                if (change.pressed && !change.isConsumed) {
-                                    change.consume()
-                                    onStartEdit()
+                    // No pointerInput at all when passing through: a handler
+                    // that ignores the press still makes the text the hit
+                    // target, and the canvas under it never sees the pen.
+                    .then(
+                        if (passThrough) {
+                            Modifier
+                        } else {
+                            Modifier.pointerInput(box.id) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull() ?: continue
+                                        if (change.pressed && !change.isConsumed) {
+                                            change.consume()
+                                            onStartEdit()
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    },
+                        },
+                    ),
             )
         }
     }

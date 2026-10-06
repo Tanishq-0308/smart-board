@@ -20,8 +20,12 @@ interface InkRecognizer {
     /** Makes [language] usable, fetching its models if needed. Cheap once ready. */
     suspend fun prepare(language: BoardLanguage): AppResult<Unit>
 
-    /** Recognises [strokes], given in SCREEN coordinates, as one line of text in [language]. */
-    suspend fun recognize(strokes: List<Stroke>, language: BoardLanguage): AppResult<String>
+    /**
+     * Recognises [strokes], given in SCREEN coordinates, as one line of text in
+     * [language]. [preContext] is the text written just before (the previous
+     * words), which the model uses to read the new word in context.
+     */
+    suspend fun recognize(strokes: List<Stroke>, language: BoardLanguage, preContext: String = ""): AppResult<String>
 
     fun close()
 }
