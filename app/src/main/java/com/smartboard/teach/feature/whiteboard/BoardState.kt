@@ -197,6 +197,29 @@ class BoardState {
         syncLegacyStyle(type)
     }
 
+    /** The teacher's pen choices, carried across a rebuild of the board. */
+    data class PenMemory(
+        val penType: PenType,
+        val tool: DrawTool,
+        val colors: Map<PenType, Color>,
+        val widths: Map<PenType, Float>,
+        val eraserScreenRadius: Float,
+    )
+
+    fun penMemory() = PenMemory(penType, tool, nibColor.toMap(), nibWidth.toMap(), eraserScreenRadius)
+
+    /**
+     * Leaving the board and coming back (sidebar, Study Material, 3D Maths)
+     * rebuilds this state, which used to reset the pen to black.
+     */
+    fun restorePen(memory: PenMemory) {
+        nibColor.putAll(memory.colors)
+        nibWidth.putAll(memory.widths)
+        eraserScreenRadius = memory.eraserScreenRadius
+        selectPenType(memory.penType)
+        tool = memory.tool
+    }
+
     /** Eraser radius in SCREEN px; converted to world at hit-test time so it
      *  stays the same physical size however far the board is zoomed. */
     var eraserScreenRadius by mutableStateOf(30f)

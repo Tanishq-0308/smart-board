@@ -139,6 +139,9 @@ class WhiteboardViewModel @Inject constructor(
 
     private var saveJob: Job? = null
 
+    /** Pen choices kept while the board's screen is rebuilt; see BoardState.restorePen. */
+    var penMemory: BoardState.PenMemory? = null
+
     /** Set by the canvas once it knows its size; pages are created at board size. */
     private var boardWidthPx = 0
     private var boardHeightPx = 0

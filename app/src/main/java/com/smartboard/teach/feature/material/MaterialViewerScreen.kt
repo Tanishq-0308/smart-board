@@ -109,9 +109,12 @@ fun MaterialViewerScreen(
                 },
                 enabled = state.pageBitmap != null,
             ) {
-                Icon(Icons.Filled.Draw, contentDescription = null, tint = Accent)
+                // Greyed out for files the board cannot show; a fixed accent
+                // colour made the disabled button look tappable.
+                val tint = if (state.pageBitmap != null) Accent else TextOnSurfaceMuted
+                Icon(Icons.Filled.Draw, contentDescription = null, tint = tint)
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.material_annotate_on_board), color = Accent)
+                Text(stringResource(R.string.material_annotate_on_board), color = tint)
             }
         }
 

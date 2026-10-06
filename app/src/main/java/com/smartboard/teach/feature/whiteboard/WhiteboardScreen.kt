@@ -90,7 +90,9 @@ fun WhiteboardScreen(
     onOpenMaths3D: () -> Unit = {},
     viewModel: WhiteboardViewModel = hiltViewModel(),
 ) {
-    val state = remember { BoardState() }
+    val state = remember { BoardState().also { fresh -> viewModel.penMemory?.let(fresh::restorePen) } }
+    // Hand the pen choices to the ViewModel, which outlives this screen.
+    DisposableEffect(state) { onDispose { viewModel.penMemory = state.penMemory() } }
     /** Pictures being decoded now, so a second settle does not decode them twice. */
     val mediaLoading = remember { mutableSetOf<String>() }
     val renderer = remember { BoardRenderer() }
