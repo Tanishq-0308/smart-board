@@ -1,5 +1,8 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.core.ui.theme.ErrorRed
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.key
 import com.smartboard.teach.feature.whiteboard.games.GamePanel
 import com.smartboard.teach.feature.whiteboard.games.Game
@@ -355,6 +358,7 @@ fun WhiteboardScreen(
 
     /** Whether the lesson timer is on the board. */
     var showTimer by remember { mutableStateOf(false) }
+    var confirmDeletePage by remember { mutableStateOf(false) }
     // Several games can be open at once (a scoreboard beside the dice).
     var openGames by remember { mutableStateOf(emptySet<Game>()) }
 
@@ -1142,6 +1146,33 @@ fun WhiteboardScreen(
                 ),
         )
 
+        fun deletePageNow() {
+            viewModel.deleteCurrentPage(
+                onPaneReloaded = { index, snapshot ->
+                    paneStates.getOrNull(index)?.let { paneState ->
+                        applyToPane(paneState, paneRenderers[index], snapshot)
+                    }
+                },
+                onPageReady = ::applySnapshot,
+            )
+        }
+
+        if (confirmDeletePage) {
+            AlertDialog(
+                onDismissRequest = { confirmDeletePage = false },
+                title = { Text(stringResource(R.string.board_delete_page_title)) },
+                text = { Text(stringResource(R.string.board_delete_page_body)) },
+                confirmButton = {
+                    TextButton(onClick = { confirmDeletePage = false; deletePageNow() }) {
+                        Text(stringResource(R.string.board_delete_page_confirm), color = ErrorRed)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDeletePage = false }) { Text(stringResource(R.string.panel_cancel)) }
+                },
+            )
+        }
+
         PageStrip(
             pages = uiState.pages,
             currentPageId = uiState.currentPageId,
@@ -1158,14 +1189,11 @@ fun WhiteboardScreen(
             },
             onAddPage = { viewModel.addPage(::applySnapshot) },
             onDeletePage = {
-                viewModel.deleteCurrentPage(
-                    onPaneReloaded = { index, snapshot ->
-                        paneStates.getOrNull(index)?.let { paneState ->
-                            applyToPane(paneState, paneRenderers[index], snapshot)
-                        }
-                    },
-                    onPageReady = ::applySnapshot,
-                )
+                // Deleting a page cannot be undone, so a page with anything on
+                // it asks first; an empty page just goes.
+                val hasContent = state.strokes.isNotEmpty() || state.textBoxes.isNotEmpty() ||
+                    state.containers.isNotEmpty() || state.background != null
+                if (hasContent) confirmDeletePage = true else deletePageNow()
             },
             paneCount = paneCount,
             // One tap adds a pane; the tap past the last one closes the split

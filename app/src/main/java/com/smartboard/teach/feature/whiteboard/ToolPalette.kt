@@ -173,6 +173,7 @@ fun ToolPalette(
                         onVideo = { panel = OpenPanel.NONE; onInsertVideo() },
                         onTimer = { panel = OpenPanel.NONE; onShowTimer() },
                         onGame = { panel = OpenPanel.NONE; onShowGame(it) },
+                        onClearPage = { panel = OpenPanel.NONE; onClear() },
                         onText = {
                             panel = OpenPanel.NONE
                             state.clearSelection()

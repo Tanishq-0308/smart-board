@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.material.icons.filled.DeleteSweep
 import com.smartboard.teach.feature.whiteboard.games.Game
 import com.smartboard.teach.R
 import androidx.compose.ui.res.stringResource
@@ -79,6 +80,7 @@ fun InsertTray(
     onBackground: () -> Unit,
     onLessons: () -> Unit,
     onGame: (Game) -> Unit,
+    onClearPage: () -> Unit,
     modifier: Modifier = Modifier,
     geometryEnabled: Boolean = false,
     mindmapEnabled: Boolean = false,
@@ -112,6 +114,8 @@ fun InsertTray(
             InsertItem(Icons.Filled.DonutLarge, R.string.game_spinner, true) { onGame(Game.SPINNER) },
             InsertItem(Icons.Filled.Casino, R.string.game_dice, true) { onGame(Game.DICE) },
             InsertItem(Icons.Filled.EmojiEvents, R.string.game_scores_short, true) { onGame(Game.SCORES) },
+            // Undoable, so one tap is enough: Undo brings the page back.
+            InsertItem(Icons.Filled.DeleteSweep, R.string.board_clear_page, true, onClearPage),
         ),
     )
 

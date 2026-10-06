@@ -74,4 +74,8 @@
     <string name="board_move">Move</string>
     <!-- Where a page on the board came from, e.g. "Chapter 4, page 2" -->
     <string name="document_page_label">%1$s, page %2$d</string>
+    <string name="board_clear_page">Clear page</string>
+    <string name="board_delete_page_title">Delete this page?</string>
+    <string name="board_delete_page_body">Everything on it will be removed. This cannot be undone.</string>
+    <string name="board_delete_page_confirm">Delete page</string>
 </resources>
