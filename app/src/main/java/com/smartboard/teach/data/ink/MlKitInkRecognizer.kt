@@ -13,6 +13,8 @@ import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppError
 import com.smartboard.teach.core.util.AppResult
 import com.smartboard.teach.core.util.AppText
+import com.smartboard.teach.domain.engine.BoardLanguage
+import com.smartboard.teach.domain.engine.InkChoice
 import com.smartboard.teach.domain.engine.InkRecognizer
 import com.smartboard.teach.domain.model.Stroke
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -21,7 +23,7 @@ import javax.inject.Singleton
 import kotlin.coroutines.resume
 
 /**
- * Handwriting to text, on device.
+ * Handwriting to text, on device, in any language in BoardLanguage.
  *
  * ML Kit Digital Ink rather than a vision model: it runs offline, costs
  * nothing per use, and returns in tens of milliseconds — a teacher writing at
@@ -35,57 +37,51 @@ import kotlin.coroutines.resume
 @Singleton
 class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
 
-    private var recognizer: DigitalInkRecognizer? = null
-    private var model: DigitalInkRecognitionModel? = null
+    /** One client per model tag ("en-US", "hi"), created once its model is on the board. */
+    private val recognizers = mutableMapOf<String, DigitalInkRecognizer>()
 
     /**
-     * Ensures the model is on the device, downloading it if not.
-     *
-     * Safe to call repeatedly: once [recognizer] exists this returns
-     * immediately, so the per-conversion path costs nothing.
+     * Ensures every model [language] reads with is on the device, downloading
+     * any that are missing. Safe to call repeatedly: ready models cost nothing.
      */
-    override suspend fun prepare(): AppResult<Unit> {
-        recognizer?.let { return AppResult.Success(Unit) }
+    override suspend fun prepare(language: BoardLanguage): AppResult<Unit> {
+        for (tag in language.inkModels) {
+            if (tag in recognizers) continue
+            val identifier = try {
+                DigitalInkRecognitionModelIdentifier.fromLanguageTag(tag)
+            } catch (error: MlKitException) {
+                null
+            } ?: return AppResult.Failure(
+                AppError.Storage(AppText.get(R.string.error_ink_unavailable_panel)),
+            )
 
-        val identifier = try {
-            DigitalInkRecognitionModelIdentifier.fromLanguageTag(LANGUAGE_TAG)
-        } catch (error: MlKitException) {
-            null
-        } ?: return AppResult.Failure(
-            AppError.Storage(AppText.get(R.string.error_ink_unavailable_panel)),
-        )
+            val built = DigitalInkRecognitionModel.builder(identifier).build()
+            val manager = RemoteModelManager.getInstance()
 
-        val built = DigitalInkRecognitionModel.builder(identifier).build()
-        val manager = RemoteModelManager.getInstance()
-
-        val downloaded = suspendCancellableCoroutine { cont ->
-            manager.isModelDownloaded(built)
-                .addOnSuccessListener { cont.resume(it) }
-                .addOnFailureListener { cont.resume(false) }
-        }
-
-        if (!downloaded) {
-            // Wi-Fi not required: a panel on a metered hotspot should still be
-            // able to fetch a one-off 20MB model rather than silently failing.
-            val conditions = DownloadConditions.Builder().build()
-            val ok = suspendCancellableCoroutine { cont ->
-                manager.download(built, conditions)
-                    .addOnSuccessListener { cont.resume(true) }
+            val downloaded = suspendCancellableCoroutine { cont ->
+                manager.isModelDownloaded(built)
+                    .addOnSuccessListener { cont.resume(it) }
                     .addOnFailureListener { cont.resume(false) }
             }
-            if (!ok) {
-                return AppResult.Failure(
-                    AppError.Storage(
-                        AppText.get(R.string.error_ink_download),
-                    ),
-                )
-            }
-        }
 
-        model = built
-        recognizer = DigitalInkRecognition.getClient(
-            DigitalInkRecognizerOptions.builder(built).build(),
-        )
+            if (!downloaded) {
+                // Wi-Fi not required: a panel on a metered hotspot should still be
+                // able to fetch a one-off model rather than silently failing.
+                val conditions = DownloadConditions.Builder().build()
+                val ok = suspendCancellableCoroutine { cont ->
+                    manager.download(built, conditions)
+                        .addOnSuccessListener { cont.resume(true) }
+                        .addOnFailureListener { cont.resume(false) }
+                }
+                if (!ok) {
+                    return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_ink_download)))
+                }
+            }
+
+            recognizers[tag] = DigitalInkRecognition.getClient(
+                DigitalInkRecognizerOptions.builder(built).build(),
+            )
+        }
         return AppResult.Success(Unit)
     }
 
@@ -96,10 +92,15 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
      * trained on writing at a natural on-screen size, so feeding it world
      * coordinates from a zoomed-out board would present handwriting at a scale
      * it has never seen.
+     *
+     * A language with several models (Hindi reads with Hindi and English, for
+     * mixed lines) runs each and keeps the most confident reading; see InkChoice.
      */
-    override suspend fun recognize(strokes: List<Stroke>): AppResult<String> {
-        val engine = recognizer
-            ?: return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_ink_not_ready)))
+    override suspend fun recognize(strokes: List<Stroke>, language: BoardLanguage): AppResult<String> {
+        val engines = language.inkModels.mapNotNull { recognizers[it] }
+        if (engines.isEmpty()) {
+            return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_ink_not_ready)))
+        }
         if (strokes.isEmpty()) return AppResult.Success("")
 
         val inkBuilder = Ink.builder()
@@ -110,36 +111,32 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
             }
             inkBuilder.addStroke(strokeBuilder.build())
         }
+        val ink = inkBuilder.build()
 
-        return suspendCancellableCoroutine { cont ->
-            engine.recognize(inkBuilder.build())
-                .addOnSuccessListener { result ->
-                    // Highest-scoring candidate; the rest are alternatives the
-                    // board has nowhere to show.
-                    cont.resume(AppResult.Success(result.candidates.firstOrNull()?.text.orEmpty()))
-                }
-                .addOnFailureListener { error ->
-                    cont.resume(
-                        AppResult.Failure(
-                            AppError.Storage(AppText.get(R.string.error_ink_read, error.message.orEmpty())),
-                        ),
-                    )
-                }
+        val readings = ArrayList<Pair<String, Float?>>(engines.size)
+        var failure: String? = null
+        for (engine in engines) {
+            suspendCancellableCoroutine { cont ->
+                engine.recognize(ink)
+                    .addOnSuccessListener { result ->
+                        val top = result.candidates.firstOrNull()
+                        readings += (top?.text.orEmpty() to top?.score)
+                        cont.resume(Unit)
+                    }
+                    .addOnFailureListener { error ->
+                        failure = error.message.orEmpty()
+                        cont.resume(Unit)
+                    }
+            }
         }
+        if (readings.isEmpty() && failure != null) {
+            return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_ink_read, failure.orEmpty())))
+        }
+        return AppResult.Success(InkChoice.best(readings))
     }
 
     override fun close() {
-        recognizer?.close()
-        recognizer = null
-    }
-
-    private companion object {
-        /**
-         * English only for now.
-         *
-         * ML Kit ships models for many languages including Devanagari; adding
-         * them is a language picker plus another download, not new plumbing.
-         */
-        const val LANGUAGE_TAG = "en-US"
+        recognizers.values.forEach { it.close() }
+        recognizers.clear()
     }
 }

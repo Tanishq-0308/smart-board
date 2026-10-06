@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.domain.engine.BoardLanguage
 import com.smartboard.teach.core.ui.theme.ErrorRed
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
@@ -907,6 +908,8 @@ fun WhiteboardScreen(
         ToolPalette(
             state = state,
             onAddCustomColor = viewModel::addCustomPenColor,
+            textLanguage = BoardLanguage.fromCode(inputSettings.textPenLanguage),
+            onTextLanguage = viewModel::setTextPenLanguage,
             onRemoveCustomColor = viewModel::removeCustomPenColor,
             onUndo = {
                 performUndo(state, renderer)

@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.domain.engine.BoardLanguage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,6 +65,8 @@ fun PenPopover(
     state: BoardState,
     onAddCustomColor: (Color) -> Unit,
     onRemoveCustomColor: (Color) -> Unit,
+    textLanguage: BoardLanguage = BoardLanguage.DEFAULT,
+    onTextLanguage: (BoardLanguage) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val dimens = SmartBoardTheme.dimens
@@ -101,6 +104,23 @@ fun PenPopover(
                     fontSize = dimens.bodySize,
                     fontWeight = FontWeight.Medium,
                 )
+                // The Text pen's language: what its handwriting is read as.
+                if (nib.isTextPen) {
+                    BoardLanguage.entries.forEach { language ->
+                        val selected = language == textLanguage
+                        Text(
+                            text = stringResource(language.label),
+                            color = if (selected) Color.White else TextOnChromeMuted,
+                            fontSize = dimens.labelSize,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (selected) Accent else Color.White.copy(alpha = 0.08f))
+                                .clickable { onTextLanguage(language) }
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
             }
 
             PanelDivider(horizontal = true)

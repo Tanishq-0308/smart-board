@@ -10,6 +10,7 @@ import com.smartboard.teach.R
 import com.smartboard.teach.core.util.AppResult
 import com.smartboard.teach.core.util.AppText
 import com.smartboard.teach.data.file.BoardExportStore
+import com.smartboard.teach.domain.engine.BoardLanguage
 import com.smartboard.teach.domain.engine.InkRecognizer
 import com.smartboard.teach.domain.engine.RecognizerState
 import com.smartboard.teach.data.file.PdfPageRenderer
@@ -1081,11 +1082,27 @@ class WhiteboardViewModel @Inject constructor(
      * model is ~20MB, and a panel where the text pen is never touched should
      * never pay for it.
      */
-    fun prepareTextPen() {
-        if (_recognizerState.value is RecognizerState.Ready) return
+    /** The language the Text pen reads; saved, so a Hindi teacher's choice sticks. */
+    private val textLanguage: BoardLanguage
+        get() = BoardLanguage.fromCode(inputSettings.value.textPenLanguage)
+
+    /** Which language the Ready state is for; switching languages prepares again. */
+    private var preparedLanguage: BoardLanguage? = null
+
+    fun setTextPenLanguage(language: BoardLanguage) {
+        cancelTextConversion()
+        viewModelScope.launch {
+            inputSettingsStore.setTextPenLanguage(language.code)
+            prepareTextPen(language)
+        }
+    }
+
+    fun prepareTextPen(language: BoardLanguage = textLanguage) {
+        if (_recognizerState.value is RecognizerState.Ready && preparedLanguage == language) return
         viewModelScope.launch {
             _recognizerState.value = RecognizerState.Downloading
-            _recognizerState.value = when (val result = handwriting.prepare()) {
+            preparedLanguage = language
+            _recognizerState.value = when (val result = handwriting.prepare(language)) {
                 is AppResult.Success -> RecognizerState.Ready
                 is AppResult.Failure -> RecognizerState.Unavailable(
                     result.error.message ?: AppText.get(R.string.error_ink_unavailable),
@@ -1109,13 +1126,14 @@ class WhiteboardViewModel @Inject constructor(
         convertJob?.cancel()
         if (strokes.isEmpty()) return
         convertJob = viewModelScope.launch {
-            delay(TEXT_CONVERT_DELAY_MS)
+            val language = textLanguage
+            delay(language.inkPauseMs)
             // Snapshot AFTER the wait: strokes added during it belong to this
             // same word, and the caller's list is live.
             val batch = strokes.toList()
             if (batch.isEmpty()) return@launch
 
-            when (val result = handwriting.recognize(batch.map(toScreen))) {
+            when (val result = handwriting.recognize(batch.map(toScreen), language)) {
                 is AppResult.Success -> {
                     val text = result.data.trim()
                     // Empty means the model could not read it. Leaving the ink
@@ -1804,14 +1822,6 @@ class WhiteboardViewModel @Inject constructor(
 
         /** A study-material page spans this much of the board's width at 100%. */
         const val DOCUMENT_WIDTH_FRACTION = 0.8f
-
-        /**
-         * How long the pen must be still before handwriting converts.
-         *
-         * Long enough to cross a t or dot an i without the word breaking
-         * up, short enough that it still feels immediate.
-         */
-        const val TEXT_CONVERT_DELAY_MS = 900L
     }
 }
 

@@ -118,4 +118,7 @@
     <string name="quiz_answer">Answer: %1$s</string>
     <string name="quiz_previous">Previous</string>
     <string name="quiz_next">Next</string>
+    <!-- Languages -->
+    <string name="lang_english">English</string>
+    <string name="lang_hindi">हिन्दी</string>
 </resources>

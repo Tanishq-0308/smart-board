@@ -37,6 +37,8 @@ data class InputSettings(
     val use24HourClock: Boolean = false,
     /** Pen colours the teacher mixed in the picker, newest first, as ARGB. */
     val customPenColors: List<Int> = emptyList(),
+    /** Language the Text pen reads, as a BoardLanguage code. */
+    val textPenLanguage: String = "en",
 )
 
 @Singleton
@@ -51,6 +53,7 @@ class InputSettingsStore @Inject constructor(
         val pointerDebug = booleanPreferencesKey("pointer_debug")
         val clock24h = booleanPreferencesKey("clock_24h")
         val customPenColors = stringPreferencesKey("custom_pen_colors")
+        val textPenLanguage = stringPreferencesKey("text_pen_language")
     }
 
     val settings: Flow<InputSettings> = context.inputSettingsDataStore.data.map { prefs ->
@@ -61,6 +64,7 @@ class InputSettingsStore @Inject constructor(
             showPointerDebug = prefs[Keys.pointerDebug] ?: false,
             use24HourClock = prefs[Keys.clock24h] ?: false,
             customPenColors = parseColors(prefs[Keys.customPenColors]),
+            textPenLanguage = prefs[Keys.textPenLanguage] ?: "en",
         )
     }
 
@@ -69,6 +73,11 @@ class InputSettingsStore @Inject constructor(
     suspend fun setHonourEraserButton(value: Boolean) = put(Keys.eraserButton, value)
     suspend fun setPointerDebug(value: Boolean) = put(Keys.pointerDebug, value)
     suspend fun setUse24HourClock(value: Boolean) = put(Keys.clock24h, value)
+
+    suspend fun setTextPenLanguage(code: String) = withContext(ioDispatcher) {
+        context.inputSettingsDataStore.edit { it[Keys.textPenLanguage] = code }
+        Unit
+    }
 
     /**
      * Saves a picked colour to the pen's Extras: newest first, no duplicates,

@@ -33,7 +33,7 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
   - **Highlighter:** see-through.
   - **Fountain:** a strong pressure response.
   - **Brush:** soft, for shading.
-  - **Text pen:** handwriting turns into typed text a moment after you stop. The English model downloads on first use, then works offline.
+  - **Text pen:** handwriting turns into typed text a moment after you stop. Choose **English** or **हिन्दी** on the pen panel (the choice is remembered). Each language's model downloads on first use, then works offline. Hindi waits a little longer before converting, because matras and the headline are written after the letters, and reads each line with both the Hindi and English models so a mixed line like "Force = बल" can convert.
   - **Shape pen:** rough circles, rectangles, lines and polygons snap to clean shapes. Works offline. Only the Shape pen snaps; every other pen leaves ink exactly as drawn.
 - **Colours.** 12 preset colours, plus a custom colour picker (hue bar with a saturation/brightness square).
   - Picked colours are saved under **Extras** (the last 5, newest first).
@@ -176,7 +176,7 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
 - **Board clear button.** The action is wired up in code but has no button.
 
 ## Languages
-English only for now. All user-facing text is in string resources (`res/values/strings*.xml`, about 500 strings), so another language is a translated copy of those files, not code changes. Maths notation such as V = πr²h stays as written.
+The app's own text is English only for now; the Text pen also reads Hindi. All user-facing text is in string resources (`res/values/strings*.xml`, about 500 strings), so another language is a translated copy of those files, not code changes. Maths notation such as V = πr²h stays as written.
 
 ## Compatibility
 Runs on Android 9 and later, with or without Google Play Services. Tested on a 2 GB Android 9 image without Play Services. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for what was tested and how features degrade.

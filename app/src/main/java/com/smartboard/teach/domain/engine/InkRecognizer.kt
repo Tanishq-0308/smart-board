@@ -17,11 +17,11 @@ sealed interface RecognizerState {
  * di/EngineModule rather than a change to the board.
  */
 interface InkRecognizer {
-    /** Makes the engine usable, fetching a model if needed. Cheap once ready. */
-    suspend fun prepare(): AppResult<Unit>
+    /** Makes [language] usable, fetching its models if needed. Cheap once ready. */
+    suspend fun prepare(language: BoardLanguage): AppResult<Unit>
 
-    /** Recognises [strokes], given in SCREEN coordinates, as one line of text. */
-    suspend fun recognize(strokes: List<Stroke>): AppResult<String>
+    /** Recognises [strokes], given in SCREEN coordinates, as one line of text in [language]. */
+    suspend fun recognize(strokes: List<Stroke>, language: BoardLanguage): AppResult<String>
 
     fun close()
 }

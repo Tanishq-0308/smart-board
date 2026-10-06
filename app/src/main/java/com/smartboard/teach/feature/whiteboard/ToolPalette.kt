@@ -105,6 +105,8 @@ fun ToolPalette(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onClear: () -> Unit,
+    textLanguage: com.smartboard.teach.domain.engine.BoardLanguage = com.smartboard.teach.domain.engine.BoardLanguage.DEFAULT,
+    onTextLanguage: (com.smartboard.teach.domain.engine.BoardLanguage) -> Unit = {},
     onImportBackground: () -> Unit,
     onInsertTable: (rows: Int, cols: Int) -> Unit,
     onInsertMindmap: () -> Unit,
@@ -144,6 +146,8 @@ fun ToolPalette(
                         state = state,
                         onAddCustomColor = onAddCustomColor,
                         onRemoveCustomColor = onRemoveCustomColor,
+                        textLanguage = textLanguage,
+                        onTextLanguage = onTextLanguage,
                     )
                     OpenPanel.ERASER -> EraserSizePopover(state = state)
                     OpenPanel.SHAPES -> ShapesPopover(
