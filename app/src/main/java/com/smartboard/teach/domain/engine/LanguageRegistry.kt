@@ -14,6 +14,8 @@ enum class BoardLanguage(
     /** BCP-47 code, also the key it is saved under. */
     val code: String,
     @StringRes val label: Int,
+    /** Two-letter mark shown on the Text pen's toolbar button ("EN", "हि"). */
+    @StringRes val badge: Int,
     /**
      * ML Kit Digital Ink models, best first. More than one means each line is
      * read by all of them and the most confident reading wins, so a mixed
@@ -34,9 +36,9 @@ enum class BoardLanguage(
 ) {
     // Long enough to cover the natural gap between words, so a phrase like
     // "hello world" converts as one line rather than word by word.
-    ENGLISH("en", R.string.lang_english, listOf("en-US"), inkPauseMs = 1_500, inkModelMb = 20),
+    ENGLISH("en", R.string.lang_english, R.string.lang_badge_english, listOf("en-US"), inkPauseMs = 1_500, inkModelMb = 20),
     HINDI(
-        "hi", R.string.lang_hindi, listOf("hi", "en-US"), inkPauseMs = 2_000,
+        "hi", R.string.lang_hindi, R.string.lang_badge_hindi, listOf("hi", "en-US"), inkPauseMs = 2_000,
         script = Character.UnicodeScript.DEVANAGARI, inkModelMb = 40,
     ),
     ;

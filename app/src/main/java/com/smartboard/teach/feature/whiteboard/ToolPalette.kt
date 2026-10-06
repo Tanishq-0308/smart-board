@@ -1,5 +1,7 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.ViewInAr
 import com.smartboard.teach.feature.whiteboard.container.TableSketch
@@ -217,6 +219,9 @@ fun ToolPalette(
                 label = stringResource(state.penType.label),
                 selected = penActive,
                 tint = state.colorFor(state.penType),
+                // The Text pen shows the language it reads, so the teacher can
+                // see at a glance whether writing will become English or Hindi.
+                badge = if (state.penType.isTextPen) stringResource(textLanguage.badge) else null,
             ) {
                 if (penActive) {
                     toggle(OpenPanel.PEN)
@@ -341,9 +346,11 @@ private fun BarButton(
     selected: Boolean,
     enabled: Boolean = true,
     tint: Color? = null,
+    badge: String? = null,
     onClick: () -> Unit,
 ) {
     val dimens = SmartBoardTheme.dimens
+    Box(contentAlignment = Alignment.TopEnd) {
     Box(
         modifier = Modifier
             .size(dimens.chromeButton + dimens.gutterSmall)
@@ -365,6 +372,20 @@ private fun BarButton(
             },
             modifier = Modifier.size(dimens.chromeIcon),
         )
+    }
+    if (badge != null) {
+        Text(
+            text = badge,
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .padding(2.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFFE5484D))
+                .padding(horizontal = 4.dp, vertical = 1.dp),
+        )
+    }
     }
 }
 

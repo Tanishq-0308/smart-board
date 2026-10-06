@@ -121,4 +121,6 @@
     <!-- Languages -->
     <string name="lang_english">English</string>
     <string name="lang_hindi">हिन्दी</string>
+    <string name="lang_badge_english">EN</string>
+    <string name="lang_badge_hindi">हि</string>
 </resources>
