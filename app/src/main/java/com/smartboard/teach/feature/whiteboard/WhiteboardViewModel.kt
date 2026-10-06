@@ -1631,15 +1631,16 @@ class WhiteboardViewModel @Inject constructor(
     }
 
     /**
-     * "Annotate on board" from Study Material: puts EVERY page of [pdf] on a
-     * new board page, stacked top to bottom, and shows [startPage] first.
+     * "Annotate on board" from Study Material: puts pages [first]..[last]
+     * (0-based, inclusive) of [pdf] on a new board page, stacked top to bottom.
+     * The teacher picks the range, so a 300-page book is not laid out whole.
      *
      * A new page rather than the current page's backdrop, so nothing the
      * teacher already has on the board is covered or replaced. Pages are
      * rendered to disk one at a time (cached by PdfPageRenderer); only the
      * ones on screen are ever decoded, see MediaWindow.
      */
-    fun adoptDocument(pdf: File, startPage: Int, onPageReady: (PageContentSnapshot) -> Unit) {
+    fun adoptDocument(pdf: File, first: Int, last: Int, onPageReady: (PageContentSnapshot) -> Unit) {
         val sessionId = _state.value.sessionId ?: return
         viewModelScope.launch {
             // A picture from Study Material goes on the board as a one-page document.
@@ -1660,12 +1661,14 @@ class WhiteboardViewModel @Inject constructor(
                 _backgroundState.value = BackgroundImportState(errorMessage = AppText.get(R.string.error_pdf_no_pages))
                 return@launch
             }
-            val files = ArrayList<String>(pageCount)
-            val sizes = ArrayList<Pair<Int, Int>>(pageCount)
-            for (index in 0 until pageCount) {
+            val from = first.coerceIn(0, pageCount - 1)
+            val range = from..last.coerceIn(from, pageCount - 1)
+            val files = ArrayList<String>(range.count())
+            val sizes = ArrayList<Pair<Int, Int>>(range.count())
+            for (index in range) {
                 _backgroundState.value = BackgroundImportState(
                     isBusy = true,
-                    busyMessage = AppText.get(R.string.status_preparing_page, index + 1, pageCount),
+                    busyMessage = AppText.get(R.string.status_preparing_page, index - from + 1, range.count()),
                 )
                 val rendered = pdfPageRenderer.renderPageToFile(pdf, index)
                 if (rendered !is AppResult.Success) {
@@ -1682,14 +1685,14 @@ class WhiteboardViewModel @Inject constructor(
                 sizes += bounds.outWidth to bounds.outHeight
             }
             _backgroundState.value = null
-            placeDocument(sessionId, documentTitle(pdf), files, sizes, startPage, onPageReady)
+            placeDocument(sessionId, documentTitle(pdf), files, sizes, from, onPageReady)
         }
     }
 
-    /** Adds the rendered pages as a new board page, stacked, and opens at [startPage]. */
+    /** Adds the rendered pages as a new board page, stacked; [firstPage] numbers their labels. */
     private suspend fun placeDocument(
         sessionId: String, title: String, files: List<String>, sizes: List<Pair<Int, Int>>,
-        startPage: Int, onPageReady: (PageContentSnapshot) -> Unit,
+        firstPage: Int, onPageReady: (PageContentSnapshot) -> Unit,
     ) {
         run {
             // Persist the page being left, then add the document as a new page.
@@ -1698,14 +1701,13 @@ class WhiteboardViewModel @Inject constructor(
             val width = boardWidthPx * DOCUMENT_WIDTH_FRACTION
             val left = (boardWidthPx - width) / 2f
             val containers = DocumentStack.layout(files, sizes, width, left, top = DocumentStack.GAP)
-                .mapIndexed { i, c -> c.copy(label = AppText.get(R.string.document_page_label, title, i + 1)) }
+                .mapIndexed { i, c -> c.copy(label = AppText.get(R.string.document_page_label, title, firstPage + i + 1)) }
             boardRepository.savePage(page, emptyList(), emptyList(), containers)
 
             _state.update { it.copy(pages = it.pages + page, currentPageId = page.id) }
             resetPendingContent()
             pendingContainers = containers
-            // Open on the page the teacher was reading in the viewer.
-            val focusTop = containers.getOrNull(startPage)?.y ?: containers.first().y
+            val focusTop = containers.first().y
             val camera = CameraState(offsetX = 0f, offsetY = focusTop - DocumentStack.GAP, zoom = 1f)
             pendingCamera = camera
             onPageReady(PageContentSnapshot(emptyList(), emptyList(), null, camera, containers))

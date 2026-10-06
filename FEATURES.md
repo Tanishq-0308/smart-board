@@ -142,7 +142,7 @@ This is the HTML/three.js prototype rebuilt natively in the app. The 3D view is 
 
 ## 6. Study Material 🔒 ✅
 - A list of materials, and a PDF viewer with page navigation.
-- **Annotate on board:** puts the **whole document** on a new board page, every page top to bottom, and opens at the page you were reading. Write on any page; the ink stays with that page. Only the pages on or near the screen are held in memory, so a long chapter is safe on a 2 GB board.
+- **Annotate on board:** asks which pages (From and To, starting at the page you were reading), then puts only those on a new board page, top to bottom, labelled with their page numbers in the book. Write on any page; the ink stays with that page. Only the pages on or near the screen are held in memory, so a long chapter is safe on a 2 GB board.
 
 ## 7. Sign in ✅
 - Skolar staff account: email and password, or employee ID with the school code. The board stays signed in (tokens refresh on their own) until Sign Out, or until the school ends the session.

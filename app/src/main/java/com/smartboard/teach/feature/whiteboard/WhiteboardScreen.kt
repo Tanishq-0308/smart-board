@@ -74,8 +74,9 @@ fun WhiteboardScreen(
     modifier: Modifier = Modifier,
     /** Set when arriving from "Annotate on board": a PDF to lay out as a page. */
     pendingDocumentPath: String? = null,
-    /** The page the teacher was reading, shown first. */
+    /** The first and last PDF pages (0-based, inclusive) the teacher picked. */
     pendingDocumentPage: Int = 0,
+    pendingDocumentLast: Int = 0,
     onDocumentConsumed: () -> Unit = {},
     /** A PNG path handed back by 3D Maths "Insert on board". */
     pendingInsertImage: String? = null,
@@ -432,14 +433,14 @@ fun WhiteboardScreen(
         }
     }
 
-    // Arriving from "Annotate on board": the whole PDF becomes a new page.
+    // Arriving from "Annotate on board": the picked PDF pages become a new page.
     // Waits for the board's own page to be applied first, or that load would
     // land on top of the document. Consumed once, so returning to the board
     // does not add it again.
     LaunchedEffect(pendingDocumentPath, pageApplied) {
         if (pendingDocumentPath != null && pageApplied) {
             onDocumentConsumed()
-            viewModel.adoptDocument(java.io.File(pendingDocumentPath), pendingDocumentPage, ::applySnapshot)
+            viewModel.adoptDocument(java.io.File(pendingDocumentPath), pendingDocumentPage, pendingDocumentLast, ::applySnapshot)
         }
     }
 

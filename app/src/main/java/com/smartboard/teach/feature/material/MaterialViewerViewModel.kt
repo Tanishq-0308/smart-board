@@ -128,9 +128,10 @@ class MaterialViewerViewModel @Inject constructor(
      * a local file, so it neither knows nor cares whether the PDF came from
      * the device or the backend.
      */
-    fun sendDocumentToBoard(onReady: (String, Int) -> Unit) {
+    /** Pages [first]..[last], 0-based and inclusive. */
+    fun sendDocumentToBoard(first: Int, last: Int, onReady: (String, Int, Int) -> Unit) {
         val file = localFile ?: return
-        onReady(file.absolutePath, _state.value.currentPage)
+        onReady(file.absolutePath, first, last)
     }
 
     override fun onCleared() {

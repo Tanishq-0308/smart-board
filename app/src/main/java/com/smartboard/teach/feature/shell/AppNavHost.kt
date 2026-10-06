@@ -54,6 +54,10 @@ fun AppNavHost(
                     type = NavType.IntType
                     defaultValue = 0
                 },
+                navArgument(DetailRoutes.ARG_DOCUMENT_LAST) {
+                    type = NavType.IntType
+                    defaultValue = 0
+                },
             ),
         ) { entry ->
             val pendingInsertImage by entry.savedStateHandle
@@ -67,6 +71,7 @@ fun AppNavHost(
             WhiteboardScreen(
                 pendingDocumentPath = pendingDocument,
                 pendingDocumentPage = entry.arguments?.getInt(DetailRoutes.ARG_DOCUMENT_PAGE) ?: 0,
+                pendingDocumentLast = entry.arguments?.getInt(DetailRoutes.ARG_DOCUMENT_LAST) ?: 0,
                 onDocumentConsumed = { entry.savedStateHandle[DetailRoutes.ARG_DOCUMENT_PATH] = null },
                 pendingInsertImage = pendingInsertImage,
                 onInsertConsumed = { entry.savedStateHandle[DetailRoutes.INSERT_IMAGE_KEY] = null },
@@ -195,9 +200,9 @@ fun AppNavHost(
             AuthGate(authState, navController) {
                 MaterialViewerScreen(
                     onBack = { navController.popBackStack() },
-                    onAnnotateOnBoard = { path, page ->
+                    onAnnotateOnBoard = { path, first, last ->
                         navController.navigate(
-                            DetailRoutes.whiteboardWithDocument(path, page),
+                            DetailRoutes.whiteboardWithDocument(path, first, last),
                         ) {
                             popUpTo(Dest.Whiteboard.route) { inclusive = true }
                         }

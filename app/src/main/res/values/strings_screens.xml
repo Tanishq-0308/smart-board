@@ -51,6 +51,16 @@
     <string name="material_page_of">Page %1$d of %2$d</string>
     <string name="material_page">Page %1$d</string>
     <string name="material_annotate_on_board">Annotate on board</string>
+    <string name="material_pages_title">Which pages?</string>
+    <string name="material_pages_intro">This document has %1$d pages. Only the pages you pick go on the board.</string>
+    <string name="material_pages_from">From page</string>
+    <string name="material_pages_to">To page</string>
+    <string name="material_pages_invalid">Pick pages between 1 and %1$d, with From no later than To.</string>
+    <string name="material_pages_open">Open on board</string>
+    <plurals name="material_pages_count">
+        <item quantity="one">%1$d page</item>
+        <item quantity="other">%1$d pages</item>
+    </plurals>
     <string name="material_nothing_to_show">Nothing to show.</string>
     <string name="material_unsupported">The board can open PDFs and pictures. Open this file on a computer, or upload it to Skolar as a PDF.</string>
 

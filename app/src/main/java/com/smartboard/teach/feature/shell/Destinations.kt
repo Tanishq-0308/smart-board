@@ -83,9 +83,10 @@ object DetailRoutes {
      * loads it through the normal path rather than the two screens sharing
      * state.
      */
-    const val WHITEBOARD_WITH_DOCUMENT = "whiteboard?documentPath={documentPath}&documentPage={documentPage}"
+    const val WHITEBOARD_WITH_DOCUMENT = "whiteboard?documentPath={documentPath}&documentPage={documentPage}&documentLast={documentLast}"
     const val ARG_DOCUMENT_PATH = "documentPath"
     const val ARG_DOCUMENT_PAGE = "documentPage"
+    const val ARG_DOCUMENT_LAST = "documentLast"
 
     /**
      * SavedStateHandle key on the whiteboard's back stack entry. 3D Maths
@@ -94,7 +95,7 @@ object DetailRoutes {
      */
     const val INSERT_IMAGE_KEY = "insertImagePath"
 
-    /** The whole PDF at [path] goes onto the board, opened at [page]. */
-    fun whiteboardWithDocument(path: String, page: Int) =
-        "whiteboard?documentPath=${android.net.Uri.encode(path)}&documentPage=$page"
+    /** Pages [first]..[last] (0-based, inclusive) of the PDF at [path] go onto the board. */
+    fun whiteboardWithDocument(path: String, first: Int, last: Int) =
+        "whiteboard?documentPath=${android.net.Uri.encode(path)}&documentPage=$first&documentLast=$last"
 }
