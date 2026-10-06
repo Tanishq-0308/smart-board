@@ -147,6 +147,13 @@ class BoardState {
     var penType by mutableStateOf(PenType.PEN)
 
     /**
+     * Handwriting converts to text. The nib stays TEXT while a shape tool is
+     * picked, so checking [penType] alone sent a drawn cube to the recognizer,
+     * which replaced it with text.
+     */
+    val textPenActive: Boolean get() = tool == DrawTool.PEN && penType.isTextPen
+
+    /**
      * Colour and width per nib.
      *
      * Switching from a yellow highlighter back to the pen must give back the

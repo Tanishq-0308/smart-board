@@ -153,8 +153,8 @@ fun WhiteboardScreen(
     // Downloading the ~20MB handwriting model is deferred until the teacher
     // actually picks the text nib, so panels that never use it never pay.
     val recognizerState by viewModel.recognizerState.collectAsStateWithLifecycle()
-    LaunchedEffect(state.penType) {
-        if (state.penType.isTextPen) {
+    LaunchedEffect(state.textPenActive) {
+        if (state.textPenActive) {
             viewModel.prepareTextPen()
         } else {
             // Switching away mid-pause must not convert what is now ordinary
@@ -564,7 +564,7 @@ fun WhiteboardScreen(
                 // the snap presses undo once and the board is clear.
                 // Text-pen ink is NOT shape-snapped: a handwritten "O" would
                 // become a circle before it ever reached the recognizer.
-                val stroke = if (state.penType.isTextPen) drawn else maybeSnapToShape(state, drawn)
+                val stroke = if (state.textPenActive) drawn else maybeSnapToShape(state, drawn)
                 state.strokes.add(stroke)
                 renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
                 state.markCommittedDirty()
@@ -572,7 +572,7 @@ fun WhiteboardScreen(
                 state.refreshHistoryFlags()
                 persist()
 
-                if (state.penType.isTextPen) {
+                if (state.textPenActive) {
                     state.pendingTextStrokes.add(stroke)
                     // Handed to the recognizer in SCREEN coordinates: the model
                     // was trained on writing at a natural on-screen size, so

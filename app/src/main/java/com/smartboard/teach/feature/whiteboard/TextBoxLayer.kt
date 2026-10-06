@@ -31,7 +31,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.smartboard.teach.domain.model.DrawTool
 import com.smartboard.teach.domain.model.TextBox
 import java.util.UUID
 
@@ -108,7 +107,7 @@ fun TextBoxLayer(
                     // The Text pen writes next to (and over) the text it just
                     // converted; a box taking that press opened the keyboard
                     // and dropped the rest of the word.
-                    passThrough = state.tool == DrawTool.PEN && state.penType.isTextPen,
+                    passThrough = state.textPenActive,
                     onStartEdit = { if (!isPlacementMode) state.editingTextBoxId = box.id },
                     onTextChanged = { newText ->
                         val index = state.textBoxes.indexOfFirst { it.id == box.id }

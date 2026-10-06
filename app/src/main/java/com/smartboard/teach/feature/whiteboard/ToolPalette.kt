@@ -221,7 +221,7 @@ fun ToolPalette(
                 tint = state.colorFor(state.penType),
                 // The Text pen shows the language it reads, so the teacher can
                 // see at a glance whether writing will become English or Hindi.
-                badge = if (state.penType.isTextPen) stringResource(textLanguage.badge) else null,
+                badge = if (state.textPenActive) stringResource(textLanguage.badge) else null,
             ) {
                 if (penActive) {
                     toggle(OpenPanel.PEN)
