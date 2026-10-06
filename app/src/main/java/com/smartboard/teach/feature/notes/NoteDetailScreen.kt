@@ -78,32 +78,27 @@ fun NoteDetailScreen(
                 CircularProgressIndicator()
             }
 
-            // A lesson pack: the notes beside the assignment to review and publish.
-            state.note?.pack != null -> Row(
-                Modifier.fillMaxSize().padding(horizontal = dimens.gutterLarge, vertical = dimens.gutter),
-                horizontalArrangement = Arrangement.spacedBy(dimens.gutterLarge),
-            ) {
-                Box(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    state.markdown?.let { MarkdownText(markdown = it) }
-                        ?: Text(stringResource(R.string.notes_no_summary), color = TextOnSurfaceMuted, fontSize = dimens.bodySize)
-                }
+            // A lesson pack: notes and assignment on their own tabs.
+            state.note?.pack != null -> {
                 val note = state.note!!
-                LessonPackPanel(
+                LessonPackReview(
                     pack = note.pack!!,
                     status = note.status,
                     failure = state.message ?: note.failureMessage,
                     busy = state.busy,
+                    markdown = state.markdown,
                     actions = PackActions(
                         onEdit = viewModel::editQuestion,
                         onDelete = viewModel::deleteQuestion,
                         onDueDate = viewModel::setDueDate,
                         onRegenerate = viewModel::regenerate,
-                        onPublish = viewModel::publish,
+                        onPublishAssignment = viewModel::publishAssignment,
+                        onPublishNotes = viewModel::publishNotes,
                         onResume = viewModel::resume,
                         onChooseClass = viewModel::chooseClass,
                     ),
-                    modifier = Modifier.weight(1.15f),
-                )
+                    modifier = Modifier.fillMaxSize().padding(horizontal = dimens.gutterLarge, vertical = dimens.gutter),
+                ) { md -> MarkdownText(markdown = md, modifier = Modifier.widthIn(max = 1100.dp)) }
             }
 
             state.markdown == null -> Box(Modifier.fillMaxSize(), Alignment.Center) {

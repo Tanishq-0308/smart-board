@@ -37,6 +37,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,57 +68,74 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-/** Callbacks for [LessonPackPanel]. */
+/** Callbacks for the lesson pack review. */
 class PackActions(
     val onEdit: (AssignmentQuestion) -> Unit,
     val onDelete: (String) -> Unit,
     val onDueDate: (LocalDate) -> Unit,
     val onRegenerate: () -> Unit,
-    val onPublish: () -> Unit,
+    val onPublishAssignment: () -> Unit,
+    val onPublishNotes: () -> Unit,
     val onResume: () -> Unit,
     val onChooseClass: () -> Unit,
 )
 
+enum class PackTab { NOTES, ASSIGNMENT }
+
 /**
- * The assignment half of a lesson pack's review: grouped by NCERT section,
- * every question editable, nothing visible to the class until Publish.
+ * A lesson pack's review: who it is for and what is running, then the notes
+ * and the assignment on separate tabs, each with its own publish button.
  */
 @Composable
-fun LessonPackPanel(
+fun LessonPackReview(
     pack: LessonPack,
     status: NoteStatus,
     failure: String?,
     busy: PackBusy?,
+    markdown: String?,
     actions: PackActions,
     modifier: Modifier = Modifier,
+    notes: @Composable (String) -> Unit,
 ) {
     val dimens = SmartBoardTheme.dimens
-    var editing by remember { mutableStateOf<AssignmentQuestion?>(null) }
-    var confirmPublish by remember { mutableStateOf(false) }
-    var pickDate by remember { mutableStateOf(false) }
-    val locked = pack.isShared || busy != null
+    var tab by remember { mutableStateOf(PackTab.NOTES) }
+    Column(modifier) {
+        PackHeader(pack, status, failure, busy, actions)
+        Spacer(Modifier.height(dimens.gutterSmall))
+        TabRow(selectedTabIndex = tab.ordinal, containerColor = androidx.compose.ui.graphics.Color.Transparent) {
+            Tab(selected = tab == PackTab.NOTES, onClick = { tab = PackTab.NOTES },
+                text = { Text(stringResource(R.string.pack_tab_notes), fontSize = dimens.bodySize) })
+            Tab(selected = tab == PackTab.ASSIGNMENT, onClick = { tab = PackTab.ASSIGNMENT },
+                text = { Text(stringResource(R.string.pack_tab_assignment), fontSize = dimens.bodySize) })
+        }
+        Spacer(Modifier.height(dimens.gutter))
+        when (tab) {
+            PackTab.NOTES -> NotesTab(pack, status, busy, markdown, actions, notes)
+            PackTab.ASSIGNMENT -> AssignmentTab(pack, status, busy, actions)
+        }
+    }
+}
 
-    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
-        // Who it is for.
-        Text(
-            text = if (pack.classId != null) {
-                listOf(pack.className, pack.subjectName).filter { it.isNotBlank() }.joinToString(" · ")
-            } else {
-                stringResource(R.string.pack_review_no_class)
-            },
-            fontSize = dimens.titleSize, fontWeight = FontWeight.SemiBold, color = TextOnSurface,
-        )
-        if (!pack.isShared) {
-            TextButton(onClick = actions.onChooseClass, enabled = !locked) {
-                Text(stringResource(if (pack.classId == null) R.string.pack_review_choose_class else R.string.pack_review_change_class), color = Accent)
+@Composable
+private fun PackHeader(pack: LessonPack, status: NoteStatus, failure: String?, busy: PackBusy?, actions: PackActions) {
+    val dimens = SmartBoardTheme.dimens
+    Column(verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = if (pack.classId != null) {
+                    listOf(pack.className, pack.subjectName).filter { it.isNotBlank() }.joinToString(" · ")
+                } else {
+                    stringResource(R.string.pack_review_no_class)
+                },
+                fontSize = dimens.titleSize, fontWeight = FontWeight.SemiBold, color = TextOnSurface,
+            )
+            if (!pack.classLocked) {
+                Spacer(Modifier.width(dimens.gutter))
+                TextButton(onClick = actions.onChooseClass, enabled = busy == null) {
+                    Text(stringResource(if (pack.classId == null) R.string.pack_review_choose_class else R.string.pack_review_change_class), color = Accent)
+                }
             }
         }
-
-        if (pack.isShared) {
-            Banner(Icons.Filled.CheckCircle, StatusPresent, stringResource(R.string.pack_review_shared, pack.className,
-                pack.sharedAt?.let { formatDate(Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()) }.orEmpty()))
-        }
-
         when {
             busy is PackBusy.Working -> BusyLine(when (val p = busy.progress) {
                 is PackProgress.Notes -> stringResource(R.string.pack_progress_notes, p.done, p.total)
@@ -130,9 +149,67 @@ fun LessonPackPanel(
                 Button(onClick = actions.onResume) { Text(stringResource(R.string.notes_retry)) }
             }
         }
+    }
+}
+
+@Composable
+private fun NotesTab(
+    pack: LessonPack,
+    status: NoteStatus,
+    busy: PackBusy?,
+    markdown: String?,
+    actions: PackActions,
+    notes: @Composable (String) -> Unit,
+) {
+    val dimens = SmartBoardTheme.dimens
+    var confirm by remember { mutableStateOf(false) }
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
+        when {
+            pack.notesShared -> Banner(Icons.Filled.CheckCircle, StatusPresent, stringResource(R.string.pack_notes_shared,
+                pack.className, formatEpoch(pack.notesSharedAt ?: pack.sharedAt)))
+            pack.classId != null && status == NoteStatus.COMPLETE && pack.remoteNoteId != null -> Row {
+                Button(onClick = { confirm = true }, enabled = busy == null) {
+                    Icon(Icons.Filled.Send, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.pack_notes_publish))
+                }
+            }
+        }
+        Spacer(Modifier.height(dimens.gutterSmall))
+        if (markdown != null) notes(markdown)
+        else Text(stringResource(R.string.notes_no_summary), color = TextOnSurfaceMuted, fontSize = dimens.bodySize)
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text(stringResource(R.string.pack_notes_publish_title, pack.className)) },
+            text = { Text(stringResource(R.string.pack_notes_publish_body)) },
+            confirmButton = { TextButton(onClick = { confirm = false; actions.onPublishNotes() }) { Text(stringResource(R.string.pack_notes_publish)) } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.panel_cancel)) } },
+        )
+    }
+}
+
+/** Grouped by NCERT section, every question editable, nothing visible to the class until Publish. */
+@Composable
+private fun AssignmentTab(pack: LessonPack, status: NoteStatus, busy: PackBusy?, actions: PackActions) {
+    val dimens = SmartBoardTheme.dimens
+    var editing by remember { mutableStateOf<AssignmentQuestion?>(null) }
+    var confirmPublish by remember { mutableStateOf(false) }
+    var pickDate by remember { mutableStateOf(false) }
+    val locked = pack.assignmentShared || busy != null
+
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(dimens.gutterSmall)) {
+        if (pack.assignmentShared) {
+            Banner(Icons.Filled.CheckCircle, StatusPresent, stringResource(R.string.pack_review_shared, pack.className, formatEpoch(pack.sharedAt)))
+        }
 
         val draft = pack.assignment
         if (draft == null) {
+            Text(
+                stringResource(if (pack.withAssignment) R.string.pack_assignment_none else R.string.pack_assignment_notes_only),
+                fontSize = dimens.bodySize, color = TextOnSurfaceMuted,
+            )
             if (pack.classId != null && busy == null && status != NoteStatus.FAILED_PENDING_RETRY) {
                 OutlinedButton(onClick = actions.onRegenerate) { Text(stringResource(R.string.pack_review_write_assignment)) }
             }
@@ -156,24 +233,11 @@ fun LessonPackPanel(
         }
 
         val flagged = draft.questions.count { it.problems.isNotEmpty() }
-        if (flagged > 0 && !pack.isShared) {
+        if (flagged > 0 && !pack.assignmentShared) {
             Banner(Icons.Filled.WarningAmber, WarningAmber, stringResource(R.string.pack_review_flagged, flagged))
         }
 
-        NcertPattern.SECTIONS.forEach { section ->
-            val qs = draft.questions.filter { it.section == section.letter }
-            if (qs.isEmpty()) return@forEach
-            Spacer(Modifier.height(dimens.gutterSmall))
-            Text(stringResource(R.string.pack_review_section, section.letter, section.title, section.marks),
-                fontSize = dimens.bodySize, fontWeight = FontWeight.SemiBold, color = Accent)
-            qs.forEach { q ->
-                QuestionCard(q, number = draft.questions.indexOf(q) + 1, locked = locked,
-                    onEdit = { editing = q }, onDelete = { actions.onDelete(q.id) })
-            }
-        }
-
-        if (!pack.isShared) {
-            Spacer(Modifier.height(dimens.gutter))
+        if (!pack.assignmentShared) {
             Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutter)) {
                 OutlinedButton(onClick = actions.onRegenerate, enabled = !locked) {
                     Icon(Icons.Filled.Refresh, contentDescription = null)
@@ -187,6 +251,18 @@ fun LessonPackPanel(
                 }
             }
         }
+
+        NcertPattern.SECTIONS.forEach { section ->
+            val qs = draft.questions.filter { it.section == section.letter }
+            if (qs.isEmpty()) return@forEach
+            Spacer(Modifier.height(dimens.gutterSmall))
+            Text(stringResource(R.string.pack_review_section, section.letter, section.title, section.marks),
+                fontSize = dimens.bodySize, fontWeight = FontWeight.SemiBold, color = Accent)
+            qs.forEach { q ->
+                QuestionCard(q, number = draft.questions.indexOf(q) + 1, locked = locked,
+                    onEdit = { editing = q }, onDelete = { actions.onDelete(q.id) })
+            }
+        }
     }
 
     editing?.let { q ->
@@ -197,7 +273,7 @@ fun LessonPackPanel(
             onDismissRequest = { confirmPublish = false },
             title = { Text(stringResource(R.string.pack_publish_title, pack.className)) },
             text = { Text(stringResource(R.string.pack_publish_body)) },
-            confirmButton = { TextButton(onClick = { confirmPublish = false; actions.onPublish() }) { Text(stringResource(R.string.pack_review_publish)) } },
+            confirmButton = { TextButton(onClick = { confirmPublish = false; actions.onPublishAssignment() }) { Text(stringResource(R.string.pack_review_publish)) } },
             dismissButton = { TextButton(onClick = { confirmPublish = false }) { Text(stringResource(R.string.panel_cancel)) } },
         )
     }
@@ -314,3 +390,6 @@ private fun BusyLine(text: String) {
 }
 
 private fun formatDate(date: LocalDate): String = date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+
+private fun formatEpoch(ms: Long?): String =
+    ms?.let { formatDate(Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()) }.orEmpty()

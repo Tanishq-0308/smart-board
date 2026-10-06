@@ -2,11 +2,14 @@
 <!-- Lesson pack: Snapshot -> notes + NCERT-style assignment -> shared with the class. -->
 <resources>
     <!-- Snapshot setup -->
-    <string name="pack_setup_title">Notes and assignment</string>
-    <string name="pack_setup_intro">Notes and an assignment are made from what you taught in this lesson: your writing, and the PDF pages and pictures you wrote on or kept on screen. You review everything before the class sees it.</string>
+    <string name="pack_setup_title">Snapshot</string>
+    <string name="pack_setup_intro">Notes (and an assignment, if you want one) are made from what you taught in this lesson: your writing, and the PDF pages and pictures you wrote on or kept on screen. You review everything before the class sees it.</string>
     <string name="pack_setup_class">Class</string>
     <string name="pack_setup_no_classes">No classes yet. Notes will be made; choose a class later for the assignment.</string>
     <string name="pack_setup_subject">Subject</string>
+    <string name="pack_setup_make">Make</string>
+    <string name="pack_setup_notes_only">Notes only</string>
+    <string name="pack_setup_notes_and_assignment">Notes and assignment</string>
     <string name="pack_setup_size">Assignment length</string>
     <!-- e.g. "Standard · 15 questions · 33 marks" -->
     <string name="pack_setup_size_option">%1$s · %2$d questions · %3$d marks</string>
@@ -17,7 +20,7 @@
 
     <!-- Progress -->
     <string name="pack_capturing">Collecting what was taught…</string>
-    <string name="pack_title_working">Writing notes and assignment</string>
+    <string name="pack_title_working">Working on your snapshot</string>
     <string name="pack_progress_notes">Reading the lesson: %1$d of %2$d parts</string>
     <string name="pack_progress_saving">Saving the notes to the class…</string>
     <string name="pack_progress_assignment">Writing the assignment…</string>
@@ -58,9 +61,9 @@
     <string name="pack_review_answer">Answer: %1$s</string>
     <string name="pack_review_edit">Edit question</string>
     <string name="pack_review_regenerate">Write a new assignment</string>
-    <string name="pack_review_publish">Publish to class</string>
+    <string name="pack_review_publish">Publish assignment to class</string>
     <string name="pack_publish_title">Share with %1$s?</string>
-    <string name="pack_publish_body">The notes and the assignment go to every student in the class, and students and parents are notified. Answers stay with you; students only see the questions.</string>
+    <string name="pack_publish_body">The assignment, and these notes, go to every student in the class, and students and parents are notified. Answers stay with you; students only see the questions.</string>
     <string name="pack_edit_question">Question</string>
     <string name="pack_edit_answer">Answer (only you see this)</string>
     <string name="pack_edit_marks">Marks</string>
@@ -69,4 +72,15 @@
     <string name="pack_problem_answer_not_option">The answer does not match any option.</string>
     <string name="pack_problem_no_blank">A fill-in-the-blank needs a ____ in the sentence.</string>
     <string name="pack_problem_empty">The question is empty.</string>
+    <string name="pack_done_notes_only">Notes for \"%1$s\" are ready. Nothing is shared until you publish them.</string>
+    <string name="pack_tab_notes">Notes</string>
+    <string name="pack_tab_assignment">Assignment</string>
+    <string name="pack_notes_publish">Publish notes to class</string>
+    <string name="pack_notes_publish_title">Share the notes with %1$s?</string>
+    <string name="pack_notes_publish_body">Every student in the class can read the notes in their study material. Skolar does not send a notification for notes.</string>
+    <!-- e.g. "Notes shared with Class 6 - A on 6 Oct 2026." -->
+    <string name="pack_notes_shared">Notes shared with %1$s on %2$s.</string>
+    <string name="pack_assignment_none">No assignment yet.</string>
+    <string name="pack_assignment_notes_only">You chose notes only. You can still write an assignment for this lesson.</string>
+    <string name="pack_error_notes_not_saved">The notes have not reached the school server yet. Tap Retry first.</string>
 </resources>

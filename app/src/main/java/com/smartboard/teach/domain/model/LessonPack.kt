@@ -17,6 +17,8 @@ data class LessonPack(
     val subjectId: String? = null,
     val subjectName: String = "",
     val size: AssignmentSize = AssignmentSize.STANDARD,
+    /** False when the teacher asked for notes only; an assignment can still be added later. */
+    val withAssignment: Boolean = true,
     val parts: List<LessonPart> = emptyList(),
     /** Taught parts left out to stay under [com.smartboard.teach.domain.lessonpack.LessonPartPlanner.MAX_PARTS]. */
     val leftOut: Int = 0,
@@ -25,13 +27,21 @@ data class LessonPack(
     val assignment: AssignmentDraft? = null,
     /** ISO date, chosen at review. */
     val dueDate: String? = null,
-    /** The published homework, once shared. */
+    /** The published homework, once the assignment is shared. */
     val homeworkId: String? = null,
+    /** When the assignment was published. */
     val sharedAt: Long? = null,
+    /** When the notes were made visible to the class. */
+    val notesSharedAt: Long? = null,
 ) {
     /** The parts' notes merged into one document, once every part has some. */
     val notesReady: Boolean get() = parts.isNotEmpty() && parts.all { it.notes != null }
-    val isShared: Boolean get() = homeworkId != null
+    val assignmentShared: Boolean get() = homeworkId != null
+    /** Publishing the assignment shares the notes too (and did before notes could go alone). */
+    val notesShared: Boolean get() = notesSharedAt != null || assignmentShared
+
+    /** Once anything has gone to the class, its class can no longer change. */
+    val classLocked: Boolean get() = assignmentShared || notesShared
 }
 
 @Serializable

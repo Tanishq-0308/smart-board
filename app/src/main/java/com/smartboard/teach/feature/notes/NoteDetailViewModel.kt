@@ -63,7 +63,7 @@ class NoteDetailViewModel @Inject constructor(
         var note = notesRepository.getNote(noteId)
         // A due date a week out unless the teacher picks one.
         val pack = note?.pack
-        if (pack != null && pack.assignment != null && pack.dueDate == null && !pack.isShared) {
+        if (pack != null && pack.assignment != null && pack.dueDate == null && !pack.assignmentShared) {
             (lessonPack.saveReview(noteId, pack.assignment, LocalDate.now().plusDays(7).toString()) as? AppResult.Success)
                 ?.let { note = it.data }
         }
@@ -92,10 +92,16 @@ class NoteDetailViewModel @Inject constructor(
 
     fun regenerate() = run { lessonPack.regenerate(noteId) { p -> _state.update { it.copy(busy = PackBusy.Working(p)) } } }
 
-    fun publish() {
+    fun publishAssignment() {
         if (_state.value.busy != null) return
         _state.update { it.copy(busy = PackBusy.Publishing, message = null) }
-        viewModelScope.launch { apply(lessonPack.publish(noteId)) }
+        viewModelScope.launch { apply(lessonPack.publishAssignment(noteId)) }
+    }
+
+    fun publishNotes() {
+        if (_state.value.busy != null) return
+        _state.update { it.copy(busy = PackBusy.Publishing, message = null) }
+        viewModelScope.launch { apply(lessonPack.publishNotes(noteId)) }
     }
 
     /** Opens the class picker (a guest's pack, or to change the class before publishing). */
@@ -112,6 +118,7 @@ class NoteDetailViewModel @Inject constructor(
                     classId = pack?.classId,
                     subjectId = pack?.subjectId,
                     size = pack?.size ?: com.smartboard.teach.domain.model.AssignmentSize.STANDARD,
+                    withAssignment = pack?.withAssignment ?: true,
                 ))
             }
         }
@@ -129,7 +136,8 @@ class NoteDetailViewModel @Inject constructor(
         val subject = subjects.firstOrNull { it.id != null && it.id == setup.subjectId } ?: subjects.firstOrNull()
         _state.update { it.copy(setup = null) }
         run {
-            val chosen = lessonPack.chooseClass(noteId, classId, c.displayName, subject?.id, subject?.name.orEmpty(), setup.size)
+            val chosen = lessonPack.chooseClass(noteId, classId, c.displayName, subject?.id, subject?.name.orEmpty(),
+                setup.size, setup.withAssignment)
             if (chosen is AppResult.Failure) chosen
             else lessonPack.resume(noteId) { p -> _state.update { it.copy(busy = PackBusy.Working(p)) } }
         }

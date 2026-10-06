@@ -45,7 +45,13 @@ sealed interface SnapshotPhase {
     /** Notes, saving, assignment; null before the first step reports. */
     data class Working(val progress: PackProgress?) : SnapshotPhase
 
-    data class Done(val noteId: String, val title: String, val leftOut: Int, val hasAssignment: Boolean) : SnapshotPhase
+    data class Done(
+        val noteId: String,
+        val title: String,
+        val leftOut: Int,
+        val hasAssignment: Boolean,
+        val notesOnly: Boolean = false,
+    ) : SnapshotPhase
 
     /**
      * When [noteId] is set the lesson's images are already saved and the pack
@@ -61,6 +67,8 @@ data class PackSetup(
     val classId: String?,
     val subjectId: String?,
     val size: AssignmentSize,
+    /** False for notes only. */
+    val withAssignment: Boolean = true,
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -84,6 +92,20 @@ fun PackSetupDialog(
         text = {
             Column(Modifier.widthIn(min = 420.dp, max = 720.dp).heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.pack_setup_intro), fontSize = dimens.labelSize, color = TextOnSurfaceMuted)
+                Spacer(Modifier.height(dimens.gutter))
+                Label(stringResource(R.string.pack_setup_make))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = !setup.withAssignment,
+                        onClick = { onChange(setup.copy(withAssignment = false)) },
+                        label = { Text(stringResource(R.string.pack_setup_notes_only)) },
+                    )
+                    FilterChip(
+                        selected = setup.withAssignment,
+                        onClick = { onChange(setup.copy(withAssignment = true)) },
+                        label = { Text(stringResource(R.string.pack_setup_notes_and_assignment)) },
+                    )
+                }
                 Spacer(Modifier.height(dimens.gutter))
                 Label(stringResource(R.string.pack_setup_class))
                 if (setup.classes.isEmpty()) {
@@ -112,6 +134,7 @@ fun PackSetupDialog(
                         }
                     }
                 }
+                if (setup.withAssignment) {
                 Spacer(Modifier.height(dimens.gutter))
                 Label(stringResource(R.string.pack_setup_size))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -125,6 +148,7 @@ fun PackSetupDialog(
                             },
                         )
                     }
+                }
                 }
             }
         },
@@ -158,7 +182,7 @@ fun SnapshotDialog(
         confirmButton = {
             when (phase) {
                 is SnapshotPhase.Done -> TextButton(onClick = { onOpenNote(phase.noteId) }) {
-                    Text(stringResource(if (phase.hasAssignment) R.string.pack_review else R.string.snapshot_open_notes))
+                    Text(stringResource(R.string.pack_review))
                 }
                 is SnapshotPhase.Failed -> TextButton(onClick = { onOpenNote(phase.noteId) }) {
                     Text(stringResource(R.string.snapshot_view_in_notes))
@@ -176,9 +200,7 @@ fun SnapshotDialog(
                 text = when (phase) {
                     SnapshotPhase.Capturing -> stringResource(R.string.snapshot_title_capturing)
                     is SnapshotPhase.Working -> stringResource(R.string.pack_title_working)
-                    is SnapshotPhase.Done -> stringResource(
-                        if (phase.hasAssignment) R.string.pack_title_done else R.string.snapshot_title_done,
-                    )
+                    is SnapshotPhase.Done -> stringResource(R.string.pack_title_done)
                     is SnapshotPhase.Failed -> stringResource(
                         if (phase.noteId != null) R.string.snapshot_title_failed else R.string.pack_title_nothing,
                     )
@@ -206,7 +228,11 @@ fun SnapshotDialog(
                             icon = Icons.Filled.CheckCircle,
                             tint = StatusPresent,
                             text = stringResource(
-                                if (phase.hasAssignment) R.string.pack_done_detail else R.string.snapshot_saved_to_notes,
+                                when {
+                                    phase.hasAssignment -> R.string.pack_done_detail
+                                    phase.notesOnly -> R.string.pack_done_notes_only
+                                    else -> R.string.snapshot_saved_to_notes
+                                },
                                 phase.title,
                             ),
                         )

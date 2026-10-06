@@ -463,6 +463,7 @@ class WhiteboardViewModel @Inject constructor(
 
     private var lastPackClass: String? = null
     private var lastPackSize: AssignmentSize = AssignmentSize.STANDARD
+    private var lastPackWithAssignment: Boolean = true
 
     /**
      * Snapshot: a signed-in teacher first picks the class (preselected from the
@@ -488,6 +489,7 @@ class WhiteboardViewModel @Inject constructor(
                 classId = chosen?.id,
                 subjectId = now?.subjectId.takeIf { chosen != null && chosen.id == now?.classId },
                 size = lastPackSize,
+                withAssignment = lastPackWithAssignment,
             )
         }
     }
@@ -505,6 +507,7 @@ class WhiteboardViewModel @Inject constructor(
         _packSetup.value = null
         lastPackClass = setup.classId
         lastPackSize = setup.size
+        lastPackWithAssignment = setup.withAssignment
         viewModelScope.launch { captureLessonPack(setup) }
     }
 
@@ -558,6 +561,7 @@ class WhiteboardViewModel @Inject constructor(
                 subjectId = subject?.id,
                 subjectName = subject?.name.orEmpty(),
                 size = setup?.size ?: AssignmentSize.STANDARD,
+                withAssignment = setup?.withAssignment ?: true,
                 parts = parts,
                 leftOut = plan.leftOut,
             )
@@ -569,6 +573,7 @@ class WhiteboardViewModel @Inject constructor(
                     title = result.data.title,
                     leftOut = plan.leftOut,
                     hasAssignment = result.data.pack?.assignment != null,
+                    notesOnly = result.data.pack?.withAssignment == false,
                 )
                 is AppResult.Failure -> SnapshotPhase.Failed(result.error.message, noteId)
             }

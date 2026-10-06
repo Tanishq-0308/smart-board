@@ -90,16 +90,18 @@ class LessonPackUseCase @Inject constructor(
     /** Sets (or changes) the class and size, e.g. for a pack made as a guest. Clears an unpublished assignment. */
     suspend fun chooseClass(
         noteId: String, classId: String, className: String, subjectId: String?, subjectName: String, size: AssignmentSize,
+        withAssignment: Boolean = true,
     ): AppResult<NoteDocument> = edit(noteId) { pack ->
-        if (pack.isShared) return@edit pack
+        if (pack.classLocked) return@edit pack
         val sameClass = pack.classId == classId && pack.subjectId == subjectId
         pack.copy(classId = classId, className = className, subjectId = subjectId, subjectName = subjectName, size = size,
-            remoteNoteId = pack.remoteNoteId.takeIf { sameClass }, assignment = null)
+            withAssignment = withAssignment, remoteNoteId = pack.remoteNoteId.takeIf { sameClass },
+            assignment = pack.assignment.takeIf { sameClass })
     }
 
-    /** Throws the assignment away and writes a new one. */
+    /** Throws the assignment away (if any) and writes a new one; also how a notes-only pack gets one. */
     suspend fun regenerate(noteId: String, onProgress: (PackProgress) -> Unit = {}): AppResult<NoteDocument> {
-        val cleared = edit(noteId) { if (it.isShared) it else it.copy(assignment = null) }
+        val cleared = edit(noteId) { if (it.assignmentShared) it else it.copy(assignment = null, withAssignment = true) }
         if (cleared is AppResult.Failure) return cleared
         return resume(noteId, onProgress)
     }
@@ -107,26 +109,47 @@ class LessonPackUseCase @Inject constructor(
     /** The teacher's edits from review. */
     suspend fun saveReview(noteId: String, draft: AssignmentDraft, dueDate: String?): AppResult<NoteDocument> =
         edit(noteId) { pack ->
-            if (pack.isShared) pack
+            if (pack.assignmentShared) pack
             else pack.copy(assignment = draft.copy(questions = draft.questions.map(NcertPattern::recheck)), dueDate = dueDate)
         }
 
-    /** Shares the notes with the class and publishes the assignment, which notifies them. */
-    suspend fun publish(noteId: String): AppResult<NoteDocument> {
+    /** Makes the notes visible to the class. Skolar sends no notification for notes. */
+    suspend fun publishNotes(noteId: String): AppResult<NoteDocument> {
         val note = notesRepository.getNote(noteId)
             ?: return AppResult.Failure(AppError.NotFound(AppText.get(R.string.error_note_missing)))
         val pack = note.pack ?: return AppResult.Failure(AppError.NotFound())
-        if (pack.isShared) return AppResult.Success(note)
+        if (pack.notesShared) return AppResult.Success(note)
+        if (pack.classId == null) return AppResult.Failure(AppError.NotFound(AppText.get(R.string.pack_error_no_class)))
+        val material = pack.remoteNoteId
+            ?: return AppResult.Failure(AppError.NotFound(AppText.get(R.string.pack_error_notes_not_saved)))
+        (share.shareNotes(material) as? AppResult.Failure)?.let { return it }
+        val shared = note.copy(pack = pack.copy(notesSharedAt = System.currentTimeMillis()))
+        notesRepository.upsert(shared)
+        return AppResult.Success(shared)
+    }
+
+    /**
+     * Publishes the assignment to the class, which notifies students and
+     * parents. The notes go with it: an assignment is set on what was taught.
+     */
+    suspend fun publishAssignment(noteId: String): AppResult<NoteDocument> {
+        val note = notesRepository.getNote(noteId)
+            ?: return AppResult.Failure(AppError.NotFound(AppText.get(R.string.error_note_missing)))
+        val pack = note.pack ?: return AppResult.Failure(AppError.NotFound())
+        if (pack.assignmentShared) return AppResult.Success(note)
         val classId = pack.classId ?: return AppResult.Failure(AppError.NotFound(AppText.get(R.string.pack_error_no_class)))
         val draft = pack.assignment ?: return AppResult.Failure(AppError.NotFound(AppText.get(R.string.pack_error_no_assignment)))
-        val noteMaterial = pack.remoteNoteId ?: return AppResult.Failure(AppError.NotFound())
-
-        (share.shareNotes(noteMaterial) as? AppResult.Failure)?.let { return it }
+        if (!pack.notesShared) {
+            val material = pack.remoteNoteId
+                ?: return AppResult.Failure(AppError.NotFound(AppText.get(R.string.pack_error_notes_not_saved)))
+            (share.shareNotes(material) as? AppResult.Failure)?.let { return it }
+        }
         val homeworkId = when (val r = share.publish(classId, pack.subjectId, draft, pack.dueDate, File(pack.parts.first().path))) {
             is AppResult.Success -> r.data
             is AppResult.Failure -> return r
         }
-        val shared = note.copy(pack = pack.copy(homeworkId = homeworkId, sharedAt = System.currentTimeMillis()))
+        val now = System.currentTimeMillis()
+        val shared = note.copy(pack = pack.copy(homeworkId = homeworkId, sharedAt = now, notesSharedAt = pack.notesSharedAt ?: now))
         notesRepository.upsert(shared)
         return AppResult.Success(shared)
     }
@@ -192,7 +215,7 @@ class LessonPackUseCase @Inject constructor(
         }
 
         // 3. The assignment.
-        if (pack.assignment == null && !pack.isShared) {
+        if (pack.withAssignment && pack.assignment == null && !pack.assignmentShared) {
             onProgress(PackProgress.WritingAssignment)
             // Grounding reads the note's index, which the ERP builds a moment
             // after the save. Generating before it would ground on nothing.
