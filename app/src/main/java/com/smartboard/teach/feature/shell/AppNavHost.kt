@@ -90,11 +90,22 @@ fun AppNavHost(
                         restoreState = true
                     }
                 },
+                // A 3-D figure selected on the board opens 3D Maths on that solid.
+                onOpenSolid = { solid ->
+                    navController.navigate(Dest.Maths3D.route + "?solid=" + solid) {
+                        popUpTo(Dest.Whiteboard.route) { saveState = true }
+                        launchSingleTop = true
+                    }
+                },
             )
         }
 
-        composable(Dest.Maths3D.route) {
+        composable(
+            route = Dest.Maths3D.route + "?solid={solid}",
+            arguments = listOf(navArgument("solid") { type = NavType.StringType; nullable = true; defaultValue = null }),
+        ) { entry ->
             Maths3DScreen(
+                initialSolid = entry.arguments?.getString("solid"),
                 onInsert = { path ->
                     // The board is always the root of the stack (sidebar
                     // navigation pops up to it), so hand the snapshot to its

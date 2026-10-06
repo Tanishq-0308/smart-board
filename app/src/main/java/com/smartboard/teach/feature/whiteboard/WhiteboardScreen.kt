@@ -90,6 +90,7 @@ fun WhiteboardScreen(
     /** Opens one note (a lesson pack's review). */
     onOpenNote: (String) -> Unit = {},
     onOpenMaths3D: () -> Unit = {},
+    onOpenSolid: (String) -> Unit = {},
     viewModel: WhiteboardViewModel = hiltViewModel(),
 ) {
     val state = remember { BoardState().also { fresh -> viewModel.penMemory?.let(fresh::restorePen) } }
@@ -1066,6 +1067,10 @@ fun WhiteboardScreen(
             onMakeTable = {
                 if (makeTableFromSelection(state, renderer)) persist()
             },
+            onOpenSolid = onOpenSolid,
+            onMakeSolid = {
+                if (makeSolidFromSelection(state, renderer)) persist()
+            },
             onLookupSelection = {
                 val bounds = state.selectionBounds()
                 if (!Selection.isEmpty(bounds)) {
@@ -1481,6 +1486,11 @@ internal fun performUndo(state: BoardState, renderer: BoardRenderer) {
             state.strokes.removeAll { s -> command.strokes.any { it.id == s.id } }
         }
 
+        is BoardCommand.InkToShape -> {
+            state.strokes.removeAll { it.id == command.shape.id }
+            state.strokes.addAll(command.strokes)
+        }
+
         is BoardCommand.InkToTable -> {
             state.containers.removeAll { it.id == command.table.id }
             state.strokes.addAll(command.lines)
@@ -1553,6 +1563,11 @@ internal fun performRedo(state: BoardState, renderer: BoardRenderer) {
         is BoardCommand.AddContainer -> {
             state.containers.add(command.container)
             state.strokes.addAll(command.strokes)
+        }
+
+        is BoardCommand.InkToShape -> {
+            state.strokes.removeAll { s -> command.strokes.any { it.id == s.id } }
+            state.strokes.add(command.shape)
         }
 
         is BoardCommand.InkToTable -> {
@@ -1706,6 +1721,27 @@ internal fun makeTableFromSelection(state: BoardState, renderer: BoardRenderer):
     restoreStrokes(state, after)
     state.containers.add(table)
     state.history.record(BoardCommand.InkToTable(lines, table, before, after))
+    state.clearSelection()
+    state.refreshHistoryFlags()
+    renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+    state.markCommittedDirty()
+    return true
+}
+
+/** Replaces a selected cube/cylinder/cone sketch with the clean 3-D figure (see SolidSketch). */
+internal fun makeSolidFromSelection(state: BoardState, renderer: BoardRenderer): Boolean {
+    val selected = state.selectedStrokes().filter { it.containerId == null }
+    val tool = SolidSketch.recognise(selected) ?: return false
+    val box = SolidSketch.boxOf(selected)
+    val shape = Stroke(
+        id = java.util.UUID.randomUUID().toString(),
+        tool = tool,
+        style = selected.first().style,
+        points = floatArrayOf(box[0], box[1], 1f, box[2], box[3], 1f),
+    )
+    state.strokes.removeAll { s -> selected.any { it.id == s.id } }
+    state.strokes.add(shape)
+    state.history.record(BoardCommand.InkToShape(selected, shape))
     state.clearSelection()
     state.refreshHistoryFlags()
     renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)

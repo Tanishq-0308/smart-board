@@ -106,8 +106,11 @@ private val EaseOutCubic = Easing { 1 - (1 - it).pow(3) }
 fun Maths3DScreen(
     onInsert: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** A board 3-D figure to open on ("cube", "cylinder", …); see presetFor. */
+    initialSolid: String? = null,
     viewModel: Maths3DViewModel = viewModel(),
 ) {
+    LaunchedEffect(initialSolid) { presetFor(initialSolid)?.let(viewModel::preset) }
     val dimens = SmartBoardTheme.dimens
     val shape = viewModel.shape
     val mode = viewModel.mode

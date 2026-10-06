@@ -386,6 +386,17 @@ val PRESETS = listOf(
     ),
 )
 
+/** The preset for a board 3-D figure's name ("cube", "cylinder", "cone", "sphere", "pyramid", "prism"). */
+fun presetFor(solid: String?): Preset? = when (solid) {
+    "cube" -> PRESETS[0]
+    "cylinder" -> PRESETS[2]
+    "cone" -> PRESETS[3]
+    "sphere" -> PRESETS[4]
+    "pyramid" -> PRESETS[5]
+    "prism" -> PRESETS[6]
+    else -> null
+}
+
 // --- picking ------------------------------------------------------------------
 
 /** Is board point [p] on this shape? Inside for closed shapes, near the line for a profile. */

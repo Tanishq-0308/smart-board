@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.material.icons.filled.ViewInAr
 import com.smartboard.teach.feature.whiteboard.container.TableSketch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -122,6 +123,8 @@ fun ToolPalette(
     onDeleteSelection: () -> Unit,
     onDuplicateSelection: () -> Unit,
     onMakeTable: () -> Unit = {},
+    onMakeSolid: () -> Unit = {},
+    onOpenSolid: (String) -> Unit = {},
     onLookupSelection: () -> Unit,
     onExportSelection: () -> Unit,
     modifier: Modifier = Modifier,
@@ -284,12 +287,35 @@ fun ToolPalette(
                 if (selectionIsGrid) {
                     BarButton(Icons.Filled.GridOn, stringResource(R.string.board_make_table), false) { onMakeTable() }
                 }
+                // Only when the selected ink is a sketched cube, cylinder or cone.
+                val selectionIsSolid = remember(state.selectedStrokeIds.toList()) {
+                    SolidSketch.recognise(state.selectedStrokes().filter { it.containerId == null }) != null
+                }
+                if (selectionIsSolid) {
+                    BarButton(Icons.Filled.ViewInAr, stringResource(R.string.board_make_solid), false) { onMakeSolid() }
+                }
+                // One board 3-D figure selected: work its maths out in 3D Maths.
+                val solidName = state.selectedStrokes().singleOrNull()?.tool?.let { solidNameFor(it) }
+                if (solidName != null) {
+                    BarButton(Icons.Filled.ViewInAr, stringResource(R.string.board_open_in_maths3d), false) { onOpenSolid(solidName) }
+                }
                 BarButton(Icons.Filled.ImageSearch, stringResource(R.string.board_look_up), false) { onLookupSelection() }
                 BarButton(Icons.Filled.Save, stringResource(R.string.board_save_as_image_or_pdf), false) { onExportSelection() }
                 BarButton(Icons.Filled.DeleteOutline, stringResource(R.string.board_delete), false) { onDeleteSelection() }
             }
         }
     }
+}
+
+/** 3D Maths' name for a board 3-D figure, or null for one it has no preset for. */
+internal fun solidNameFor(tool: com.smartboard.teach.domain.model.DrawTool): String? = when (tool) {
+    com.smartboard.teach.domain.model.DrawTool.CUBE -> "cube"
+    com.smartboard.teach.domain.model.DrawTool.CYLINDER -> "cylinder"
+    com.smartboard.teach.domain.model.DrawTool.CONE -> "cone"
+    com.smartboard.teach.domain.model.DrawTool.SPHERE -> "sphere"
+    com.smartboard.teach.domain.model.DrawTool.PYRAMID -> "pyramid"
+    com.smartboard.teach.domain.model.DrawTool.PRISM -> "prism"
+    else -> null
 }
 
 /**

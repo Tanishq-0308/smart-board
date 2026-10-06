@@ -87,6 +87,9 @@ sealed interface BoardCommand {
         val contentAfter: List<Stroke>,
     ) : BoardCommand
 
+    /** A sketch replaced by one clean shape (Make 3D figure); one Undo restores the sketch. */
+    data class InkToShape(val strokes: List<Stroke>, val shape: Stroke) : BoardCommand
+
     /** Inserting a container; [strokes] is ink it arrived with (a duplicate's). */
     data class AddContainer(
         val container: Container,

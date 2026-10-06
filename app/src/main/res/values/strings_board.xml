@@ -79,4 +79,6 @@
     <string name="board_delete_page_body">Everything on it will be removed. This cannot be undone.</string>
     <string name="board_delete_page_confirm">Delete page</string>
     <string name="board_make_table">Make table</string>
+    <string name="board_make_solid">Make 3D figure</string>
+    <string name="board_open_in_maths3d">Open in 3D Maths</string>
 </resources>
