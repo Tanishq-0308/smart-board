@@ -58,6 +58,7 @@ In the sidebar, locked items show dimmed with a lock icon. Tapping one goes to S
   - Containers (images, tables, videos) cannot be rotated.
 - **Make table:** select a hand-drawn grid and tap **Make table**. The ruled lines become a real table (rows and columns can then be added or resized), and writing inside the grid moves into its cell. It appears only when the selection really is a grid, and one Undo restores the original ink.
 - **Make 3D figure:** select a sketched cylinder (oval and two upright sides), cone (oval and two sides meeting at a point) or cube (two offset squares) and tap **Make 3D figure** for the clean figure with dashed hidden edges. Select any 3D figure and tap **Open in 3D Maths** to see its volume and surface area worked out.
+- **Tidy shapes:** select a hand-drawn diagram or flowchart and tap **Tidy shapes**. Its boxes, ovals, triangles and lines snap to clean shapes that can be moved and resized, while handwriting inside is left as written. One Undo restores the original.
 - **Look up** a selected region with AI. The AI explains it (text, equation, diagram, chemistry, geometry) and suggests related terms.
   - The result panel offers **Search with Lens**, **Search the web** and **Save to notes**. Save to notes keeps the explanation, what was read off the board, the related terms and the cropped image as a note in Notes.
   - **Search with Lens** works even without an AI key. It is hidden when no app on the board can receive an image, and **Search the web** is hidden when there is no browser.

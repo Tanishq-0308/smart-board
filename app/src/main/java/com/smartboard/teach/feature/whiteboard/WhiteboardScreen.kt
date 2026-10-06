@@ -1068,6 +1068,9 @@ fun WhiteboardScreen(
                 if (makeTableFromSelection(state, renderer)) persist()
             },
             onOpenSolid = onOpenSolid,
+            onTidyShapes = {
+                if (tidySelection(state, renderer)) persist()
+            },
             onMakeSolid = {
                 if (makeSolidFromSelection(state, renderer)) persist()
             },
@@ -1728,6 +1731,36 @@ internal fun makeTableFromSelection(state: BoardState, renderer: BoardRenderer):
     return true
 }
 
+/**
+ * Freehand strokes in the selection that would snap to a clean shape, mapped
+ * to that shape — for Tidy shapes, which turns a hand-drawn flowchart's boxes,
+ * ovals and connectors into editable shapes. Small strokes are skipped: they
+ * are handwriting, and an "O" in a box must not become a circle.
+ */
+internal fun tidyCandidates(selected: List<Stroke>): Map<String, Stroke> =
+    selected.asSequence()
+        .filter { it.tool == DrawTool.PEN && it.containerId == null }
+        .filter { s -> s.bounds().let { b -> kotlin.math.hypot(b[2] - b[0], b[3] - b[1]) } >= TIDY_MIN_SIZE }
+        .mapNotNull { s -> toShapeStroke(s)?.let { s.id to it } }
+        .toMap()
+
+internal fun tidySelection(state: BoardState, renderer: BoardRenderer): Boolean {
+    val selected = state.selectedStrokes()
+    val tidy = tidyCandidates(selected)
+    if (tidy.isEmpty()) return false
+    val before = selected.filter { it.id in tidy }
+    val after = before.map { tidy.getValue(it.id) }
+    restoreStrokes(state, after)
+    state.history.record(BoardCommand.TransformSelection(before, after, emptyList(), emptyList()))
+    state.refreshHistoryFlags()
+    renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+    state.markCommittedDirty()
+    return true
+}
+
+/** Smaller than this (world px, diagonal) is treated as handwriting by Tidy shapes. */
+private const val TIDY_MIN_SIZE = 120f
+
 /** Replaces a selected cube/cylinder/cone sketch with the clean 3-D figure (see SolidSketch). */
 internal fun makeSolidFromSelection(state: BoardState, renderer: BoardRenderer): Boolean {
     val selected = state.selectedStrokes().filter { it.containerId == null }
@@ -2102,7 +2135,16 @@ internal fun maybeSnapToShape(state: BoardState, drawn: Stroke): Stroke {
     // a clean circle.
     if (drawn.containerId != null) return drawn
 
-    val result = ShapeRecognizer.recognise(drawn) ?: return drawn
+    return toShapeStroke(drawn) ?: drawn
+}
+
+/**
+ * [drawn] as the clean shape ShapeRecognizer sees in it, keeping its id and
+ * container tag; null when it is not a shape. Shared by the Shape pen and
+ * Tidy shapes, so both snap identically.
+ */
+internal fun toShapeStroke(drawn: Stroke): Stroke? {
+    val result = ShapeRecognizer.recognise(drawn) ?: return null
 
     // A polygon stores every vertex; the other shapes store two endpoints.
     val points = result.vertices?.let { verts ->

@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.ViewInAr
 import com.smartboard.teach.feature.whiteboard.container.TableSketch
 import androidx.compose.foundation.background
@@ -125,6 +126,7 @@ fun ToolPalette(
     onMakeTable: () -> Unit = {},
     onMakeSolid: () -> Unit = {},
     onOpenSolid: (String) -> Unit = {},
+    onTidyShapes: () -> Unit = {},
     onLookupSelection: () -> Unit,
     onExportSelection: () -> Unit,
     modifier: Modifier = Modifier,
@@ -293,6 +295,13 @@ fun ToolPalette(
                 }
                 if (selectionIsSolid) {
                     BarButton(Icons.Filled.ViewInAr, stringResource(R.string.board_make_solid), false) { onMakeSolid() }
+                }
+                // Hand-drawn boxes, ovals and lines in the selection snap to clean shapes.
+                val canTidy = remember(state.selectedStrokeIds.toList()) {
+                    tidyCandidates(state.selectedStrokes()).isNotEmpty()
+                }
+                if (canTidy) {
+                    BarButton(Icons.Filled.AutoFixHigh, stringResource(R.string.board_tidy_shapes), false) { onTidyShapes() }
                 }
                 // One board 3-D figure selected: work its maths out in 3D Maths.
                 val solidName = state.selectedStrokes().singleOrNull()?.tool?.let { solidNameFor(it) }

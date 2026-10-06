@@ -81,4 +81,5 @@
     <string name="board_make_table">Make table</string>
     <string name="board_make_solid">Make 3D figure</string>
     <string name="board_open_in_maths3d">Open in 3D Maths</string>
+    <string name="board_tidy_shapes">Tidy shapes</string>
 </resources>
