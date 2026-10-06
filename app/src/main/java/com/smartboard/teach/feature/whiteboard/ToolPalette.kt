@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.feature.whiteboard.container.TableSketch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -120,6 +121,7 @@ fun ToolPalette(
     onInsertInstrument: (InstrumentKind) -> Unit,
     onDeleteSelection: () -> Unit,
     onDuplicateSelection: () -> Unit,
+    onMakeTable: () -> Unit = {},
     onLookupSelection: () -> Unit,
     onExportSelection: () -> Unit,
     modifier: Modifier = Modifier,
@@ -275,6 +277,13 @@ fun ToolPalette(
             if (state.hasSelection) {
                 BarDivider()
                 BarButton(Icons.Filled.ContentCopy, stringResource(R.string.board_duplicate), false) { onDuplicateSelection() }
+                // Only when the selected ink is a hand-drawn grid.
+                val selectionIsGrid = remember(state.selectedStrokeIds.toList()) {
+                    TableSketch.recognise(state.selectedStrokes().filter { it.containerId == null }) != null
+                }
+                if (selectionIsGrid) {
+                    BarButton(Icons.Filled.GridOn, stringResource(R.string.board_make_table), false) { onMakeTable() }
+                }
                 BarButton(Icons.Filled.ImageSearch, stringResource(R.string.board_look_up), false) { onLookupSelection() }
                 BarButton(Icons.Filled.Save, stringResource(R.string.board_save_as_image_or_pdf), false) { onExportSelection() }
                 BarButton(Icons.Filled.DeleteOutline, stringResource(R.string.board_delete), false) { onDeleteSelection() }

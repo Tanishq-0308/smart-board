@@ -75,6 +75,18 @@ sealed interface BoardCommand {
         val replaced: TextBox? = null,
     ) : BoardCommand
 
+    /**
+     * A hand-drawn grid made into a real table: its ruled [lines] are removed,
+     * the [table] added, and writing inside moved into cells ([contentBefore]
+     * -> [contentAfter], same ids). One command, so one Undo restores the ink.
+     */
+    data class InkToTable(
+        val lines: List<Stroke>,
+        val table: Container,
+        val contentBefore: List<Stroke>,
+        val contentAfter: List<Stroke>,
+    ) : BoardCommand
+
     /** Inserting a container; [strokes] is ink it arrived with (a duplicate's). */
     data class AddContainer(
         val container: Container,

@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.feature.whiteboard.container.TableSketch
 import com.smartboard.teach.domain.engine.BoardLanguage
 import com.smartboard.teach.core.ui.theme.ErrorRed
 import androidx.compose.material3.TextButton
@@ -1062,6 +1063,9 @@ fun WhiteboardScreen(
                 duplicateSelection(state, renderer)
                 persist()
             },
+            onMakeTable = {
+                if (makeTableFromSelection(state, renderer)) persist()
+            },
             onLookupSelection = {
                 val bounds = state.selectionBounds()
                 if (!Selection.isEmpty(bounds)) {
@@ -1477,6 +1481,12 @@ internal fun performUndo(state: BoardState, renderer: BoardRenderer) {
             state.strokes.removeAll { s -> command.strokes.any { it.id == s.id } }
         }
 
+        is BoardCommand.InkToTable -> {
+            state.containers.removeAll { it.id == command.table.id }
+            state.strokes.addAll(command.lines)
+            restoreStrokes(state, command.contentBefore)
+        }
+
         is BoardCommand.DeleteContainer -> {
             state.containers.add(command.container)
             state.strokes.addAll(command.strokes)
@@ -1543,6 +1553,12 @@ internal fun performRedo(state: BoardState, renderer: BoardRenderer) {
         is BoardCommand.AddContainer -> {
             state.containers.add(command.container)
             state.strokes.addAll(command.strokes)
+        }
+
+        is BoardCommand.InkToTable -> {
+            state.containers.add(command.table)
+            state.strokes.removeAll { s -> command.lines.any { it.id == s.id } }
+            restoreStrokes(state, command.contentAfter)
         }
 
         is BoardCommand.DeleteContainer -> {
@@ -1671,6 +1687,30 @@ private fun duplicateContainer(state: BoardState, renderer: BoardRenderer, origi
     renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
     state.markCommittedDirty()
     state.refreshHistoryFlags()
+}
+
+/**
+ * Turns the selected hand-drawn grid into a Table (see TableSketch). Ink that
+ * is not a rule and sits inside the grid is tagged to its cell, so it moves
+ * and clips with the table from now on.
+ */
+internal fun makeTableFromSelection(state: BoardState, renderer: BoardRenderer): Boolean {
+    val selected = state.selectedStrokes().filter { it.containerId == null }
+    val grid = TableSketch.recognise(selected) ?: return false
+    val table = TableSketch.toTable(grid)
+    val lines = selected.filter { it.id in grid.lineIds }
+    val before = selected.filter { it.id !in grid.lineIds && TableSketch.cellFor(table, it) >= 0 }
+    val after = before.map { it.copyWith(containerId = table.id, cellIndex = TableSketch.cellFor(table, it)) }
+
+    state.strokes.removeAll { it.id in grid.lineIds }
+    restoreStrokes(state, after)
+    state.containers.add(table)
+    state.history.record(BoardCommand.InkToTable(lines, table, before, after))
+    state.clearSelection()
+    state.refreshHistoryFlags()
+    renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+    state.markCommittedDirty()
+    return true
 }
 
 private fun restoreStrokes(state: BoardState, snapshot: List<Stroke>) {

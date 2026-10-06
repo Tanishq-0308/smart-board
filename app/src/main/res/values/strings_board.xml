@@ -78,4 +78,5 @@
     <string name="board_delete_page_title">Delete this page?</string>
     <string name="board_delete_page_body">Everything on it will be removed. This cannot be undone.</string>
     <string name="board_delete_page_confirm">Delete page</string>
+    <string name="board_make_table">Make table</string>
 </resources>
