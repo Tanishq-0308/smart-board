@@ -945,9 +945,13 @@ class WhiteboardViewModel @Inject constructor(
             val scratch = exportStore.newScratchDir()
             try {
                 val jpegs = mutableListOf<JpegPage>()
-                pages.forEachIndexed { index, page ->
-                    _exportPhase.value = ExportPhase.Progress(index + 1, pages.size)
-                    val content = boardRepository.loadPage(page.id) ?: return@forEachIndexed
+                // A whole book on one board page is exported a book page at a
+                // time, each decoded alone, so memory stays one page. Page
+                // content without its pictures is small, so it is read up front
+                // to count the PDF pages for the progress line.
+                val pieces = pages.mapNotNull { boardRepository.loadPage(it.id) }.flatMap(ExportPieces::split)
+                pieces.forEachIndexed { index, content ->
+                    _exportPhase.value = ExportPhase.Progress(index + 1, pieces.size)
                     val background = content.background?.let { ensureRendered(it) }
                     // Background at full size: its world size IS its pixel
                     // size times its scale. Media is drawn into its container

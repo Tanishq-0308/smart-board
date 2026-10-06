@@ -42,3 +42,32 @@ class ScreenTimeTest {
         assertEquals("Board 23 Sept 2026", documentTitle(File("/x/Board__23_Sept_2026.pdf")))
     }
 }
+
+class ExportPiecesTest {
+    private fun pic(id: String, y: Float, label: String? = "Book, page") = Container(
+        id = id, kind = ContainerKind.IMAGE, x = 0f, y = y,
+        cells = listOf(ContainerCell(0f, y, 100f, y + 140f)), mediaPath = "$id.jpg", label = label,
+    )
+    private fun ink(containerId: String?) = com.smartboard.teach.domain.model.Stroke(
+        "s", com.smartboard.teach.domain.model.DrawTool.PEN,
+        com.smartboard.teach.domain.model.StrokeStyle(0, 4f), floatArrayOf(0f, 0f, 1f), containerId,
+    )
+    private fun page(strokes: List<com.smartboard.teach.domain.model.Stroke>, containers: List<Container>) =
+        com.smartboard.teach.domain.repository.PageContent(
+            com.smartboard.teach.domain.model.BoardPage("p", "l", 0, 100, 100), strokes, emptyList(), null, containers)
+
+    @Test fun aBookPageBecomesOnePdfPageEachWithItsInk() {
+        val book = (1..281).map { pic("b$it", it * 200f) }
+        val pieces = ExportPieces.split(page(listOf(ink("b2"), ink(null)), book))
+        assertEquals(282, pieces.size) // 281 book pages + the free ink
+        assertEquals(listOf("b2"), pieces[1].containers.map { it.id })
+        assertEquals(1, pieces[1].strokes.size)
+        assertEquals(emptyList<Container>(), pieces.last().containers)
+        assertEquals(1, pieces.last().strokes.size)
+    }
+
+    @Test fun anOrdinaryBoardPageIsLeftWhole() {
+        val one = page(listOf(ink(null)), listOf(pic("photo", 0f, label = null)))
+        assertEquals(listOf(one), ExportPieces.split(one))
+    }
+}

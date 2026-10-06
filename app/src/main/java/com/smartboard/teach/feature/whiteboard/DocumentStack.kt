@@ -3,6 +3,7 @@ package com.smartboard.teach.feature.whiteboard
 import com.smartboard.teach.domain.model.Container
 import com.smartboard.teach.domain.model.ContainerCell
 import com.smartboard.teach.domain.model.ContainerKind
+import com.smartboard.teach.domain.repository.PageContent
 import java.util.UUID
 
 /**
@@ -87,4 +88,33 @@ object ScreenTime {
     }
 
     private fun area(r: FloatArray): Float = maxOf(0f, r[2] - r[0]) * maxOf(0f, r[3] - r[1])
+}
+
+/**
+ * How a board page is cut up for the lesson PDF.
+ *
+ * A page holding a document (pages from Annotate on board, or more pictures
+ * than MediaWindow keeps decoded) becomes one PDF page per document page, each
+ * with the ink written on it, then one more for the rest of the board if it
+ * has anything. Drawing it as one page would decode every page at once: a
+ * 281-page book is about 2 GB of bitmaps and gets the app killed on a 2 GB board.
+ */
+object ExportPieces {
+
+    fun split(page: PageContent): List<PageContent> {
+        val pictures = page.containers.filter { it.kind == ContainerKind.IMAGE }
+        val separate = pictures.filter { it.label != null || pictures.size > MediaWindow.KEEP_ALL_UP_TO }
+        if (separate.isEmpty()) return listOf(page)
+        val ids = separate.mapTo(HashSet()) { it.id }
+        val pieces = separate.sortedBy { it.y }.map { c ->
+            page.copy(strokes = page.strokes.filter { it.containerId == c.id }, textBoxes = emptyList(),
+                background = null, containers = listOf(c))
+        }
+        val rest = page.copy(
+            strokes = page.strokes.filter { it.containerId == null || it.containerId !in ids },
+            containers = page.containers.filter { it.id !in ids },
+        )
+        val restEmpty = rest.strokes.isEmpty() && rest.textBoxes.isEmpty() && rest.containers.isEmpty() && rest.background == null
+        return if (restEmpty) pieces else pieces + rest
+    }
 }
