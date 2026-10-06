@@ -106,4 +106,12 @@
     <string name="error_erp_busy">The school server is busy. Try again in a minute.</string>
     <string name="error_erp_unavailable">The school server is not responding. Try again shortly.</string>
     <string name="error_erp_http">The school server refused the request (%1$d).</string>
+    <!-- Quiz on the board -->
+    <string name="quiz_present">Present as quiz</string>
+    <string name="quiz_progress">Question %1$d of %2$d · %3$d marks</string>
+    <string name="quiz_reveal">Reveal answer</string>
+    <string name="quiz_hide_answer">Hide answer</string>
+    <string name="quiz_answer">Answer: %1$s</string>
+    <string name="quiz_previous">Previous</string>
+    <string name="quiz_next">Next</string>
 </resources>

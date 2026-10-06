@@ -1,5 +1,6 @@
 package com.smartboard.teach.feature.notes
 
+import androidx.compose.material.icons.filled.Slideshow
 import com.smartboard.teach.core.util.MathText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -232,6 +233,17 @@ private fun AssignmentTab(pack: LessonPack, status: NoteStatus, busy: PackBusy?,
                 fontSize = dimens.bodySize, color = TextOnSurface)
             if (!locked) TextButton(onClick = { pickDate = true }) { Text(stringResource(R.string.pack_review_change), color = Accent) }
         }
+
+        // Present the questions to the class on the board, one at a time.
+        var presenting by remember { mutableStateOf(false) }
+        if (draft.questions.isNotEmpty()) {
+            OutlinedButton(onClick = { presenting = true }) {
+                Icon(Icons.Filled.Slideshow, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.quiz_present))
+            }
+        }
+        if (presenting) QuizPresenter(draft.questions) { presenting = false }
 
         val flagged = draft.questions.count { it.problems.isNotEmpty() }
         if (flagged > 0 && !pack.assignmentShared) {

@@ -70,8 +70,10 @@ fun AppNavHost(
                 .collectAsState()
             WhiteboardScreen(
                 pendingDocumentPath = pendingDocument,
-                pendingDocumentPage = entry.arguments?.getInt(DetailRoutes.ARG_DOCUMENT_PAGE) ?: 0,
-                pendingDocumentLast = entry.arguments?.getInt(DetailRoutes.ARG_DOCUMENT_LAST) ?: 0,
+                // The handle holds the route's arguments, and is overwritten when a
+                // document is handed to an existing board.
+                pendingDocumentPage = entry.savedStateHandle.get<Int>(DetailRoutes.ARG_DOCUMENT_PAGE) ?: 0,
+                pendingDocumentLast = entry.savedStateHandle.get<Int>(DetailRoutes.ARG_DOCUMENT_LAST) ?: 0,
                 onDocumentConsumed = { entry.savedStateHandle[DetailRoutes.ARG_DOCUMENT_PATH] = null },
                 pendingInsertImage = pendingInsertImage,
                 onInsertConsumed = { entry.savedStateHandle[DetailRoutes.INSERT_IMAGE_KEY] = null },
@@ -201,10 +203,21 @@ fun AppNavHost(
                 MaterialViewerScreen(
                     onBack = { navController.popBackStack() },
                     onAnnotateOnBoard = { path, first, last ->
-                        navController.navigate(
-                            DetailRoutes.whiteboardWithDocument(path, first, last),
-                        ) {
-                            popUpTo(Dest.Whiteboard.route) { inclusive = true }
+                        // Handed to the EXISTING board, as 3D Maths does, and
+                        // popped back to: rebuilding the board here reset the
+                        // teacher's pen and colour.
+                        val board = runCatching {
+                            navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_DOCUMENT)
+                        }.getOrNull()
+                        if (board != null) {
+                            board.savedStateHandle[DetailRoutes.ARG_DOCUMENT_PAGE] = first
+                            board.savedStateHandle[DetailRoutes.ARG_DOCUMENT_LAST] = last
+                            board.savedStateHandle[DetailRoutes.ARG_DOCUMENT_PATH] = path
+                            navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_DOCUMENT, inclusive = false)
+                        } else {
+                            navController.navigate(DetailRoutes.whiteboardWithDocument(path, first, last)) {
+                                popUpTo(Dest.Whiteboard.route) { inclusive = true }
+                            }
                         }
                     },
                 )
