@@ -5,16 +5,27 @@ import org.junit.Test
 
 class InkChoiceTest {
 
-    @Test fun mostConfidentScoreWins() =
-        assertEquals("Force", InkChoice.best(listOf("फोर्स" to 4.2f, "Force" to 1.1f)))
+    private val devanagari = Character.UnicodeScript.DEVANAGARI
 
-    @Test fun withoutScoresTheLanguagesOwnModelWins() =
-        assertEquals("बल", InkChoice.best(listOf("बल" to null, "ba" to null)))
+    @Test fun hindiWrittenInHindiKeepsTheHindiReading() =
+        assertEquals("राम है", InkChoice.best(listOf("राम है", "TH a"), devanagari))
 
-    @Test fun anEmptyReadingNeverWins() =
-        assertEquals("Force", InkChoice.best(listOf("" to 0.1f, "Force" to 3f)))
+    @Test fun englishWrittenInHindiModeUsesTheEnglishReading() {
+        // Real readings from the board: the Hindi model's Latin fallback was garbled.
+        assertEquals("This is my class of english", InkChoice.best(listOf("Tmmass genglish", "This is my class of english"), devanagari))
+        assertEquals("Sharma", InkChoice.best(listOf("shamma", "Sharma"), devanagari))
+    }
 
-    @Test fun nothingReadableIsEmpty() = assertEquals("", InkChoice.best(listOf(" " to null)))
+    @Test fun aMixedLineStaysWithHindi() =
+        assertEquals("Force = बल", InkChoice.best(listOf("Force = बल", "Force = ad"), devanagari))
+
+    @Test fun englishModeUsesItsOnlyReading() =
+        assertEquals("hello world", InkChoice.best(listOf("hello world"), null))
+
+    @Test fun anEmptyPrimaryFallsBack() =
+        assertEquals("Force", InkChoice.best(listOf("", "Force"), devanagari))
+
+    @Test fun nothingReadableIsEmpty() = assertEquals("", InkChoice.best(listOf(" "), null))
 
     @Test fun unknownCodeFallsBackToEnglish() =
         assertEquals(BoardLanguage.ENGLISH, BoardLanguage.fromCode("xx"))

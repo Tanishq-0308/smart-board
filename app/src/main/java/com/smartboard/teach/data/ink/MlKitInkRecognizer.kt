@@ -94,7 +94,7 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
      * it has never seen.
      *
      * A language with several models (Hindi reads with Hindi and English, for
-     * mixed lines) runs each and keeps the most confident reading; see InkChoice.
+     * mixed lines) runs each and keeps the reading in the right script; see InkChoice.
      */
     override suspend fun recognize(strokes: List<Stroke>, language: BoardLanguage): AppResult<String> {
         val engines = language.inkModels.mapNotNull { recognizers[it] }
@@ -113,14 +113,13 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
         }
         val ink = inkBuilder.build()
 
-        val readings = ArrayList<Pair<String, Float?>>(engines.size)
+        val readings = ArrayList<String>(engines.size)
         var failure: String? = null
         for (engine in engines) {
             suspendCancellableCoroutine { cont ->
                 engine.recognize(ink)
                     .addOnSuccessListener { result ->
-                        val top = result.candidates.firstOrNull()
-                        readings += (top?.text.orEmpty() to top?.score)
+                        readings += result.candidates.firstOrNull()?.text.orEmpty()
                         cont.resume(Unit)
                     }
                     .addOnFailureListener { error ->
@@ -132,7 +131,7 @@ class MlKitInkRecognizer @Inject constructor() : InkRecognizer {
         if (readings.isEmpty() && failure != null) {
             return AppResult.Failure(AppError.Storage(AppText.get(R.string.error_ink_read, failure.orEmpty())))
         }
-        return AppResult.Success(InkChoice.best(readings))
+        return AppResult.Success(InkChoice.best(readings, language.script))
     }
 
     override fun close() {
