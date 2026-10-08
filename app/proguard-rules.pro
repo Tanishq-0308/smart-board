@@ -25,3 +25,10 @@
 
 # --- Hilt / Dagger ---
 -dontwarn dagger.hilt.**
+
+# --- ML Kit ---
+# ML Kit builds itself by reflection and its shaded internals don't survive
+# R8 full-mode optimisation (stripped registrar constructors, a Random subclass
+# whose init guard gets optimised away). Either way the text pen crashed.
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_** { *; }
