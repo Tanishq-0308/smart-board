@@ -94,6 +94,8 @@
     <string name="settings_pen_intro">Interactive boards report pen input differently. If the pen behaves oddly, adjust these before assuming a fault.</string>
     <string name="settings_stylus_only">Stylus only</string>
     <string name="settings_stylus_only_detail">Ignore finger and palm touches entirely. The most reliable palm rejection on a board that has a pen.</string>
+    <string name="settings_multi_touch">Multi-finger writing</string>
+    <string name="settings_multi_touch_detail">Every finger draws its own line, so several students can write at once. Pinch-zoom is off while a pen is selected; use the Pan tool or the zoom buttons. A resting palm will also draw.</string>
     <string name="settings_pressure">Pressure sensitivity</string>
     <string name="settings_pressure_detail">Vary stroke width with pen pressure. Turn off if your board reports a fixed pressure and strokes look uneven.</string>
     <string name="settings_pen_eraser">Pen eraser button</string>

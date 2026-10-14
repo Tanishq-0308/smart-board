@@ -12,25 +12,32 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.OpenWith
+import androidx.compose.material.icons.filled.RotateLeft
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotateRad
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.vector.VectorPainter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -65,6 +72,9 @@ fun InstrumentLayer(
     if (state.instruments.isEmpty()) return
     val measurer = rememberTextMeasurer()
     val camera = state.camera
+    val rotateIcon = rememberVectorPainter(Icons.Filled.RotateLeft)
+    val resizeIcon = rememberVectorPainter(Icons.Filled.OpenInFull)
+    val moveIcon = rememberVectorPainter(Icons.Filled.OpenWith)
 
     Box(modifier.fillMaxSize()) {
         // INERT: all pointer input for instruments is handled by BoardCanvas,
@@ -82,10 +92,16 @@ fun InstrumentLayer(
                     InstrumentKind.PROTRACTOR -> drawProtractor(instrument, sx, sy, zoom, measurer)
                     InstrumentKind.COMPASS -> drawCompass(instrument, camera)
                 }
-                // The compass already turns by its own arm; every other
-                // instrument needs somewhere visible to grab.
-                if (instrument.kind != InstrumentKind.COMPASS) {
-                    drawPivot(sx, sy)
+                // The compass is moved, turned and sized by its own legs;
+                // every other instrument gets the same three handles.
+                instrumentHandles(instrument, camera)?.let { (move, rotate, resize) ->
+                    drawHandle(move, moveIcon)
+                    drawHandle(rotate, rotateIcon)
+                    drawHandle(resize, resizeIcon)
+                    val rotating = state.instrumentDragMode == InstrumentDrag.ROTATE &&
+                        state.draggedInstrumentId == instrument.id
+                    val degrees = InstrumentGeometry.displayDegrees(instrument.rotation)
+                    if (rotating || degrees != 0) drawAngleLabel(rotate, degrees, measurer)
                 }
             }
         }
@@ -99,87 +115,78 @@ fun InstrumentLayer(
 }
 
 /**
- * Close / flip / reset, beside the instrument they belong to.
- *
- * Flip is offered only where it means something: a ruler or set square can be
- * mirrored to rule from the other side, but a protractor and compass are
- * symmetric and the control would do nothing.
+ * Put away, beside the instrument it belongs to. Everything else is done on
+ * the instrument itself: handles on the ruler, set squares and protractor,
+ * and the hinge, needle and pencil legs on the compass.
  */
 @Composable
 private fun InstrumentControls(state: BoardState, instrument: Instrument) {
     val dimens = SmartBoardTheme.dimens
     val camera = state.camera
     val anchor = controlAnchor(instrument, camera)
+    // Never off the board: a 30cm ruler is wider than some panels,
+    // and controls past the edge would leave it impossible to put away.
+    val columnPx = with(LocalDensity.current) {
+        (dimens.chromeButton + dimens.gutterSmall * 2 + 4.dp).toPx()
+    }
 
     Column(
         Modifier
-            .offset { IntOffset(anchor.x.toInt(), anchor.y.toInt()) }
+            .offset {
+                IntOffset(
+                    anchor.x.coerceIn(0f, (state.viewportWidth - columnPx).coerceAtLeast(0f)).toInt(),
+                    anchor.y.coerceIn(0f, (state.viewportHeight - columnPx * 2f).coerceAtLeast(0f)).toInt(),
+                )
+            }
             .padding(dimens.gutterSmall),
     ) {
         ControlButton(Icons.Filled.Close, stringResource(R.string.panel_instrument_put_away)) {
             state.instruments.removeAll { it.id == instrument.id }
         }
-        if (instrument.kind.hasRulingEdge) {
-            ControlButton(Icons.Filled.SwapHoriz, stringResource(R.string.panel_instrument_flip)) {
-                state.replaceInstrument(instrument.copy(flipped = !instrument.flipped))
-            }
-        }
-        ControlButton(Icons.Filled.Refresh, stringResource(R.string.panel_instrument_reset_angle)) {
-            // A compass's rest angle is hanging down, not lying flat, and
-            // resetting also drops a part-drawn arc that no longer lines up.
-            state.replaceInstrument(
-                if (instrument.kind == InstrumentKind.COMPASS) {
-                    instrument.copy(
-                        rotation = (Math.PI / 2).toFloat(),
-                        sweepStart = 0f,
-                        sweepEnd = 0f,
-                    )
-                } else {
-                    instrument.copy(rotation = 0f)
-                },
-            )
-        }
     }
 }
 
-/** Where an instrument's controls sit: clear of its own outline. */
+/**
+ * Where the Close button sits: just right of the instrument's top-right
+ * corner, so it reads as belonging to the instrument.
+ *
+ * Right of the whole outline rather than of one edge, so a tilted ruler's far
+ * corner never slides under it. The compass's sits by its hinge.
+ */
 private fun controlAnchor(
     instrument: Instrument,
     camera: com.smartboard.teach.feature.whiteboard.Camera,
-): Offset = when (instrument.kind) {
-    // Beyond the far end of the ruling edge.
-    InstrumentKind.RULER, InstrumentKind.SET_SQUARE_45, InstrumentKind.SET_SQUARE_30 -> {
-        val edge = InstrumentGeometry.edgeOf(instrument, camera.zoom)
-        Offset(
-            camera.worldToScreenX(maxOf(edge[0], edge[2])) + CONTROL_GAP_PX,
-            camera.worldToScreenY(minOf(edge[1], edge[3])),
-        )
+): Offset {
+    // Above and right of the hinge, just clear of its grab. The tips — the
+    // other two grabs — are a whole leg away, so nothing else can be covered.
+    if (instrument.kind == InstrumentKind.COMPASS) {
+        val hinge = compassHinge(instrument, camera)
+        val clear = compassGrabRadius(camera) * 0.75f
+        return Offset(hinge.x + clear, hinge.y - clear - HINGE_DRAW_PX * 2f)
     }
 
-    InstrumentKind.PROTRACTOR -> Offset(
-        camera.worldToScreenX(instrument.x) +
-            PROTRACTOR_RADIUS_CM * InstrumentGeometry.pxPerCm + CONTROL_GAP_PX,
-        camera.worldToScreenY(instrument.y) - PROTRACTOR_RADIUS_CM * InstrumentGeometry.pxPerCm,
+    val size = instrument.lengthCm * InstrumentGeometry.pxPerCm
+    val corners = when (instrument.kind) {
+        InstrumentKind.RULER -> {
+            val body = RULER_BODY_CM * InstrumentGeometry.pxPerCm
+            listOf(Offset(0f, 0f), Offset(size, 0f), Offset(size, body), Offset(0f, body))
+        }
+
+        InstrumentKind.PROTRACTOR -> {
+            val r = instrument.protractorRadiusPx
+            listOf(Offset(-r, 0f), Offset(r, 0f), Offset(r, -r), Offset(-r, -r))
+        }
+
+        else -> listOf(Offset(0f, 0f), Offset(size, 0f), Offset(0f, size * instrument.kind.setSquareRatio))
+    }
+    val c = cos(instrument.rotation)
+    val s = sin(instrument.rotation)
+    val ax = camera.worldToScreenX(instrument.x)
+    val ay = camera.worldToScreenY(instrument.y)
+    return Offset(
+        ax + corners.maxOf { it.x * c - it.y * s } + CONTROL_GAP_PX,
+        ay + corners.minOf { it.x * s + it.y * c },
     )
-
-    // Clear to the RIGHT of the hinge and level with it. Stacking them above
-    // meant guessing the button column's height, and the guess put the bottom
-    // button straight on top of the hinge — which is the grab that moves the
-    // whole compass, so it could not be moved at all.
-    // BEHIND the hinge, opposite the legs, and following them as the compass
-    // turns. The buttons are a Compose layer above the canvas, so wherever
-    // they sit is a press the canvas never sees: parked at a fixed side they
-    // eventually covered the hinge or a leg, and whichever they covered
-    // stopped responding. Behind the hinge is the one direction the tool
-    // never occupies.
-    InstrumentKind.COMPASS -> {
-        val back = instrument.rotation + PI_F
-        val reach = compassGrabRadius(camera) + COMPASS_CONTROL_CLEARANCE_PX
-        Offset(
-            camera.worldToScreenX(instrument.x) + cos(back) * reach,
-            camera.worldToScreenY(instrument.y) + sin(back) * reach - HINGE_DRAW_PX,
-        )
-    }
 }
 
 @Composable
@@ -256,20 +263,32 @@ internal fun dragModeFor(
         return compassDragFor(instrument, camera, offset)
     }
 
-    val ax = camera.worldToScreenX(instrument.x)
-    val ay = camera.worldToScreenY(instrument.y)
-    val distance = hypot(offset.x - ax, offset.y - ay)
-
-    // The pivot turns the instrument, and wins even over the edge.
-    if (distance < ANCHOR_RADIUS_PX) return InstrumentDrag.ROTATE
+    // The handles win even over the edge: they are the only way to turn or
+    // resize, and a handle that drew a line instead would read as broken.
+    instrumentHandles(instrument, camera)?.let { (move, rotate, resize) ->
+        val toMove = hypot(offset.x - move.x, offset.y - move.y)
+        val toRotate = hypot(offset.x - rotate.x, offset.y - rotate.y)
+        val toResize = hypot(offset.x - resize.x, offset.y - resize.y)
+        val nearest = minOf(toMove, toRotate, toResize)
+        if (nearest <= HANDLE_TOUCH_PX) {
+            return when (nearest) {
+                toMove -> InstrumentDrag.MOVE
+                toRotate -> InstrumentDrag.ROTATE
+                else -> InstrumentDrag.RESIZE
+            }
+        }
+    }
 
     // The drawing band along the ruling edge belongs to the ink.
-    if (instrument.kind.hasRulingEdge) {
-        val worldX = camera.screenToWorldX(offset.x)
-        val worldY = camera.screenToWorldY(offset.y)
-        val edge = InstrumentGeometry.edgeOf(instrument, camera.zoom)
-        val toEdge = InstrumentGeometry.distanceToEdge(edge, worldX, worldY)
-        if (InstrumentGeometry.shouldSnap(toEdge, camera.zoom)) return InstrumentDrag.NONE
+    // Likewise the protractor's rim, so an arc can be traced round it.
+    val toGuide = InstrumentGeometry.distanceToGuide(
+        instrument,
+        camera.zoom,
+        camera.screenToWorldX(offset.x),
+        camera.screenToWorldY(offset.y),
+    )
+    if (toGuide != null && InstrumentGeometry.shouldSnap(toGuide, camera.zoom)) {
+        return InstrumentDrag.NONE
     }
 
     return if (isOnBody(instrument, camera, offset)) InstrumentDrag.MOVE else InstrumentDrag.NONE
@@ -328,6 +347,80 @@ internal fun compassGrabRadius(
     return (legPx * GRAB_FRACTION_OF_LEG).coerceIn(MIN_GRAB_PX, MAX_GRAB_PX)
 }
 
+/**
+ * The move, rotate and resize handles in the instrument's own unrotated frame,
+ * screen px from its anchor; null for the compass, whose legs are its handles.
+ *
+ * Both sit INSIDE the body and clear of the ruling edge, so neither steals a
+ * stroke ruled along it. Their along-the-instrument position is a fixed
+ * fraction of its size, which is what lets [resizedLengthCm] invert them.
+ */
+private fun handleLocals(instrument: Instrument): InstrumentHandles? {
+    val size = instrument.lengthCm * InstrumentGeometry.pxPerCm
+    return when (instrument.kind) {
+        InstrumentKind.RULER -> {
+            val y = RULER_BODY_CM * InstrumentGeometry.pxPerCm * 0.62f
+            InstrumentHandles(Offset(size * 0.16f, y), Offset(size * 0.84f, y), Offset(size * 0.96f, y))
+        }
+
+        InstrumentKind.SET_SQUARE_45, InstrumentKind.SET_SQUARE_30 -> {
+            val y = size * instrument.kind.setSquareRatio * 0.14f
+            InstrumentHandles(Offset(size * 0.16f, y), Offset(size * 0.40f, y), Offset(size * 0.62f, y))
+        }
+
+        InstrumentKind.PROTRACTOR -> {
+            val r = instrument.protractorRadiusPx
+            InstrumentHandles(Offset(0f, -0.3f * r), Offset(-0.5f * r, -0.3f * r), Offset(0.5f * r, -0.3f * r))
+        }
+
+        InstrumentKind.COMPASS -> null
+    }
+}
+
+/** Where an instrument's move, rotate and resize handles sit. */
+internal data class InstrumentHandles(val move: Offset, val rotate: Offset, val resize: Offset)
+
+/** Screen positions of the handles (see [handleLocals]). */
+internal fun instrumentHandles(
+    instrument: Instrument,
+    camera: com.smartboard.teach.feature.whiteboard.Camera,
+): InstrumentHandles? {
+    val local = handleLocals(instrument) ?: return null
+    val ax = camera.worldToScreenX(instrument.x)
+    val ay = camera.worldToScreenY(instrument.y)
+    val c = cos(instrument.rotation)
+    val s = sin(instrument.rotation)
+    fun toScreen(p: Offset) = Offset(ax + p.x * c - p.y * s, ay + p.x * s + p.y * c)
+    return InstrumentHandles(toScreen(local.move), toScreen(local.rotate), toScreen(local.resize))
+}
+
+/**
+ * The size that puts the resize handle under [finger] (a screen point).
+ *
+ * The ruler and set squares stretch along their length; the protractor grows
+ * radially. Either way the handle tracks the hand exactly, because its
+ * position is proportional to the size.
+ */
+internal fun resizedLengthCm(
+    instrument: Instrument,
+    camera: com.smartboard.teach.feature.whiteboard.Camera,
+    finger: Offset,
+): Float {
+    val handle = handleLocals(instrument)?.resize ?: return instrument.lengthCm
+    val dx = finger.x - camera.worldToScreenX(instrument.x)
+    val dy = finger.y - camera.worldToScreenY(instrument.y)
+    val c = cos(-instrument.rotation)
+    val s = sin(-instrument.rotation)
+    val lx = dx * c - dy * s
+    val ly = dx * s + dy * c
+    val ratio = if (instrument.kind == InstrumentKind.PROTRACTOR) {
+        (lx * handle.x + ly * handle.y) / (handle.x * handle.x + handle.y * handle.y)
+    } else {
+        lx / handle.x
+    }
+    return (instrument.lengthCm * ratio).coerceIn(MIN_LENGTH_CM, MAX_LENGTH_CM)
+}
+
 /** Screen position of the hinge the legs hang from. */
 internal fun compassHinge(
     instrument: Instrument,
@@ -348,7 +441,7 @@ internal fun compassNeedleTip(
     camera: com.smartboard.teach.feature.whiteboard.Camera,
 ): Offset {
     val hinge = compassHinge(instrument, camera)
-    val legPx = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
+    val legPx = instrument.compassLegWorld * camera.zoom
     val angle = instrument.rotation - instrument.spreadRad / 2f
     return Offset(hinge.x + cos(angle) * legPx, hinge.y + sin(angle) * legPx)
 }
@@ -359,7 +452,7 @@ internal fun compassPencilTip(
     camera: com.smartboard.teach.feature.whiteboard.Camera,
 ): Offset {
     val hinge = compassHinge(instrument, camera)
-    val legPx = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
+    val legPx = instrument.compassLegWorld * camera.zoom
     val angle = instrument.rotation + instrument.spreadRad / 2f
     return Offset(hinge.x + cos(angle) * legPx, hinge.y + sin(angle) * legPx)
 }
@@ -397,7 +490,7 @@ internal fun isOnBody(
         }
 
         InstrumentKind.PROTRACTOR -> {
-            val radius = PROTRACTOR_RADIUS_CM * InstrumentGeometry.pxPerCm
+            val radius = instrument.protractorRadiusPx
             localY <= 0f && hypot(localX, localY) <= radius
         }
 
@@ -408,28 +501,45 @@ internal fun isOnBody(
 // --- drawing --------------------------------------------------------------
 
 /**
- * The rotation grip, drawn at the instrument's pivot.
+ * A handle: a filled accent badge with an upright icon saying what it does.
  *
- * Without it the pivot is a 40px circle of nothing: the instrument does turn
- * when dragged there, but there is no way to know that, so it reads as an
- * instrument that cannot be rotated at all.
+ * Upright rather than turning with the instrument, so the rotate arrow still
+ * reads as "rotate" when the ruler is standing on end.
  */
-private fun DrawScope.drawPivot(sx: Float, sy: Float) {
-    // Filled so it reads as a grip rather than a decorative ring, and ringed
-    // in white so it stays visible against ink drawn underneath.
-    drawCircle(color = Color.White, radius = PIVOT_RADIUS_PX, center = Offset(sx, sy))
-    drawCircle(
-        color = Accent,
-        radius = PIVOT_RADIUS_PX,
-        center = Offset(sx, sy),
-        style = Stroke(width = 2.5f),
-    )
-    drawCircle(color = Accent, radius = PIVOT_RADIUS_PX * 0.45f, center = Offset(sx, sy))
+private fun DrawScope.drawHandle(center: Offset, icon: VectorPainter) {
+    drawCircle(color = Color.White, radius = HANDLE_RADIUS_PX + 2.5f, center = center)
+    drawCircle(color = Accent, radius = HANDLE_RADIUS_PX, center = center)
+    val iconPx = HANDLE_RADIUS_PX * 1.15f
+    translate(center.x - iconPx / 2f, center.y - iconPx / 2f) {
+        with(icon) {
+            draw(Size(iconPx, iconPx), colorFilter = ColorFilter.tint(Color.White))
+        }
+    }
 }
 
-/** Drawn size of the pivot. Smaller than its touch target, which is fine —
- *  a grip that filled its whole 40px slop would cover the ruler's zero mark. */
-private const val PIVOT_RADIUS_PX = 11f
+/** The instrument's angle, on a dark pill just above the rotate handle. */
+private fun DrawScope.drawAngleLabel(rotateHandle: Offset, degrees: Int, measurer: TextMeasurer) {
+    val layout = measurer.measure(
+        "$degrees°",
+        TextStyle(fontSize = 13.sp, color = Color.White),
+    )
+    val padX = 10f
+    val padY = 4f
+    val w = layout.size.width + padX * 2
+    val h = layout.size.height + padY * 2
+    val topLeft = Offset(rotateHandle.x - w / 2f, rotateHandle.y - HANDLE_RADIUS_PX - 8f - h)
+    drawRoundRect(
+        color = HINGE_FILL,
+        topLeft = topLeft,
+        size = Size(w, h),
+        cornerRadius = CornerRadius(h / 2f),
+    )
+    drawText(layout, topLeft = Offset(topLeft.x + padX, topLeft.y + padY))
+}
+
+/** Drawn radius of a handle; its touch target is [HANDLE_TOUCH_PX]. */
+private const val HANDLE_RADIUS_PX = 26f
+private const val HANDLE_TOUCH_PX = 46f
 
 
 private fun DrawScope.drawRuler(
@@ -527,7 +637,9 @@ private fun DrawScope.drawScale(
         )
 
         if (major) {
-            val value = (atX / unitPx).toInt()
+            // From the tick count, not atX / unitPx: float drift made that
+            // truncate 2 to 1 and print 0 1 1 2 3 5.
+            val value = i / divisions
             val text = "$value"
             val layout = measurer.measure(text, TextStyle(fontSize = 9.sp, color = TICK_COLOR))
             drawText(
@@ -582,7 +694,7 @@ private fun DrawScope.drawProtractor(
     zoom: Float,
     measurer: TextMeasurer,
 ) {
-    val radius = PROTRACTOR_RADIUS_CM * InstrumentGeometry.pxPerCm
+    val radius = instrument.protractorRadiusPx
     translate(sx, sy) {
         rotateRad(instrument.rotation, pivot = Offset.Zero) {
             drawArc(
@@ -760,23 +872,23 @@ enum class InstrumentDrag {
 
     /** Compass: sweeping the pencil leg round to draw an arc. */
     SWEEP,
+
+    /** Ruler, set square, protractor: stretching it with the resize handle. */
+    RESIZE,
 }
 
 private val BODY_FILL = Color(0x2233608F)
 private val BODY_EDGE = Color(0x8833608F)
 private val TICK_COLOR = Color(0xCC26384B)
-private val ARM_COLOR = Color(0xCC4A5A6B)
 private val LEG_COLOR = Color(0xE53F4A57)
 private val HINGE_FILL = Color(0xF2333C47)
 private val NEEDLE_COLOR = Color(0xFFE8ECF1)
 
 private const val RULER_BODY_CM = 2.2f
-private const val PROTRACTOR_RADIUS_CM = 4f
 private const val TICK_MAJOR_PX = 16f
 private const val TICK_MEDIUM_PX = 11f
 private const val TICK_MINOR_PX = 6f
 private const val MIN_TICK_SPACING_PX = 3f
-private const val ANCHOR_RADIUS_PX = 40f
 
 /** A grab this size relative to the legs keeps the three parts distinct. */
 private const val GRAB_FRACTION_OF_LEG = 0.14f
@@ -785,46 +897,9 @@ private const val GRAB_FRACTION_OF_LEG = 0.14f
 private const val MIN_GRAB_PX = 40f
 private const val MAX_GRAB_PX = 64f
 
-/** Gap between the hinge's grab and the control column behind it. */
-private const val COMPASS_CONTROL_CLEARANCE_PX = 34f
-
-private const val PI_F = Math.PI.toFloat()
-
 private const val HINGE_DRAW_PX = 19f
 private const val LEG_WIDTH_PX = 13f
 private const val NIB_LENGTH_PX = 26f
 private const val BADGE_RADIUS_PX = 11f
 
 private const val CONTROL_GAP_PX = 12f
-
-/** Screen rect covering an instrument's grabbable body. */
-private data class GrabBox(
-    val left: Float,
-    val top: Float,
-    val widthDp: Float,
-    val heightDp: Float,
-)
-
-/**
- * Where the instrument accepts drags.
- *
- * Deliberately generous and axis-aligned — a rotated ruler's box covers more
- * than the ruler itself, and [dragModeFor] does the precise test inside it.
- * What matters is that the box does NOT cover the whole screen.
- */
-private fun grabBoxFor(
-    instrument: Instrument,
-    camera: com.smartboard.teach.feature.whiteboard.Camera,
-): GrabBox {
-    val sx = camera.worldToScreenX(instrument.x)
-    val sy = camera.worldToScreenY(instrument.y)
-    val reach = when (instrument.kind) {
-        InstrumentKind.RULER, InstrumentKind.SET_SQUARE_45, InstrumentKind.SET_SQUARE_30 ->
-            instrument.lengthCm * InstrumentGeometry.pxPerCm
-        InstrumentKind.PROTRACTOR -> PROTRACTOR_RADIUS_CM * InstrumentGeometry.pxPerCm
-        // The legs, not the circle: a nearly-closed compass draws a tiny
-        // circle but its legs still reach their full length.
-        InstrumentKind.COMPASS -> COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
-    } + ANCHOR_RADIUS_PX
-    return GrabBox(sx - reach, sy - reach, reach * 2f, reach * 2f)
-}

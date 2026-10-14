@@ -74,6 +74,12 @@ fun SettingsScreen(
                     onCheckedChange = viewModel::setStylusOnly,
                 )
                 SettingRow(
+                    title = stringResource(R.string.settings_multi_touch),
+                    detail = stringResource(R.string.settings_multi_touch_detail),
+                    checked = settings.multiTouchWriting,
+                    onCheckedChange = viewModel::setMultiTouchWriting,
+                )
+                SettingRow(
                     title = stringResource(R.string.settings_pressure),
                     detail = stringResource(R.string.settings_pressure_detail),
                     checked = settings.pressureSensitivity,

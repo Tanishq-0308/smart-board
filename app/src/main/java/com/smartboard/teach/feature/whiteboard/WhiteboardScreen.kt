@@ -68,10 +68,12 @@ import com.smartboard.teach.feature.shell.LocalHideClock
 import com.smartboard.teach.feature.whiteboard.container.MindmapChrome
 import com.smartboard.teach.feature.whiteboard.container.MindmapLayout
 import com.smartboard.teach.feature.whiteboard.container.TableGrid
+import com.smartboard.teach.feature.whiteboard.instruments.COMPASS_LEG_CM
 import com.smartboard.teach.feature.whiteboard.instruments.Instrument
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentGeometry
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentKind
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentLayer
+import com.smartboard.teach.feature.whiteboard.instruments.protractorRadiusPx
 import java.util.UUID
 
 @Composable
@@ -456,6 +458,7 @@ fun WhiteboardScreen(
     // misbehaving pen stack without a rebuild.
     LaunchedEffect(inputSettings) {
         state.stylusOnlyMode = inputSettings.stylusOnlyMode
+        state.multiTouchWriting = inputSettings.multiTouchWriting
         state.pressureSensitivity = inputSettings.pressureSensitivity
         state.honourEraserButton = inputSettings.honourEraserButton
         state.showPointerDebug = inputSettings.showPointerDebug
@@ -962,6 +965,18 @@ fun WhiteboardScreen(
                     } else {
                         0f
                     },
+                    // A full 11cm leg ran off the bottom of a high-density
+                    // panel, under the toolbar, leaving the needle and pencil
+                    // unreachable. Legs take 40% of the board height, leaving room for the circle.
+                    lengthCm = if (kind == InstrumentKind.COMPASS) {
+                        minOf(
+                            COMPASS_LEG_CM,
+                            state.viewportHeight * 0.4f /
+                                (InstrumentGeometry.pxPerCm * state.camera.zoom),
+                        )
+                    } else {
+                        10f
+                    },
                 )
                 val extentPx = anchor.lengthCm * InstrumentGeometry.pxPerCm
                 val topBias = if (kind == InstrumentKind.PROTRACTOR) 0.72f else 0.30f
@@ -970,8 +985,12 @@ fun WhiteboardScreen(
                 // way to draw parallel lines.
                 state.instruments.add(
                     anchor.copy(
+                        // The protractor's anchor is its CENTRE, so it reaches
+                        // a radius left of it; anchoring it like a ruler's
+                        // left end dropped half of it off the board.
                         x = state.camera.screenToWorldX(
-                            (state.viewportWidth - extentPx).coerceAtLeast(0f) * 0.35f,
+                            (state.viewportWidth - extentPx).coerceAtLeast(0f) * 0.35f +
+                                if (kind == InstrumentKind.PROTRACTOR) anchor.protractorRadiusPx else 0f,
                         ),
                         // Staggered DOWN the board rather than across: two
                         // instruments dropped at the same height put their
@@ -1405,6 +1424,8 @@ private fun PointerDebugOverlay(
                     "pressure  ${"%.3f".format(info.pressure)}",
                     "id        ${info.pointerId}",
                     "contacts  ${info.contactCount}",
+                    "tooltype  ${info.rawToolType}",
+                    "size      ${"%.1f".format(info.touchMajorPx)}",
                 )
             }
             lines.forEach {

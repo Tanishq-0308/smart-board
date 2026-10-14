@@ -138,6 +138,16 @@ class BoardState {
      */
     var snappingToInstrument: Boolean = false
 
+    /** Last snapped sample of the stroke in progress, for filling a curved guide. Pointer-only. */
+    var lastSnapPoint: FloatArray? = null
+
+    /**
+     * Rotation minus the finger's angle about the anchor, taken at press, so a
+     * rotate drag turns the instrument from where it was instead of jumping
+     * to put the anchor-to-finger line at zero. Plain var: pointer-only.
+     */
+    var instrumentGrabAngle: Float = 0f
+
     /** What a drag on the instrument is doing, set at press. */
     var instrumentDragMode by mutableStateOf(
         com.smartboard.teach.feature.whiteboard.instruments.InstrumentDrag.NONE,
@@ -233,6 +243,8 @@ class BoardState {
 
     // --- Input behaviour (mirrors Settings) ---
     var stylusOnlyMode by mutableStateOf(false)
+    /** Every finger draws its own line; pinch-zoom is off while drawing. */
+    var multiTouchWriting by mutableStateOf(false)
     var pressureSensitivity by mutableStateOf(true)
     var honourEraserButton by mutableStateOf(true)
     var showPointerDebug by mutableStateOf(false)
@@ -556,6 +568,52 @@ class BoardState {
         liveStroke = null
         // A gesture that turned into a pan is no longer a tap on a node.
         tappedCell = null
+        liveStrokeVersion++
+    }
+
+    // --- Extra writers (multi-finger writing) ---
+    // Every finger after the first gets its own stroke, keyed by pointer id.
+    // The first finger keeps the full path above (instruments, taps, snapping).
+    private val extraBuilders = HashMap<Long, StrokeBuilder>()
+
+    /** Plain var: read only in the draw phase, which [liveStrokeVersion] invalidates. */
+    var extraLiveStrokes: List<Stroke> = emptyList()
+        private set
+
+    fun hasExtraStroke(pointerId: Long) = pointerId in extraBuilders
+
+    fun beginExtraStroke(
+        pointerId: Long,
+        x: Float,
+        y: Float,
+        pressure: Float,
+        containerId: String?,
+        cellIndex: Int,
+    ) {
+        val builder = StrokeBuilder(tool, currentStyle(), containerId, cellIndex)
+        builder.addPoint(x, y, pressure)
+        extraBuilders[pointerId] = builder
+        publishExtras()
+    }
+
+    fun extendExtraStroke(pointerId: Long, x: Float, y: Float, pressure: Float) {
+        if (extraBuilders[pointerId]?.addPoint(x, y, pressure) == true) publishExtras()
+    }
+
+    fun endExtraStroke(pointerId: Long): Stroke? {
+        val stroke = extraBuilders.remove(pointerId)?.build()
+        publishExtras()
+        return stroke
+    }
+
+    fun cancelExtraStrokes() {
+        if (extraBuilders.isEmpty()) return
+        extraBuilders.clear()
+        publishExtras()
+    }
+
+    private fun publishExtras() {
+        extraLiveStrokes = extraBuilders.values.mapNotNull { it.build() }
         liveStrokeVersion++
     }
 

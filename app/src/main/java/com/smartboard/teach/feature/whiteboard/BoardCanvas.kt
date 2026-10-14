@@ -7,7 +7,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.motionEventSpy
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -26,14 +28,15 @@ import com.smartboard.teach.domain.model.DrawTool
 import com.smartboard.teach.domain.model.Stroke
 import com.smartboard.teach.domain.model.TextBox
 import com.smartboard.teach.feature.whiteboard.container.ContainerHitTest
-import com.smartboard.teach.feature.whiteboard.instruments.COMPASS_LEG_CM
+import com.smartboard.teach.feature.whiteboard.instruments.compassLegWorld
+import com.smartboard.teach.feature.whiteboard.instruments.resizedLengthCm
 import com.smartboard.teach.feature.whiteboard.instruments.compassNeedleTip
 import com.smartboard.teach.feature.whiteboard.instruments.hasSweep
 import com.smartboard.teach.feature.whiteboard.instruments.compassRadius
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentDrag
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentGeometry
+import com.smartboard.teach.feature.whiteboard.instruments.InstrumentKind
 import com.smartboard.teach.feature.whiteboard.instruments.instrumentHitAt
-import com.smartboard.teach.feature.whiteboard.instruments.hasRulingEdge
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.cos
@@ -55,6 +58,7 @@ import kotlin.math.hypot
  * Two-finger gestures pan and zoom at ANY time, regardless of tool, so a
  * teacher never has to put the pen down to move the board.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun BoardCanvas(
     state: BoardState,
@@ -77,6 +81,10 @@ fun BoardCanvas(
     // Pre-transform copies, so a completed move/resize is one undoable action.
     val transformSnapshot = remember { TransformSnapshot() }
     val gridPainter = remember { GridPainter() }
+    // Raw MotionEvent facts Compose hides: the Android tool type and contact
+    // size. Boards whose pen reports as a finger can only be told apart by
+    // size, so the debug overlay shows it for on-site diagnosis.
+    val rawContact = remember { floatArrayOf(0f, 0f) }
 
     Canvas(
         modifier = modifier
@@ -88,12 +96,25 @@ fun BoardCanvas(
                 state.markCommittedDirty()
                 onSized(size.width, size.height)
             }
+            .motionEventSpy { ev ->
+                if (onPointerDebug != null) {
+                    rawContact[0] = ev.getToolType(ev.actionIndex).toFloat()
+                    rawContact[1] = ev.getTouchMajor(ev.actionIndex)
+                }
+            }
             // ONE handler for everything. Two-finger navigation and one-finger
             // drawing cannot live in separate pointerInput modifiers: the
             // first to see an event consumes it, and a second-finger arrival
             // has to be able to cancel a stroke the first finger already
             // started. Interleaving them here keeps that transition correct.
-            .pointerInput(state.mode, state.tool, state.stylusOnlyMode, state.honourEraserButton) {
+            .pointerInput(
+                state.mode, state.tool, state.stylusOnlyMode, state.honourEraserButton,
+                state.multiTouchWriting,
+            ) {
+                // Multi-finger writing: fingers draw instead of pinching. Pan
+                // mode and the zoom buttons still move the board.
+                val writersMode = state.multiTouchWriting && !state.stylusOnlyMode &&
+                    state.mode == BoardMode.Draw && state.tool.isFreehand
                 awaitPointerEventScope {
                     var lastCentroid: Offset? = null
                     var lastSpan = 0f
@@ -103,8 +124,14 @@ fun BoardCanvas(
                         val event = awaitPointerEvent(PointerEventPass.Main)
                         val pressed = event.changes.filter { it.pressed }
 
+                        if (writersMode) {
+                            handleExtraWriters(state, event.changes, onStrokeFinished)
+                            // A lost up-event must not leave a line stuck "live".
+                            if (pressed.isEmpty()) state.cancelExtraStrokes()
+                        }
+
                         // --- two or more fingers: navigation, never ink ---
-                        if (pressed.size >= 2) {
+                        if (pressed.size >= 2 && !writersMode) {
                             if (!gestureWasMultiTouch) {
                                 // A second finger landed mid-stroke: throw the
                                 // partial stroke away rather than leaving a
@@ -172,6 +199,8 @@ fun BoardCanvas(
                                     pointerId = pointerId,
                                     contactCount = event.changes.size,
                                     accepted = false,
+                                    rawToolType = rawContact[0].toInt(),
+                                    touchMajorPx = rawContact[1],
                                 ),
                             )
 
@@ -183,8 +212,12 @@ fun BoardCanvas(
                                 }
 
                             when (event.type) {
+                                // A Press/Release event carries EVERY pointer, so
+                                // gate on the one that actually went down/up — or
+                                // any finger lifting ended the writing finger's stroke.
                                 PointerEventType.Press ->
-                                    if (palmRejection.shouldAcceptDown(
+                                    if (change.pressed && !change.previousPressed &&
+                                        palmRejection.shouldAcceptDown(
                                             pointerId, isStylus, nowMs,
                                             othersDown = pressed.any { it.id != change.id },
                                         )
@@ -205,7 +238,9 @@ fun BoardCanvas(
                                     }
 
                                 PointerEventType.Release ->
-                                    if (palmRejection.onPointerUp(pointerId, isStylus, nowMs)) {
+                                    if (!change.pressed && change.previousPressed &&
+                                        palmRejection.onPointerUp(pointerId, isStylus, nowMs)
+                                    ) {
                                         change.consume()
                                         handleRelease(
                                             state, renderer, change, effectiveTool,
@@ -302,7 +337,7 @@ fun BoardCanvas(
             // 3. The live stroke — clipped to its cell while it is being drawn,
             //    so ink does not spill past a cell edge and then snap back in
             //    when the stroke is committed and the cache re-rasterizes.
-            state.liveStroke?.let { live ->
+            for (live in listOfNotNull(state.liveStroke) + state.extraLiveStrokes) {
                 native.save()
                 native.scale(camera.zoom, camera.zoom)
                 native.translate(-camera.offsetX, -camera.offsetY)
@@ -396,6 +431,62 @@ private fun backgroundHit(state: BoardState, worldX: Float, worldY: Float): Bool
     return px >= bg.x && px <= bg.x + w && py >= bg.y && py <= bg.y + h
 }
 
+/**
+ * Strokes for every finger after the first, in multi-finger writing.
+ *
+ * The first finger stays on the normal path, so it can still grab a ruler or
+ * tap a mindmap node. A finger that path turns away — PalmRejection allows one
+ * writer — is picked up here instead, and its change consumed so the normal
+ * path skips it. Plain ink only: no instrument snapping.
+ */
+private fun handleExtraWriters(
+    state: BoardState,
+    changes: List<PointerInputChange>,
+    onStrokeFinished: (Stroke) -> Unit,
+) {
+    val camera = state.camera
+    // The first finger down on an empty board belongs to the normal path.
+    val normalBusy = state.dragState != DragState.None ||
+        state.instrumentDragMode != InstrumentDrag.NONE
+    for (change in changes) {
+        if (change.type != PointerType.Touch) continue
+        val id = change.id.value
+        val x = camera.screenToWorldX(change.position.x)
+        val y = camera.screenToWorldY(change.position.y)
+        when {
+            change.pressed && !change.previousPressed -> {
+                if (!normalBusy && changes.none { it !== change && it.pressed }) continue
+                val cell = ContainerHitTest.cellAt(state.containers, x, y)
+                state.beginExtraStroke(
+                    id, x, y, change.pressure,
+                    cell?.containerId, cell?.cellIndex ?: -1,
+                )
+                change.consume()
+            }
+
+            !state.hasExtraStroke(id) -> Unit
+
+            change.pressed -> {
+                change.historical.forEach {
+                    state.extendExtraStroke(
+                        id,
+                        camera.screenToWorldX(it.position.x),
+                        camera.screenToWorldY(it.position.y),
+                        change.pressure,
+                    )
+                }
+                state.extendExtraStroke(id, x, y, change.pressure)
+                change.consume()
+            }
+
+            else -> {
+                state.endExtraStroke(id)?.takeUnless(::strokeIsTap)?.let(onStrokeFinished)
+                change.consume()
+            }
+        }
+    }
+}
+
 private fun averageDistance(changes: List<PointerInputChange>, centroid: Offset): Float {
     if (changes.isEmpty()) return 0f
     var total = 0f
@@ -442,6 +533,12 @@ private fun handlePress(
         if (hit != null) {
             state.instrumentDragMode = hit.mode
             state.draggedInstrumentId = hit.id
+            state.instrumentById(hit.id)?.let { grabbed ->
+                state.instrumentGrabAngle = grabbed.rotation - atan2(
+                    change.position.y - camera.worldToScreenY(grabbed.y),
+                    change.position.x - camera.worldToScreenX(grabbed.x),
+                )
+            }
             state.dragState = DragState.None
             return
         }
@@ -613,6 +710,7 @@ private fun handlePress(
     // rather than veering away — which is how a real ruler behaves.
     state.snappingToInstrument = shouldStartSnapped(state, worldX, worldY)
     val start = snapPoint(state, worldX, worldY)
+    state.lastSnapPoint = start
 
     val builder = state.beginStroke(
         tool = tool,
@@ -745,16 +843,12 @@ private fun handleMove(
         history.forEachIndexed { index, historical ->
             val t = (index + 1).toFloat() / (n + 1)
             val interpolated = from + (to - from) * t
-            val hist = snapPoint(
-                state,
-                camera.screenToWorldX(historical.position.x),
-                camera.screenToWorldY(historical.position.y),
-            )
-            if (builder.addPoint(
-                    hist[0],
-                    hist[1],
+            if (addGuidedPoint(
+                    state,
+                    builder,
+                    camera.screenToWorldX(historical.position.x),
+                    camera.screenToWorldY(historical.position.y),
                     interpolated,
-                    applySmoothing = !state.snappingToInstrument,
                 )
             ) {
                 added = true
@@ -762,18 +856,7 @@ private fun handleMove(
         }
     }
 
-    val moved = snapPoint(state, worldX, worldY)
-    // Snapped samples bypass smoothing: the EMA exists to steady a wobbling
-    // hand, but a projected point is already exactly on the ruling edge, and
-    // averaging it back toward the finger drags the ink off the edge — which
-    // showed up as a dense zigzag rather than a ruled line.
-    if (builder.addPoint(
-            moved[0],
-            moved[1],
-            change.pressure,
-            applySmoothing = !state.snappingToInstrument,
-        )
-    ) {
+    if (addGuidedPoint(state, builder, worldX, worldY, change.pressure)) {
         added = true
     }
     state.lastPressure = change.pressure
@@ -1143,6 +1226,10 @@ data class PointerDebugInfo(
     val pointerId: Long,
     val contactCount: Int,
     val accepted: Boolean,
+    /** MotionEvent.TOOL_TYPE_*: 0 unknown, 1 finger, 2 stylus, 3 mouse, 4 eraser. */
+    val rawToolType: Int = 0,
+    /** Contact size in px; a pen tip is far smaller than a fingertip. */
+    val touchMajorPx: Float = 0f,
 )
 
 /** Screen-space radius within which a touch counts as grabbing a handle. */
@@ -1170,9 +1257,8 @@ private fun shouldStartSnapped(state: BoardState, worldX: Float, worldY: Float):
     var bestId: String? = null
     var bestDistance = Float.MAX_VALUE
     state.instruments.forEach { instrument ->
-        if (!instrument.kind.hasRulingEdge) return@forEach
-        val edge = InstrumentGeometry.edgeOf(instrument, state.camera.zoom)
-        val distance = InstrumentGeometry.distanceToEdge(edge, worldX, worldY)
+        val distance = InstrumentGeometry.distanceToGuide(instrument, state.camera.zoom, worldX, worldY)
+            ?: return@forEach
         if (distance < bestDistance &&
             InstrumentGeometry.shouldSnap(distance, state.camera.zoom)
         ) {
@@ -1184,14 +1270,61 @@ private fun shouldStartSnapped(state: BoardState, worldX: Float, worldY: Float):
     return bestId != null
 }
 
-/** Projects a sample onto the ruling edge while this stroke is snapped. */
+/** Projects a sample onto the instrument's guide while this stroke is snapped. */
 private fun snapPoint(state: BoardState, worldX: Float, worldY: Float): FloatArray {
     if (!state.snappingToInstrument) return floatArrayOf(worldX, worldY)
     val instrument = state.instrumentById(state.snapInstrumentId)
         ?: return floatArrayOf(worldX, worldY)
-    val edge = InstrumentGeometry.edgeOf(instrument, state.camera.zoom)
-    return InstrumentGeometry.projectOntoEdge(edge, worldX, worldY)
+    return InstrumentGeometry.projectOntoGuide(instrument, state.camera.zoom, worldX, worldY)
+        ?: floatArrayOf(worldX, worldY)
 }
+
+/**
+ * Adds one pen sample, snapped to the instrument's guide while ruling.
+ *
+ * Snapped samples bypass smoothing: the EMA exists to steady a wobbling hand,
+ * but a projected point is already exactly on the guide, and averaging it
+ * back toward the finger drags the ink off it — which showed up as a dense
+ * zigzag rather than a ruled line.
+ *
+ * On the protractor's CURVED rim, the gap since the last sample is filled
+ * with points along the rim. Samples arrive a frame apart, and joining two
+ * rim points with a straight segment drew a fast arc as a polygon.
+ */
+private fun addGuidedPoint(
+    state: BoardState,
+    builder: StrokeBuilder,
+    worldX: Float,
+    worldY: Float,
+    pressure: Float,
+): Boolean {
+    val point = snapPoint(state, worldX, worldY)
+    val previous = state.lastSnapPoint
+    var added = false
+    val onRim = state.snappingToInstrument &&
+        state.instrumentById(state.snapInstrumentId)?.kind == InstrumentKind.PROTRACTOR
+    if (onRim && previous != null) {
+        val step = state.camera.screenToWorldDistance(ARC_FILL_STEP_PX)
+        val gaps = (hypot(point[0] - previous[0], point[1] - previous[1]) / step).toInt()
+        for (i in 1 until gaps) {
+            val t = i.toFloat() / gaps
+            val fill = snapPoint(
+                state,
+                previous[0] + (point[0] - previous[0]) * t,
+                previous[1] + (point[1] - previous[1]) * t,
+            )
+            if (builder.addPoint(fill[0], fill[1], pressure, applySmoothing = false)) added = true
+        }
+    }
+    if (builder.addPoint(point[0], point[1], pressure, applySmoothing = !state.snappingToInstrument)) {
+        added = true
+    }
+    state.lastSnapPoint = point
+    return added
+}
+
+/** Spacing of the points filled in along a curved guide, in screen px. */
+private const val ARC_FILL_STEP_PX = 6f
 
 /**
  * Turns the compass's swept arc into a stroke and clears the sweep.
@@ -1287,15 +1420,21 @@ private fun applyInstrumentDrag(state: BoardState, change: PointerInputChange) {
         }
 
         // Tracks the hand rather than accumulating deltas, so a fast turn
-        // cannot drift away from the finger.
+        // cannot drift away from the finger. Turns about the anchor.
         InstrumentDrag.ROTATE -> current.copy(
-            rotation = atan2(change.position.y - ay, change.position.x - ax),
+            rotation = InstrumentGeometry.snapRotation(
+                atan2(change.position.y - ay, change.position.x - ax) + state.instrumentGrabAngle,
+            ),
+        )
+
+        InstrumentDrag.RESIZE -> current.copy(
+            lengthCm = resizedLengthCm(current, camera, change.position),
         )
 
         // Opening the legs. Measured from the hinge, so the spread follows the
         // hand the way the real hinge does.
         InstrumentDrag.SPREAD -> {
-            val legPx = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * camera.zoom
+            val legPx = current.compassLegWorld * camera.zoom
             val reach = hypot(change.position.x - ax, change.position.y - ay)
             // The hand is on ONE leg, half the spread off the centre line.
             val half = asin((reach / legPx).coerceIn(0f, 1f))

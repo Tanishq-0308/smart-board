@@ -71,7 +71,11 @@ data class Instrument(
      * quarter turn: a compass sits point-down on the board, not sideways.
      */
     val rotation: Float = 0f,
-    /** Length in cm for the ruler; leg length for the set square. */
+    /**
+     * The instrument's size: length for the ruler, base for the set square,
+     * diameter-ish for the protractor (see [protractorRadiusPx]) and leg
+     * length for the compass. Changed by the resize handle.
+     */
     val lengthCm: Float = 10f,
     /**
      * Compass only: how far the legs are opened, in radians.
@@ -88,8 +92,6 @@ data class Instrument(
      */
     val sweepStart: Float = 0f,
     val sweepEnd: Float = 0f,
-    /** Mirrored, for the flip control on the ruler and set square. */
-    val flipped: Boolean = false,
     /**
      * Stable identity, so a drag keeps hold of the instrument it started on.
      *
@@ -99,19 +101,32 @@ data class Instrument(
     val id: String = java.util.UUID.randomUUID().toString(),
 )
 
-/** Length of a compass leg, in cm — the physical tool it models. */
+/** Longest a compass leg is made, in cm — the physical tool it models. */
 const val COMPASS_LEG_CM = 11f
+
+/** Size limits for the resize handle, in cm of [Instrument.lengthCm]. */
+const val MIN_LENGTH_CM = 4f
+const val MAX_LENGTH_CM = 30f
+
+/** Compass leg length in WORLD units (the compass scales with zoom). */
+val Instrument.compassLegWorld: Float
+    get() = lengthCm * InstrumentGeometry.pxPerCm
 
 /**
  * The radius this compass would draw.
  *
- * Half the distance between the two leg tips: opening the hinge by `spread`
- * puts each leg `spread / 2` off the centre line, so the tips sit
- * `legLength * sin(spread / 2)` either side of it. This is why the drawn tool
- * and the circle always agree — there is only one number behind both.
+ * The FULL distance between the two leg tips — the needle is the centre and
+ * the pencil is on the circle. Opening the hinge by `spread` puts each leg
+ * `spread / 2` off the centre line, so the tips are
+ * `2 * legLength * sin(spread / 2)` apart. (Half that distance drew every arc
+ * at half the radius the legs showed, inside the pencil instead of under it.)
  */
 val Instrument.compassRadius: Float
-    get() = COMPASS_LEG_CM * InstrumentGeometry.pxPerCm * sin(spreadRad / 2f)
+    get() = 2f * compassLegWorld * sin(spreadRad / 2f)
+
+/** Protractor radius in screen px; the default 10cm size gives a 4cm radius. */
+val Instrument.protractorRadiusPx: Float
+    get() = lengthCm * 0.4f * InstrumentGeometry.pxPerCm
 
 /** True once the compass has been swept far enough to have drawn something. */
 val Instrument.hasSweep: Boolean
@@ -212,6 +227,45 @@ object InstrumentGeometry {
     }
 
     /**
+     * Nearest point on the guide ink follows, in world units, or null when
+     * this instrument has none.
+     *
+     * The ruler and set squares guide along their straight ruling edge; the
+     * protractor along its curved rim, so an arc traced round it comes out
+     * a true arc instead of a wobbly freehand one. The compass draws its own
+     * arcs and guides nothing.
+     */
+    fun projectOntoGuide(instrument: Instrument, zoom: Float, px: Float, py: Float): FloatArray? {
+        if (instrument.kind.hasRulingEdge) {
+            return projectOntoEdge(edgeOf(instrument, zoom), px, py)
+        }
+        if (instrument.kind != InstrumentKind.PROTRACTOR) return null
+
+        val radius = instrument.protractorRadiusPx / zoom
+        val c = cos(instrument.rotation)
+        val s = sin(instrument.rotation)
+        val dx = px - instrument.x
+        val dy = py - instrument.y
+        // Into the protractor's own frame, where the rim is the half with y <= 0.
+        var lx = dx * c + dy * s
+        var ly = -dx * s + dy * c
+        if (ly > 0f) {
+            // Below the straight side: the nearest rim point is an end.
+            lx = if (lx >= 0f) radius else -radius
+            ly = 0f
+        } else {
+            val length = hypot(lx, ly).coerceAtLeast(1e-6f)
+            lx = lx / length * radius
+            ly = ly / length * radius
+        }
+        return floatArrayOf(instrument.x + lx * c - ly * s, instrument.y + lx * s + ly * c)
+    }
+
+    /** Distance from a world point to [projectOntoGuide], or null with no guide. */
+    fun distanceToGuide(instrument: Instrument, zoom: Float, px: Float, py: Float): Float? =
+        projectOntoGuide(instrument, zoom, px, py)?.let { hypot(px - it[0], py - it[1]) }
+
+    /**
      * Should a sample at this distance snap?
      *
      * A band rather than always-on: the instrument sits on the board, and a
@@ -260,6 +314,28 @@ object InstrumentGeometry {
         }
         return degrees
     }
+
+    /**
+     * A dragged rotation, pulled onto the nearest 15 degrees when within 2.
+     *
+     * Lets a teacher land exactly on 0, 30, 45, 90... by hand, while any
+     * other angle is still reachable.
+     */
+    fun snapRotation(radians: Float): Float {
+        val step = Math.toRadians(ROTATION_STEP_DEGREES.toDouble()).toFloat()
+        val nearest = Math.round(radians / step) * step
+        val tolerance = Math.toRadians(ROTATION_SNAP_DEGREES.toDouble()).toFloat()
+        return if (abs(radians - nearest) <= tolerance) nearest else radians
+    }
+
+    /** The angle shown to the class: 0..359, anticlockwise like a maths diagram. */
+    fun displayDegrees(radians: Float): Int {
+        val deg = Math.round(-Math.toDegrees(radians.toDouble())).toInt() % 360
+        return if (deg < 0) deg + 360 else deg
+    }
+
+    private const val ROTATION_STEP_DEGREES = 15f
+    private const val ROTATION_SNAP_DEGREES = 2f
 
     /** Tick spacing for a scale, in world units. */
     fun tickSpacingWorld(zoom: Float, perCm: Int): Float = pxPerCm / zoom / perCm

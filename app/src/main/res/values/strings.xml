@@ -51,6 +51,8 @@
     <string name="diag_pad_active">Touching now: %1$d</string>
     <string name="diag_pad_max">Most at once: %1$d</string>
     <string name="diag_pad_tools">Input seen: %1$s</string>
+    <string name="diag_pad_size">Size: %1$s (this touch %2$s)</string>
+    <string name="diag_pad_device">Device: %1$s</string>
     <string name="diag_pad_pressure">Pressure: %1$s</string>
     <string name="diag_pad_pressure_varies">Pressure varies: pressure-sensitive ink will work.</string>
     <string name="diag_pad_pressure_constant">Pressure is constant: turn off Pressure sensitivity in Settings for even lines.</string>

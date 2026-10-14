@@ -28,6 +28,8 @@ private val Context.inputSettingsDataStore by preferencesDataStore(name = "input
 data class InputSettings(
     /** Hard-reject all touch input; only the pen draws. */
     val stylusOnlyMode: Boolean = false,
+    /** Each finger draws its own line, like five students at once. */
+    val multiTouchWriting: Boolean = false,
     /** Off for boards that report a constant or nonsense pressure. */
     val pressureSensitivity: Boolean = true,
     /** Honour PointerType.Eraser as an eraser regardless of selected tool. */
@@ -48,6 +50,7 @@ class InputSettingsStore @Inject constructor(
 ) {
     private object Keys {
         val stylusOnly = booleanPreferencesKey("stylus_only")
+        val multiTouch = booleanPreferencesKey("multi_touch_writing")
         val pressure = booleanPreferencesKey("pressure_sensitivity")
         val eraserButton = booleanPreferencesKey("honour_eraser_button")
         val pointerDebug = booleanPreferencesKey("pointer_debug")
@@ -59,6 +62,7 @@ class InputSettingsStore @Inject constructor(
     val settings: Flow<InputSettings> = context.inputSettingsDataStore.data.map { prefs ->
         InputSettings(
             stylusOnlyMode = prefs[Keys.stylusOnly] ?: false,
+            multiTouchWriting = prefs[Keys.multiTouch] ?: false,
             pressureSensitivity = prefs[Keys.pressure] ?: true,
             honourEraserButton = prefs[Keys.eraserButton] ?: true,
             showPointerDebug = prefs[Keys.pointerDebug] ?: false,
@@ -69,6 +73,7 @@ class InputSettingsStore @Inject constructor(
     }
 
     suspend fun setStylusOnly(value: Boolean) = put(Keys.stylusOnly, value)
+    suspend fun setMultiTouchWriting(value: Boolean) = put(Keys.multiTouch, value)
     suspend fun setPressureSensitivity(value: Boolean) = put(Keys.pressure, value)
     suspend fun setHonourEraserButton(value: Boolean) = put(Keys.eraserButton, value)
     suspend fun setPointerDebug(value: Boolean) = put(Keys.pointerDebug, value)

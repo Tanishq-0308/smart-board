@@ -30,12 +30,12 @@ class CompassTest {
         )
 
     @Test
-    fun `the radius is half the distance between the leg tips`() {
+    fun `the radius is the distance from needle to pencil`() {
+        // Needle at the centre, pencil on the circle — as on the real tool.
         val c = compass()
         val needle = compassNeedleTip(c, camera)
         val pencil = compassPencilTip(c, camera)
-        val half = hypot(pencil.x - needle.x, pencil.y - needle.y) / 2f
-        assertEquals(half, c.compassRadius, 0.5f)
+        assertEquals(hypot(pencil.x - needle.x, pencil.y - needle.y), c.compassRadius, 0.5f)
     }
 
     @Test

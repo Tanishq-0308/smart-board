@@ -49,6 +49,7 @@ class SettingsViewModel @Inject constructor(
     val aiModel: String = aiService.modelName
 
     fun setStylusOnly(value: Boolean) = viewModelScope.launch { store.setStylusOnly(value) }
+    fun setMultiTouchWriting(value: Boolean) = viewModelScope.launch { store.setMultiTouchWriting(value) }
     fun setPressure(value: Boolean) = viewModelScope.launch { store.setPressureSensitivity(value) }
     fun setEraserButton(value: Boolean) = viewModelScope.launch { store.setHonourEraserButton(value) }
     fun setPointerDebug(value: Boolean) = viewModelScope.launch { store.setPointerDebug(value) }

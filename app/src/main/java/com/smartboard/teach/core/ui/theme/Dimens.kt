@@ -82,7 +82,9 @@ fun dimensFor(smallestScreenWidthDp: Int): Dimens {
     // 1.70x the toolbar and clock islands ate the board they are supposed to
     // be revealing. 1.35x still gives a ~76dp touch target — comfortably
     // larger than the 56dp platform minimum for someone standing at a board.
-    val s = raw.coerceIn(0.85f, 1.35f)
+    // Then 0.9x across the board: on the real panel everything read ~10% too
+    // big (a 20dp size should be 18dp).
+    val s = raw.coerceIn(0.85f, 1.35f) * 0.9f
 
     return Dimens(
         scale = s,

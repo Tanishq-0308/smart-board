@@ -26,7 +26,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.motionEventSpy
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -100,6 +102,7 @@ fun DiagnosticsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /** Touch here with fingers and the pen: reports what the panel really sends. */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun TouchTestPad(modifier: Modifier) {
     val dimens = SmartBoardTheme.dimens
@@ -113,11 +116,30 @@ private fun TouchTestPad(modifier: Modifier) {
     var pressure by remember { mutableFloatStateOf(0f) }
     var minPressure by remember { mutableFloatStateOf(Float.MAX_VALUE) }
     var maxPressure by remember { mutableFloatStateOf(0f) }
+    // Contact size and source device, straight from the MotionEvent. An IR
+    // panel reports its pen as a finger; size is the only way to tell them apart.
+    var size by remember { mutableFloatStateOf(0f) }
+    var minSize by remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    var maxSize by remember { mutableFloatStateOf(0f) }
+    var device by remember { mutableStateOf("–") }
 
     Box(
         modifier
             .border(1.dp, TextOnSurfaceMuted, RoundedCornerShape(dimens.cornerRadius))
             .background(TextOnSurfaceMuted.copy(alpha = 0.06f), RoundedCornerShape(dimens.cornerRadius))
+            .motionEventSpy { ev ->
+                // Fresh range per touch, so pen and finger can be compared one after the other.
+                if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+                    minSize = Float.MAX_VALUE
+                    maxSize = 0f
+                }
+                for (i in 0 until ev.pointerCount) {
+                    size = ev.getTouchMajor(i)
+                    minSize = minOf(minSize, size)
+                    maxSize = maxOf(maxSize, size)
+                }
+                device = "${ev.device?.name ?: "?"} · tool ${ev.getToolType(ev.actionIndex)}"
+            }
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
@@ -157,6 +179,18 @@ private fun TouchTestPad(modifier: Modifier) {
             )
             Text(
                 stringResource(R.string.diag_pad_pressure, "%.3f".format(pressure)),
+                fontFamily = FontFamily.Monospace, color = TextOnSurface, modifier = mono,
+            )
+            Text(
+                stringResource(
+                    R.string.diag_pad_size,
+                    "%.1f".format(size),
+                    if (maxSize > 0f) "%.1f – %.1f".format(minSize, maxSize) else "–",
+                ),
+                fontFamily = FontFamily.Monospace, color = TextOnSurface, modifier = mono,
+            )
+            Text(
+                stringResource(R.string.diag_pad_device, device),
                 fontFamily = FontFamily.Monospace, color = TextOnSurface, modifier = mono,
             )
             if (hasPressure) {
