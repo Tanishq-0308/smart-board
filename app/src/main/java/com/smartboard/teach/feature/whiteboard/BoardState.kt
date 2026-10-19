@@ -35,6 +35,9 @@ sealed interface BoardMode {
 
 sealed interface DragState {
     data object None : DragState
+
+    /** Turning a selected 3D solid with a drag across it. */
+    data class TurningSolid(val containerId: String) : DragState
     data object Drawing : DragState
     data class Marquee(val startX: Float, val startY: Float) : DragState
     data class MovingSelection(val lastX: Float, val lastY: Float) : DragState
@@ -221,9 +224,10 @@ class BoardState {
         val colors: Map<PenType, Color>,
         val widths: Map<PenType, Float>,
         val eraserScreenRadius: Float,
+        val eraseByArea: Boolean = false,
     )
 
-    fun penMemory() = PenMemory(penType, tool, nibColor.toMap(), nibWidth.toMap(), eraserScreenRadius)
+    fun penMemory() = PenMemory(penType, tool, nibColor.toMap(), nibWidth.toMap(), eraserScreenRadius, eraseByArea)
 
     /**
      * Leaving the board and coming back (sidebar, Study Material, 3D Maths)
@@ -233,13 +237,21 @@ class BoardState {
         nibColor.putAll(memory.colors)
         nibWidth.putAll(memory.widths)
         eraserScreenRadius = memory.eraserScreenRadius
+        eraseByArea = memory.eraseByArea
         selectPenType(memory.penType)
         tool = memory.tool
     }
 
     /** Eraser radius in SCREEN px; converted to world at hit-test time so it
      *  stays the same physical size however far the board is zoomed. */
-    var eraserScreenRadius by mutableStateOf(30f)
+    var eraserScreenRadius by mutableStateOf(60f)
+
+    /**
+     * The eraser's two modes, as on the reference panel: false rubs out what
+     * the disc passes over; true erases everything inside a loop the teacher
+     * draws round it — quicker than scrubbing out a whole worked example.
+     */
+    var eraseByArea by mutableStateOf(false)
 
     // --- Input behaviour (mirrors Settings) ---
     var stylusOnlyMode by mutableStateOf(false)
@@ -332,6 +344,12 @@ class BoardState {
     /** Live marquee rect in world coords while dragging, else null. */
     var marqueeRect by mutableStateOf<FloatArray?>(null)
 
+    /** Where the eraser is, in SCREEN coords, while it is rubbing; else null. */
+    var eraserAt by mutableStateOf<androidx.compose.ui.geometry.Offset?>(null)
+
+    /** The area eraser's loop so far, in WORLD coords; empty when not drawing one. */
+    val eraseLasso = androidx.compose.runtime.mutableStateListOf<androidx.compose.ui.geometry.Offset>()
+
     /**
      * The background is selected as a whole rather than by id.
      *
@@ -418,6 +436,16 @@ class BoardState {
      * recogniser's circle no longer has the radius the teacher measured.
      */
     var suppressShapeSnap: Boolean = false
+
+    /**
+     * Turns board 3D solids; set by the screen, which owns rendering and
+     * files. Null where turning is not offered (the split panes), and then a
+     * drag on a solid writes on it like on a picture.
+     */
+    var solidTurner: SolidTurner? = null
+
+    /** How far down its leg a compass was grabbed to open it (0..1). */
+    var instrumentGrabAlong: Float = 0.78f
 
     var lastTextBoxId: String? = null
 
@@ -653,4 +681,13 @@ class BoardState {
         /** Low enough to read ink through it, high enough to see the mark. */
         const val HIGHLIGHTER_ALPHA = 0.35f
     }
+}
+
+/** What the board does when a 3D solid is dragged round. */
+interface SolidTurner {
+    /** The finger moved [dx], [dy] screen px across solid [containerId]. */
+    fun turn(containerId: String, dx: Float, dy: Float)
+
+    /** The drag ended: keep the new angle. */
+    fun finish(containerId: String)
 }

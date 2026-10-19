@@ -31,18 +31,21 @@ class InstrumentHandleTest {
                 val (move, rotate, resize) = instrumentHandles(s.instruments[0], s.camera)!!
                 assertEquals("$kind move", InstrumentDrag.MOVE, dragModeFor(s, s.instruments[0], move))
                 assertEquals("$kind rotate", InstrumentDrag.ROTATE, dragModeFor(s, s.instruments[0], rotate))
-                assertEquals("$kind resize", InstrumentDrag.RESIZE, dragModeFor(s, s.instruments[0], resize))
+                // The protractor has no stretch, as on the reference board.
+                resize?.let {
+                    assertEquals("$kind resize", InstrumentDrag.RESIZE, dragModeFor(s, s.instruments[0], it))
+                }
             }
         }
     }
 
     @Test
     fun `dragging the resize handle puts the handle under the finger`() {
-        kinds.forEach { kind ->
+        kinds.filter { it != InstrumentKind.PROTRACTOR }.forEach { kind ->
             val s = state(Instrument(kind, 300f, 400f, rotation = 0.7f))
             val original = s.instruments[0]
             val bigger = original.copy(lengthCm = 15f)
-            val target = instrumentHandles(bigger, s.camera)!!.resize
+            val target = instrumentHandles(bigger, s.camera)!!.resize!!
             assertEquals("$kind", 15f, resizedLengthCm(original, s.camera, target), 0.01f)
         }
     }
@@ -92,5 +95,95 @@ class InstrumentHandleTest {
     @Test
     fun `the compass guides nothing`() {
         assertEquals(null, InstrumentGeometry.projectOntoGuide(Instrument(InstrumentKind.COMPASS, 0f, 0f), 1f, 5f, 5f))
+    }
+
+    @Test
+    fun `the ruler's close button puts it away`() {
+        val s = state(Instrument(InstrumentKind.RULER, 300f, 400f, rotation = 0.5f))
+        val close = instrumentHandles(s.instruments[0], s.camera)!!.close!!
+        assertEquals(InstrumentDrag.CLOSE, dragModeFor(s, s.instruments[0], close))
+    }
+
+    @Test
+    fun `rotating turns an instrument about its middle, not its corner`() {
+        listOf(InstrumentKind.RULER, InstrumentKind.SET_SQUARE_45, InstrumentKind.PROTRACTOR).forEach { kind ->
+            val s = state(Instrument(kind, 300f, 400f, rotation = 0.2f))
+            val before = instrumentPivot(s.instruments[0], s.camera)
+            val turned = rotatedAboutPivot(s.instruments[0], 1.4f, s.camera)
+            val after = instrumentPivot(turned, s.camera)
+            assertEquals("$kind x", before.x, after.x, 0.01f)
+            assertEquals("$kind y", before.y, after.y, 0.01f)
+            assertEquals(1.4f, turned.rotation, 0f)
+        }
+    }
+
+    @Test
+    fun `both of the ruler's long edges rule`() {
+        val ruler = Instrument(InstrumentKind.RULER, 0f, 0f, lengthCm = 10f)
+        val body = InstrumentGeometry.rulerBodyPx()
+        val nearTop = InstrumentGeometry.projectOntoGuide(ruler, 1f, 50f, 5f)!!
+        val nearBottom = InstrumentGeometry.projectOntoGuide(ruler, 1f, 50f, body - 5f)!!
+        assertEquals(0f, nearTop[1], 0.01f)
+        assertEquals(body, nearBottom[1], 0.01f)
+    }
+
+    @Test
+    fun `set squares close from their own button`() {
+        listOf(InstrumentKind.SET_SQUARE_45, InstrumentKind.SET_SQUARE_30).forEach { kind ->
+            val s = state(Instrument(kind, 300f, 400f, rotation = 0.5f))
+            val close = instrumentHandles(s.instruments[0], s.camera)!!.close!!
+            assertEquals("$kind", InstrumentDrag.CLOSE, dragModeFor(s, s.instruments[0], close))
+        }
+    }
+
+    @Test
+    fun `all three sides of a set square rule`() {
+        val square = Instrument(InstrumentKind.SET_SQUARE_45, 0f, 0f, lengthCm = 10f)
+        val size = 10f * InstrumentGeometry.pxPerCm
+        // Just inside the top leg, the side leg, and the hypotenuse.
+        assertEquals(0f, InstrumentGeometry.projectOntoGuide(square, 1f, size * 0.4f, 6f)!![1], 0.01f)
+        assertEquals(0f, InstrumentGeometry.projectOntoGuide(square, 1f, 6f, size * 0.4f)!![0], 0.01f)
+        val onHyp = InstrumentGeometry.projectOntoGuide(square, 1f, size * 0.48f, size * 0.48f)!!
+        assertEquals(size, onHyp[0] + onHyp[1], 0.5f)
+    }
+
+    @Test
+    fun `ink can be drawn inside a set square's window`() {
+        val s = state(Instrument(InstrumentKind.SET_SQUARE_45, 0f, 0f, lengthCm = 10f))
+        val size = 10f * InstrumentGeometry.pxPerCm
+        // A point well inside the window, away from every edge band.
+        val inside = androidx.compose.ui.geometry.Offset(size * 0.3f, size * 0.3f)
+        assertEquals(InstrumentDrag.NONE, dragModeFor(s, s.instruments[0], inside))
+    }
+
+    @Test
+    fun `every protractor button is reachable`() {
+        val s = state(Instrument(InstrumentKind.PROTRACTOR, 600f, 600f, lengthCm = 20f, rotation = 0.3f, armRad = 0.9f))
+        instrumentHandles(s.instruments[0], s.camera)!!.extras.forEach { (mode, at) ->
+            assertEquals("$mode", mode, dragModeFor(s, s.instruments[0], at))
+        }
+    }
+
+    @Test
+    fun `the protractor arm reads whole degrees above its base line`() {
+        val deg = (Math.PI / 180).toFloat()
+        // 50 degrees up and to the right (up is -y).
+        val a = 50.3 * Math.PI / 180
+        assertEquals(50 * deg, InstrumentGeometry.armAngle(kotlin.math.cos(a).toFloat(), -kotlin.math.sin(a).toFloat()), 1e-5f)
+        // Below the base line it holds at the nearer end.
+        assertEquals(0f, InstrumentGeometry.armAngle(5f, 1f), 0f)
+        assertEquals(180 * deg, InstrumentGeometry.armAngle(-5f, 1f), 1e-5f)
+    }
+
+    @Test
+    fun `the drawn angle runs from the arm's tip through the centre to the rim`() {
+        val p = Instrument(InstrumentKind.PROTRACTOR, 100f, 100f, lengthCm = 10f, armRad = (Math.PI / 2).toFloat())
+        val r = p.protractorRadiusPx
+        val xy = InstrumentGeometry.protractorInk(p, 1f, InstrumentGeometry.ProtractorInk.ANGLE)
+        // Starts at the arm's rim point (straight up), ends on the base line's rim point.
+        assertEquals(100f, xy[0], 0.01f)
+        assertEquals(100f - r, xy[1], 0.01f)
+        assertEquals(100f + r, xy[xy.size - 2], 0.01f)
+        assertEquals(100f, xy[xy.size - 1], 0.01f)
     }
 }

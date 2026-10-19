@@ -93,6 +93,16 @@ data class Instrument(
     val sweepStart: Float = 0f,
     val sweepEnd: Float = 0f,
     /**
+     * Protractor only: the measuring arm's angle above the base line, in
+     * radians, 0..pi — what the big readout in the middle shows.
+     */
+    val armRad: Float = 0f,
+    /**
+     * Compass only: needle and pencil change legs (the ⇆ button). False puts
+     * the pencil on the right as the legs hang down, as on the reference.
+     */
+    val swapped: Boolean = false,
+    /**
      * Stable identity, so a drag keeps hold of the instrument it started on.
      *
      * Last in the list so positional construction — `Instrument(kind, x, y)` —
@@ -166,7 +176,7 @@ object InstrumentGeometry {
      * For the ruler this is its top edge; for the set square, the hypotenuse
      * — the edges a teacher actually rules against.
      */
-    fun edgeOf(instrument: Instrument, zoom: Float): FloatArray {
+    fun edgeOf(instrument: Instrument, zoom: Float, far: Boolean = false): FloatArray {
         val baseWorld = instrument.lengthCm * pxPerCm / zoom
         val cos = cos(instrument.rotation)
         val sin = sin(instrument.rotation)
@@ -187,8 +197,10 @@ object InstrumentGeometry {
             x0 = baseWorld; y0 = 0f
             x1 = 0f; y1 = heightWorld
         } else {
-            x0 = 0f; y0 = 0f
-            x1 = baseWorld; y1 = 0f
+            // [far] is the ruler's other long edge: both rule, as on a real one.
+            val y = if (far) rulerBodyPx() / zoom else 0f
+            x0 = 0f; y0 = y
+            x1 = baseWorld; y1 = y
         }
 
         return floatArrayOf(
@@ -197,6 +209,26 @@ object InstrumentGeometry {
             instrument.x + x1 * cos - y1 * sin,
             instrument.y + x1 * sin + y1 * cos,
         )
+    }
+
+    /**
+     * Every edge ink can be ruled against, nearest wins: both long sides of
+     * the ruler, and all three sides of a set square — the legs draw the
+     * right angle, the hypotenuse the 45 or 30/60 slope.
+     */
+    fun rulingEdges(instrument: Instrument, zoom: Float): List<FloatArray> {
+        if (instrument.kind == InstrumentKind.RULER) {
+            return listOf(edgeOf(instrument, zoom), edgeOf(instrument, zoom, far = true))
+        }
+        val base = instrument.lengthCm * pxPerCm / zoom
+        val height = base * instrument.kind.setSquareRatio
+        val c = cos(instrument.rotation)
+        val s = sin(instrument.rotation)
+        fun edge(x0: Float, y0: Float, x1: Float, y1: Float) = floatArrayOf(
+            instrument.x + x0 * c - y0 * s, instrument.y + x0 * s + y0 * c,
+            instrument.x + x1 * c - y1 * s, instrument.y + x1 * s + y1 * c,
+        )
+        return listOf(edgeOf(instrument, zoom), edge(0f, 0f, base, 0f), edge(0f, 0f, 0f, height))
     }
 
     /**
@@ -237,7 +269,9 @@ object InstrumentGeometry {
      */
     fun projectOntoGuide(instrument: Instrument, zoom: Float, px: Float, py: Float): FloatArray? {
         if (instrument.kind.hasRulingEdge) {
-            return projectOntoEdge(edgeOf(instrument, zoom), px, py)
+            return rulingEdges(instrument, zoom)
+                .map { projectOntoEdge(it, px, py) }
+                .minBy { hypot(px - it[0], py - it[1]) }
         }
         if (instrument.kind != InstrumentKind.PROTRACTOR) return null
 
@@ -334,6 +368,62 @@ object InstrumentGeometry {
         return if (deg < 0) deg + 360 else deg
     }
 
+    /**
+     * The protractor arm's angle for a finger at ([lx], [ly]) in the
+     * protractor's own frame (centre at 0, base line along +x, up is -y):
+     * 0..pi, on whole degrees, since a protractor reads whole degrees. Below
+     * the base line it stays at whichever end the finger is nearer.
+     */
+    fun armAngle(lx: Float, ly: Float): Float {
+        var a = atan2(-ly, lx)
+        if (a < 0f) a = if (lx >= 0f) 0f else Math.PI.toFloat()
+        val deg = Math.round(Math.toDegrees(a.toDouble())).toDouble()
+        return Math.toRadians(deg).toFloat()
+    }
+
+    /** What the protractor's three draw buttons put on the board. */
+    enum class ProtractorInk { ANGLE, ARC, SECTOR }
+
+    /**
+     * World x,y pairs for [part] of the angle the protractor's arm measures,
+     * out to its rim: the two rays (through the centre), the arc between
+     * them, or the slice (the centre, then the arc). Rays are sampled
+     * densely: ink is smoothed as a curve, and three points would round the
+     * vertex off.
+     */
+    fun protractorInk(p: Instrument, zoom: Float, part: ProtractorInk): FloatArray {
+        val r = p.protractorRadiusPx / zoom
+        val c = cos(p.rotation)
+        val s = sin(p.rotation)
+        val out = ArrayList<Float>()
+        fun at(t: Float, dist: Float) {
+            val lx = cos(-t) * dist
+            val ly = sin(-t) * dist
+            out += p.x + lx * c - ly * s
+            out += p.y + lx * s + ly * c
+        }
+        fun arc() {
+            val steps = (p.armRad / ARC_STEP).toInt().coerceAtLeast(1)
+            for (i in 0..steps) at(p.armRad * i / steps, r)
+        }
+        val raySteps = RAY_STEPS
+        when (part) {
+            ProtractorInk.ANGLE -> {
+                for (i in raySteps downTo 0) at(p.armRad, r * i / raySteps)
+                for (i in 1..raySteps) at(0f, r * i / raySteps)
+            }
+            ProtractorInk.ARC -> arc()
+            ProtractorInk.SECTOR -> {
+                at(0f, 0f)
+                arc()
+            }
+        }
+        return out.toFloatArray()
+    }
+
+    private const val ARC_STEP = 0.035f
+    private const val RAY_STEPS = 60
+
     private const val ROTATION_STEP_DEGREES = 15f
     private const val ROTATION_SNAP_DEGREES = 2f
 
@@ -341,6 +431,16 @@ object InstrumentGeometry {
     fun tickSpacingWorld(zoom: Float, perCm: Int): Float = pxPerCm / zoom / perCm
 
     private const val CM_PER_INCH = 2.54f
+
+    /**
+     * The ruler's width across, in screen px: 2.6cm, but never too narrow to
+     * hold its grip and its three buttons stacked at the end, as on the
+     * reference ruler. On a large low-density panel 2.6cm is under 100px.
+     */
+    fun rulerBodyPx(): Float = maxOf(RULER_BODY_CM * pxPerCm, MIN_RULER_BODY_PX)
+
+    private const val RULER_BODY_CM = 2.6f
+    private const val MIN_RULER_BODY_PX = 180f
 
     /** ~160dpi, the density baseline; only used when a panel misreports. */
     private const val DEFAULT_PX_PER_CM = 63f

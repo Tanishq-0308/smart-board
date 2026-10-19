@@ -95,6 +95,10 @@ object DetailRoutes {
      */
     const val INSERT_IMAGE_KEY = "insertImagePath"
 
+    /** A 3D Maths scene file handed back to the board, and the solid it edits. */
+    const val INSERT_SOLID_KEY = "insertSolidPath"
+    const val INSERT_SOLID_REPLACE_KEY = "insertSolidReplace"
+
     /** Pages [first]..[last] (0-based, inclusive) of the PDF at [path] go onto the board. */
     fun whiteboardWithDocument(path: String, first: Int, last: Int) =
         "whiteboard?documentPath=${android.net.Uri.encode(path)}&documentPage=$first&documentLast=$last"

@@ -1,5 +1,7 @@
 package com.smartboard.teach.feature.whiteboard
 
+import com.smartboard.teach.domain.model.Container
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +61,8 @@ fun ObjectChrome(
     onDelete: () -> Unit,
     onInsertRow: (at: Int) -> Unit,
     onInsertColumn: (at: Int) -> Unit,
+    /** Reopens a 3D solid in 3D Maths; shown only for one. */
+    onEditSolid: (Container) -> Unit = {},
 ) {
     if (!state.hasSelection) return
 
@@ -138,6 +142,9 @@ fun ObjectChrome(
                     )
                 }
 
+                if (selected?.kind == ContainerKind.SOLID3D) {
+                    BarButton(Icons.Filled.ViewInAr, stringResource(R.string.board_edit_in_maths3d)) { onEditSolid(selected) }
+                }
                 BarButton(Icons.Filled.ContentCopy, stringResource(R.string.board_duplicate), onDuplicate)
                 BarButton(Icons.Filled.DeleteOutline, stringResource(R.string.board_delete), onDelete)
             }

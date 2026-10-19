@@ -58,26 +58,35 @@ val BoardPenIcon: ImageVector = outline("BoardPen") {
 
 /** An angled eraser block with a wipe trail, as on the reference bar. */
 val BoardEraserIcon: ImageVector = outline("BoardEraser") {
+    // As on the reference bar: a scribble being rubbed out, with the block
+    // tilted across its tail.
     path(
         stroke = SolidColor(Color.White),
         strokeLineWidth = 1.8f,
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round,
     ) {
-        // The block, a parallelogram tilted the way a held eraser sits.
-        moveTo(10.5f, 18.5f)
-        lineTo(20.0f, 9.0f)
-        lineTo(16.0f, 5.0f)
-        lineTo(6.5f, 14.5f)
+        // The scribble: a loop that trails off under the block.
+        moveTo(2.5f, 9.5f)
+        curveTo(5.0f, 5.5f, 9.5f, 6.5f, 7.5f, 10.5f)
+        curveTo(6.0f, 13.5f, 3.0f, 17.0f, 6.0f, 17.5f)
+        curveTo(8.0f, 17.8f, 9.5f, 16.5f, 11.0f, 15.5f)
+    }
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 1.8f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round,
+    ) {
+        // The block, tilted the way a held eraser sits.
+        moveTo(11.5f, 15.0f)
+        lineTo(17.5f, 9.0f)
+        lineTo(21.5f, 13.0f)
+        lineTo(15.5f, 19.0f)
         close()
-        // Split line where the rubber meets the sleeve.
-        moveTo(9.0f, 12.0f)
-        lineTo(13.0f, 16.0f)
-        // Wipe trail: two short strokes trailing off to the left.
-        moveTo(8.0f, 20.0f)
-        lineTo(4.0f, 20.0f)
-        moveTo(6.0f, 16.5f)
-        lineTo(3.0f, 16.5f)
+        // Where the sleeve meets the rubber.
+        moveTo(14.0f, 12.5f)
+        lineTo(18.0f, 16.5f)
     }
 }
 
@@ -191,4 +200,102 @@ val NibBrushIcon: ImageVector = nib("NibBrush") {
         curveTo(10.5f, 21f, 9f, 18f, 9f, 13f)
         close()
     }
+}
+
+/** Split view, as the reference panel draws it: a frame holding two panes. */
+val BoardSplitIcon: ImageVector = outline("BoardSplit") {
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 1.8f,
+        strokeLineJoin = StrokeJoin.Round,
+    ) {
+        // The frame.
+        moveTo(3.0f, 4.0f); lineTo(21.0f, 4.0f); lineTo(21.0f, 20.0f); lineTo(3.0f, 20.0f); close()
+        // Left pane.
+        moveTo(6.0f, 7.0f); lineTo(11.0f, 7.0f); lineTo(11.0f, 17.0f); lineTo(6.0f, 17.0f); close()
+        // Right pane.
+        moveTo(13.0f, 7.0f); lineTo(18.0f, 7.0f); lineTo(18.0f, 17.0f); lineTo(13.0f, 17.0f); close()
+    }
+}
+
+/** The area eraser, as on the reference: a dashed selection with the block at its corner. */
+val BoardAreaEraserIcon: ImageVector = outline("BoardAreaEraser") {
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 1.8f,
+        strokeLineCap = StrokeCap.Round,
+    ) {
+        // Dashed square: short dashes along each edge.
+        for (d in listOf(3.0f, 7.0f, 11.0f)) {
+            moveTo(d, 3.0f); lineTo(d + 1.6f, 3.0f)
+            moveTo(3.0f, d); lineTo(3.0f, d + 1.6f)
+        }
+        moveTo(15.0f, 3.0f); lineTo(15.0f, 4.6f)
+        moveTo(3.0f, 15.0f); lineTo(4.6f, 15.0f)
+        moveTo(15.0f, 7.0f); lineTo(15.0f, 8.0f)
+        moveTo(7.0f, 15.0f); lineTo(8.0f, 15.0f)
+    }
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 1.8f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round,
+    ) {
+        // The block, tilted, over the open corner.
+        moveTo(10.5f, 16.0f)
+        lineTo(16.5f, 10.0f)
+        lineTo(21.0f, 14.5f)
+        lineTo(15.0f, 20.5f)
+        close()
+        moveTo(13.0f, 13.5f)
+        lineTo(17.5f, 18.0f)
+    }
+}
+
+/** Stretch along a length, as on the reference ruler: |<->|. */
+val BoardStretchIcon: ImageVector = outline("BoardStretch") {
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round,
+    ) {
+        moveTo(3.5f, 6f); lineTo(3.5f, 18f)
+        moveTo(20.5f, 6f); lineTo(20.5f, 18f)
+        moveTo(7f, 12f); lineTo(17f, 12f)
+        moveTo(9.5f, 9.5f); lineTo(7f, 12f); lineTo(9.5f, 14.5f)
+        moveTo(14.5f, 9.5f); lineTo(17f, 12f); lineTo(14.5f, 14.5f)
+    }
+}
+
+private fun line(name: String, build: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit) = outline(name) {
+    path(
+        stroke = SolidColor(Color.White),
+        strokeLineWidth = 2f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round,
+        pathBuilder = build,
+    )
+}
+
+/** Protractor: draw the angle's two rays. */
+val BoardAngleIcon: ImageVector = line("BoardAngle") {
+    moveTo(17f, 6f); lineTo(6f, 18f); lineTo(19f, 18f)
+}
+
+/** Protractor: draw the arc between the arms. */
+val BoardArcIcon: ImageVector = line("BoardArc") {
+    moveTo(7f, 17f); curveTo(7f, 10f, 11f, 7f, 17f, 7f)
+}
+
+/** Protractor: draw the filled slice. */
+val BoardSectorIcon: ImageVector = line("BoardSector") {
+    moveTo(5f, 18f); lineTo(19f, 18f); curveTo(19f, 12f, 16f, 8f, 11f, 6.5f); close()
+}
+
+/** Protractor: the measuring arm's grip, a ring on a stem. */
+val BoardArmIcon: ImageVector = line("BoardArm") {
+    moveTo(8f, 9f); arcTo(4f, 4f, 0f, true, true, 16f, 9f); arcTo(4f, 4f, 0f, true, true, 8f, 9f)
+    moveTo(12f, 13f); lineTo(12f, 20f)
+    moveTo(12f, 17.5f); lineTo(14.5f, 17.5f)
 }

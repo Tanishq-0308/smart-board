@@ -63,7 +63,15 @@ enum class DrawTool {
      * Only produced by shape recognition; there is no freehand polygon tool,
      * since drawing one by hand IS the gesture.
      */
-    POLYGON;
+    POLYGON,
+
+    /**
+     * A filled slice: POLYGON geometry (the centre, then points round the
+     * arc), drawn filled. Made by the protractor's "draw sector" button. A
+     * tool of its own rather than a fill flag on the style, because the tool
+     * is already saved by name and a new style field would need a migration.
+     */
+    SECTOR;
 
     /**
      * Shape tools derive their geometry from stored points rather than from
@@ -79,7 +87,7 @@ enum class DrawTool {
      * describes every other shape here, including the 3-D solids.
      */
     val isTwoPointShape: Boolean
-        get() = isShape && this != POLYGON
+        get() = isShape && this != POLYGON && this != SECTOR
 
     val isFreehand: Boolean get() = this == PEN || this == HIGHLIGHTER
 

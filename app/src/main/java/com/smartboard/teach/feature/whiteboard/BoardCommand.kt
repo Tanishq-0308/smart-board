@@ -14,7 +14,14 @@ import com.smartboard.teach.domain.model.TextBox
  */
 sealed interface BoardCommand {
     data class AddStroke(val stroke: Stroke) : BoardCommand
-    data class EraseStrokes(val strokes: List<Stroke>) : BoardCommand
+    /**
+     * One eraser drag: [strokes] it touched, and the [added] pieces left of
+     * them where it only rubbed part of a stroke away.
+     */
+    data class EraseStrokes(
+        val strokes: List<Stroke>,
+        val added: List<Stroke> = emptyList(),
+    ) : BoardCommand
     data class AddTextBox(val box: TextBox) : BoardCommand
     data class EditTextBox(val before: TextBox, val after: TextBox) : BoardCommand
     data class DeleteTextBox(val box: TextBox) : BoardCommand

@@ -98,11 +98,28 @@ fun PenPopover(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
             ) {
+                // On a light disc so black or navy ink still shows against
+                // the dark panel.
+                Box(
+                    Modifier
+                        .padding(end = dimens.gutterSmall)
+                        .size(dimens.chromeButton)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.92f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = nib.nibIcon(),
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(dimens.chromeIcon * 1.3f),
+                    )
+                }
                 Text(
                     text = stringResource(nib.label),
                     color = TextOnChrome,
-                    fontSize = dimens.bodySize,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = dimens.bodySize * 1.15f,
+                    fontWeight = FontWeight.SemiBold,
                 )
                 // The Text pen's language: what its handwriting is read as.
                 if (nib.isTextPen) {
@@ -161,8 +178,9 @@ fun PenPopover(
             ) {
                 Text(
                     text = stringResource(R.string.board_pen_preview),
-                    color = TextOnChromeMuted,
-                    fontSize = dimens.labelSize,
+                    color = TextOnChrome,
+                    fontSize = dimens.bodySize,
+                    fontWeight = FontWeight.Medium,
                 )
                 StrokePreview(
                     color = color,
@@ -192,7 +210,7 @@ private fun ColorColumn(
         modifier.padding(vertical = dimens.gutterSmall),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.board_pen_color), color = TextOnChromeMuted, fontSize = dimens.labelSize)
+        Text(stringResource(R.string.board_pen_color), color = TextOnChrome, fontSize = dimens.bodySize, fontWeight = FontWeight.Medium)
         Column(
             Modifier.padding(top = 6.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp),
@@ -288,11 +306,11 @@ private fun ThicknessColumn(
         modifier.padding(vertical = dimens.gutterSmall),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.board_pen_thickness), color = TextOnChromeMuted, fontSize = dimens.labelSize)
+        Text(stringResource(R.string.board_pen_thickness), color = TextOnChrome, fontSize = dimens.bodySize, fontWeight = FontWeight.Medium)
         Text(
             text = formatWidth(width),
             color = TextOnChrome,
-            fontSize = dimens.labelSize,
+            fontSize = dimens.bodySize,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
         )
@@ -331,7 +349,7 @@ private fun VerticalSlider(
 
     Box(
         modifier
-            .width(28.dp)
+            .width(36.dp)
             .pointerInput(Unit) {
                 fun emit(y: Float) {
                     // Inverted: dragging UP must mean thicker.
@@ -354,23 +372,23 @@ private fun VerticalSlider(
     ) {
         Box(
             Modifier
-                .width(6.dp)
+                .width(10.dp)
                 .fillMaxHeight()
-                .clip(RoundedCornerShape(3.dp))
+                .clip(RoundedCornerShape(5.dp))
                 .background(ChromeBorder),
         )
         Box(
             Modifier
-                .width(6.dp)
+                .width(10.dp)
                 .fillMaxHeight(fraction.coerceAtLeast(0.02f))
-                .clip(RoundedCornerShape(3.dp))
+                .clip(RoundedCornerShape(5.dp))
                 .background(Accent),
         )
         Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
             if (fraction < 1f) Box(Modifier.weight(1f - fraction))
             Box(
                 Modifier
-                    .size(18.dp)
+                    .size(26.dp)
                     .clip(CircleShape)
                     .background(Color.White),
             )
@@ -391,7 +409,7 @@ private fun NibColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(stringResource(R.string.board_pen), color = TextOnChromeMuted, fontSize = dimens.labelSize)
+        Text(stringResource(R.string.board_pen), color = TextOnChrome, fontSize = dimens.bodySize, fontWeight = FontWeight.Medium)
         PenType.entries.forEach { type ->
             Box(
                 Modifier

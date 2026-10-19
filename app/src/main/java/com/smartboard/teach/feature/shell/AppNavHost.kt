@@ -63,6 +63,9 @@ fun AppNavHost(
             val pendingInsertImage by entry.savedStateHandle
                 .getStateFlow<String?>(DetailRoutes.INSERT_IMAGE_KEY, null)
                 .collectAsState()
+            val pendingSolid by entry.savedStateHandle
+                .getStateFlow<String?>(DetailRoutes.INSERT_SOLID_KEY, null)
+                .collectAsState()
             // Read through the SavedStateHandle so it can be cleared once used:
             // coming back to the board must not add the document again.
             val pendingDocument by entry.savedStateHandle
@@ -77,6 +80,21 @@ fun AppNavHost(
                 onDocumentConsumed = { entry.savedStateHandle[DetailRoutes.ARG_DOCUMENT_PATH] = null },
                 pendingInsertImage = pendingInsertImage,
                 onInsertConsumed = { entry.savedStateHandle[DetailRoutes.INSERT_IMAGE_KEY] = null },
+                pendingSolid = pendingSolid,
+                pendingSolidReplace = entry.savedStateHandle.get<String>(DetailRoutes.INSERT_SOLID_REPLACE_KEY),
+                onSolidConsumed = {
+                    entry.savedStateHandle[DetailRoutes.INSERT_SOLID_KEY] = null
+                    entry.savedStateHandle[DetailRoutes.INSERT_SOLID_REPLACE_KEY] = null
+                },
+                // A board solid reopens in 3D Maths on its own scene.
+                onEditSolid = { scene, id ->
+                    navController.navigate(
+                        Dest.Maths3D.route + "?scene=" + android.net.Uri.encode(scene) + "&edit=" + id,
+                    ) {
+                        popUpTo(Dest.Whiteboard.route) { saveState = true }
+                        launchSingleTop = true
+                    }
+                },
                 onOpenNotes = {
                     navController.navigate(Dest.Notes.route) { launchSingleTop = true }
                 },
@@ -101,17 +119,25 @@ fun AppNavHost(
         }
 
         composable(
-            route = Dest.Maths3D.route + "?solid={solid}",
-            arguments = listOf(navArgument("solid") { type = NavType.StringType; nullable = true; defaultValue = null }),
+            route = Dest.Maths3D.route + "?solid={solid}&scene={scene}&edit={edit}",
+            arguments = listOf(
+                navArgument("solid") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("scene") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("edit") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
         ) { entry ->
+            val editing = entry.arguments?.getString("edit")
             Maths3DScreen(
                 initialSolid = entry.arguments?.getString("solid"),
+                initialScene = entry.arguments?.getString("scene"),
                 onInsert = { path ->
                     // The board is always the root of the stack (sidebar
-                    // navigation pops up to it), so hand the snapshot to its
-                    // entry and return there.
-                    navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_DOCUMENT)
-                        .savedStateHandle[DetailRoutes.INSERT_IMAGE_KEY] = path
+                    // navigation pops up to it), so hand the scene to its
+                    // entry and return there — with the solid it replaces,
+                    // when it was opened from one.
+                    val board = navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_DOCUMENT).savedStateHandle
+                    board[DetailRoutes.INSERT_SOLID_REPLACE_KEY] = editing
+                    board[DetailRoutes.INSERT_SOLID_KEY] = path
                     navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_DOCUMENT, inclusive = false)
                 },
             )

@@ -302,7 +302,7 @@ class BoardRenderer {
                     }
                 }
 
-                ContainerKind.IMAGE, ContainerKind.VIDEO -> {
+                ContainerKind.IMAGE, ContainerKind.VIDEO, ContainerKind.SOLID3D -> {
                     val cell = container.cells.firstOrNull() ?: return@forEach
                     frameRect.set(cell.left, cell.top, cell.right, cell.bottom)
                     val bitmap = media[container.id]
@@ -319,9 +319,34 @@ class BoardRenderer {
                     if (container.kind == ContainerKind.VIDEO) {
                         drawPlayBadge(canvas, cell.centerX, cell.centerY, zoom)
                     }
+                    // Likewise a 3D solid reads as a still until it is turned.
+                    if (container.kind == ContainerKind.SOLID3D) {
+                        draw3dBadge(canvas, cell.right, cell.top, zoom)
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * "3D" in a small pill at a solid's top-right corner, a constant size on
+     * screen: it tells the class this one turns, as the play badge tells them
+     * a picture is a video.
+     */
+    private fun draw3dBadge(canvas: Canvas, right: Float, top: Float, zoom: Float) {
+        val s = 1f / zoom
+        badgePaint.style = Paint.Style.FILL
+        badgePaint.color = 0xE61F2933.toInt()
+        val w = 76f * s
+        val h = 44f * s
+        val rect = RectF(right - w - 12f * s, top + 12f * s, right - 12f * s, top + 12f * s + h)
+        canvas.drawRoundRect(rect, h / 2f, h / 2f, badgePaint)
+        badgePaint.color = android.graphics.Color.WHITE
+        badgePaint.textSize = 26f * s
+        badgePaint.isFakeBoldText = true
+        val tw = badgePaint.measureText("3D")
+        canvas.drawText("3D", rect.centerX() - tw / 2f, rect.centerY() + 9f * s, badgePaint)
+        badgePaint.isFakeBoldText = false
     }
 
     /**
@@ -418,7 +443,7 @@ class BoardRenderer {
     private fun drawShape(canvas: Canvas, stroke: Stroke) {
         // A polygon stores every vertex, not two endpoints, so it is drawn as
         // a closed path rather than derived from a bounding box.
-        if (stroke.tool == DrawTool.POLYGON) {
+        if (stroke.tool == DrawTool.POLYGON || stroke.tool == DrawTool.SECTOR) {
             if (stroke.pointCount < 3) return
             reusablePath.reset()
             reusablePath.moveTo(stroke.x(0), stroke.y(0))
@@ -426,6 +451,16 @@ class BoardRenderer {
                 reusablePath.lineTo(stroke.x(i), stroke.y(i))
             }
             reusablePath.close()
+            if (stroke.tool == DrawTool.SECTOR) {
+                // Tinted in its own ink, so the slice reads as one shape
+                // without hiding what is drawn beneath it.
+                val alpha = strokePaint.alpha
+                strokePaint.style = Paint.Style.FILL
+                strokePaint.alpha = (alpha * SECTOR_FILL_ALPHA).toInt()
+                canvas.drawPath(reusablePath, strokePaint)
+                strokePaint.style = Paint.Style.STROKE
+                strokePaint.alpha = alpha
+            }
             canvas.drawPath(reusablePath, strokePaint)
             return
         }
@@ -742,3 +777,6 @@ class BoardRenderer {
         private const val DASH_CACHE_MAX = 24
     }
 }
+
+/** How strongly a protractor sector is filled, as a fraction of its ink. */
+private const val SECTOR_FILL_ALPHA = 0.35f

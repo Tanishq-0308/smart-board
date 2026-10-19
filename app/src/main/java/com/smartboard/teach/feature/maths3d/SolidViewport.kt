@@ -44,11 +44,11 @@ import kotlin.math.tan
 internal val SolidAmber = Color(0xFFFFB020)
 internal val DimTeal = Color(0xFF3DD6B5)
 private val EdgeBrown = Color(0xFF3A2400)
-private val GridMajor = Color(0xFF4A6680)
-private val GridMinor = Color(0xFF2B3D50)
-private val ViewTop = Color(0xFF22364A)
-private val ViewBottom = Color(0xFF101A24)
-private val LabelFill = Color(0xD90F1720)
+internal val GridMajor = Color(0xFF4A6680)
+internal val GridMinor = Color(0xFF2B3D50)
+internal val ViewTop = Color(0xFF22364A)
+internal val ViewBottom = Color(0xFF101A24)
+internal val LabelFill = Color(0xD90F1720)
 
 private const val FOV_DEG = 45f
 
@@ -190,8 +190,11 @@ private fun DrawScope.drawGrid(view: ViewTransform) {
     }
 }
 
-/** Buffers reused across frames so a spinning solid does not churn the GC. */
-private class SoftwareRenderer {
+/**
+ * Buffers reused across frames so a spinning solid does not churn the GC.
+ * Also draws the board's live 3D objects (see renderScene).
+ */
+internal class SoftwareRenderer {
     private var order = IntArray(0)
     private var depths = FloatArray(0)
     private var shades = IntArray(0)

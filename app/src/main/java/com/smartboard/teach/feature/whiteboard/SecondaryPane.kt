@@ -41,7 +41,7 @@ import com.smartboard.teach.domain.model.BoardPage
  * a teacher wondering which pen the one on the left was setting.
  *
  * Width is the caller's business — panes are laid out in a row and sized by
- * weight, so two panes split the board in half and six split it in sixths.
+ * weight, so two panes split the board in half and four split it in quarters.
  */
 @Composable
 fun SecondaryPane(
@@ -98,8 +98,8 @@ fun SecondaryPane(
                     state.markCommittedDirty()
                     onPersist()
                 },
-                onStrokesErased = { erased ->
-                    state.history.record(BoardCommand.EraseStrokes(erased))
+                onStrokesErased = { erased, added ->
+                    state.history.record(BoardCommand.EraseStrokes(erased, added))
                     state.refreshHistoryFlags()
                     renderer.rebuildCache(
                         state.strokes,

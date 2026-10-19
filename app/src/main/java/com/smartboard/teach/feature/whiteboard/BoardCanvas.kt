@@ -1,5 +1,8 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.ui.graphics.Path
+import kotlin.math.sqrt
+import java.util.UUID
 import android.graphics.Bitmap
 import android.graphics.RectF
 import androidx.compose.foundation.Canvas
@@ -12,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.motionEventSpy
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -37,6 +41,10 @@ import com.smartboard.teach.feature.whiteboard.instruments.InstrumentDrag
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentGeometry
 import com.smartboard.teach.feature.whiteboard.instruments.InstrumentKind
 import com.smartboard.teach.feature.whiteboard.instruments.instrumentHitAt
+import com.smartboard.teach.feature.whiteboard.instruments.instrumentPivot
+import com.smartboard.teach.feature.whiteboard.instruments.rotatedAboutPivot
+import com.smartboard.teach.feature.whiteboard.instruments.compassSpreadTo
+import com.smartboard.teach.feature.whiteboard.instruments.compassGrabFraction
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.cos
@@ -64,7 +72,7 @@ fun BoardCanvas(
     state: BoardState,
     renderer: BoardRenderer,
     onStrokeFinished: (Stroke) -> Unit,
-    onStrokesErased: (List<Stroke>) -> Unit,
+    onStrokesErased: (removed: List<Stroke>, added: List<Stroke>) -> Unit,
     onSelectionMoved: (before: List<Stroke>, beforeBoxes: List<TextBox>) -> Unit,
     onCameraSettled: () -> Unit,
     modifier: Modifier = Modifier,
@@ -77,7 +85,7 @@ fun BoardCanvas(
     val palmRejection = remember { PalmRejection() }
     palmRejection.setStylusOnlyMode(state.stylusOnlyMode)
 
-    val erasedThisDrag = remember { mutableListOf<Stroke>() }
+    val eraseDrag = remember { EraseDrag() }
     // Pre-transform copies, so a completed move/resize is one undoable action.
     val transformSnapshot = remember { TransformSnapshot() }
     val gridPainter = remember { GridPainter() }
@@ -225,7 +233,7 @@ fun BoardCanvas(
                                         change.consume()
                                         handlePress(
                                             state, renderer, change, effectiveTool,
-                                            erasedThisDrag, transformSnapshot,
+                                            eraseDrag, transformSnapshot,
                                         )
                                     }
 
@@ -233,7 +241,7 @@ fun BoardCanvas(
                                     if (palmRejection.shouldAcceptMove(pointerId, isStylus, nowMs)) {
                                         change.consume()
                                         handleMove(
-                                            state, renderer, change, effectiveTool, erasedThisDrag,
+                                            state, renderer, change, effectiveTool, eraseDrag,
                                         )
                                     }
 
@@ -244,7 +252,7 @@ fun BoardCanvas(
                                         change.consume()
                                         handleRelease(
                                             state, renderer, change, effectiveTool,
-                                            erasedThisDrag, transformSnapshot,
+                                            eraseDrag, transformSnapshot,
                                             onStrokeFinished, onStrokesErased,
                                             onSelectionMoved, onCameraSettled,
                                             onPlayVideo,
@@ -361,6 +369,7 @@ fun BoardCanvas(
         //    selection panned off the edge must not paint over the sidebar.
         clipRect(0f, 0f, size.width, size.height) {
             drawSelectionChrome(state)
+            drawEraserOverlay(state)
         }
     }
 }
@@ -501,7 +510,7 @@ private fun handlePress(
     renderer: BoardRenderer,
     change: PointerInputChange,
     tool: DrawTool,
-    erasedThisDrag: MutableList<Stroke>,
+    eraseDrag: EraseDrag,
     snapshot: TransformSnapshot,
 ) {
     val camera = state.camera
@@ -528,15 +537,56 @@ private fun handlePress(
     // happens to be selected. Behind the switch it was grabbable only while
     // drawing, so with Select active the press fell through to the marquee and
     // the instrument simply would not rotate.
+    // A press on the SELECTED 3D solid turns it, whatever tool is out: a tap
+    // selects it first, so an unselected solid is still written on like a
+    // picture and a teacher never turns one by accident. The rim is left to
+    // the selection's resize handles.
+    if (state.solidTurner != null) {
+        val solid = state.selectedContainerId?.let(state::containerById)
+            ?.takeIf { it.kind == ContainerKind.SOLID3D }
+        val cell = solid?.cells?.firstOrNull()
+        val rim = HANDLE_TOUCH_RADIUS_PX / camera.zoom
+        if (solid != null && cell != null &&
+            worldX in (cell.left + rim)..(cell.right - rim) &&
+            worldY in (cell.top + rim)..(cell.bottom - rim)
+        ) {
+            state.dragState = DragState.TurningSolid(solid.id)
+            return
+        }
+    }
+
     if (state.instruments.isNotEmpty()) {
         val hit = instrumentHitAt(state, change.position)
         if (hit != null) {
+            // The ruler's own ✕: put it away, and let the rest of this
+            // touch go nowhere.
+            if (hit.mode == InstrumentDrag.CLOSE) {
+                state.instruments.removeAll { it.id == hit.id }
+                state.dragState = DragState.None
+                return
+            }
+            // The compass's ⇆: needle and pencil change legs.
+            if (hit.mode == InstrumentDrag.SWAP) {
+                state.instrumentById(hit.id)?.let {
+                    state.replaceInstrument(it.copy(swapped = !it.swapped, sweepStart = 0f, sweepEnd = 0f))
+                }
+                state.dragState = DragState.None
+                return
+            }
             state.instrumentDragMode = hit.mode
             state.draggedInstrumentId = hit.id
             state.instrumentById(hit.id)?.let { grabbed ->
+                if (hit.mode == InstrumentDrag.SPREAD || hit.mode == InstrumentDrag.SPREAD_NEEDLE) {
+                    state.instrumentGrabAlong = compassGrabFraction(
+                        grabbed, camera, change.position,
+                        byNeedleLeg = hit.mode == InstrumentDrag.SPREAD_NEEDLE,
+                    )
+                }
+                // Measured about the pivot the instrument will turn on.
+                val pivot = instrumentPivot(grabbed, camera)
                 state.instrumentGrabAngle = grabbed.rotation - atan2(
-                    change.position.y - camera.worldToScreenY(grabbed.y),
-                    change.position.x - camera.worldToScreenX(grabbed.x),
+                    change.position.y - pivot.y,
+                    change.position.x - pivot.x,
                 )
             }
             state.dragState = DragState.None
@@ -685,8 +735,17 @@ private fun handlePress(
 
     // Draw / erase.
     if (tool == DrawTool.ERASER) {
-        erasedThisDrag.clear()
-        eraseAt(state, renderer, worldX, worldY, erasedThisDrag)
+        eraseDrag.clear()
+        state.dragState = DragState.Drawing
+        if (state.eraseByArea) {
+            state.eraseLasso.clear()
+            state.eraseLasso += Offset(worldX, worldY)
+            return
+        }
+        eraseDrag.lastX = worldX
+        eraseDrag.lastY = worldY
+        state.eraserAt = change.position
+        eraseAt(state, renderer, worldX, worldY, eraseDrag)
         state.dragState = DragState.Drawing
         return
     }
@@ -702,7 +761,7 @@ private fun handlePress(
     // fire the player when the teacher meant to annotate the frame.
     state.tappedCell = cell?.takeIf {
         val kind = state.containerById(it.containerId)?.kind
-        kind == ContainerKind.MINDMAP || kind == ContainerKind.VIDEO
+        kind == ContainerKind.MINDMAP || kind == ContainerKind.VIDEO || kind == ContainerKind.SOLID3D
     }
 
     // Does this stroke rule against the instrument? Decided ONCE at press, so
@@ -734,7 +793,7 @@ private fun handleMove(
     renderer: BoardRenderer,
     change: PointerInputChange,
     tool: DrawTool,
-    erasedThisDrag: MutableList<Stroke>,
+    eraseDrag: EraseDrag,
 ) {
     val camera = state.camera
     val worldX = camera.screenToWorldX(change.position.x)
@@ -747,6 +806,15 @@ private fun handleMove(
     }
 
     when (val drag = state.dragState) {
+        is DragState.TurningSolid -> {
+            state.solidTurner?.turn(
+                drag.containerId,
+                change.position.x - change.previousPosition.x,
+                change.position.y - change.previousPosition.y,
+            )
+            return
+        }
+
         DragState.Panning -> {
             val previous = change.previousPosition
             camera.pan(change.position.x - previous.x, change.position.y - previous.y)
@@ -814,7 +882,12 @@ private fun handleMove(
     }
 
     if (tool == DrawTool.ERASER) {
-        eraseAt(state, renderer, worldX, worldY, erasedThisDrag)
+        if (state.eraseByArea) {
+            if (state.eraseLasso.isNotEmpty()) state.eraseLasso += Offset(worldX, worldY)
+            return
+        }
+        state.eraserAt = change.position
+        eraseAt(state, renderer, worldX, worldY, eraseDrag)
         return
     }
 
@@ -871,10 +944,10 @@ private fun handleRelease(
     renderer: BoardRenderer,
     change: PointerInputChange,
     tool: DrawTool,
-    erasedThisDrag: MutableList<Stroke>,
+    eraseDrag: EraseDrag,
     snapshot: TransformSnapshot,
     onStrokeFinished: (Stroke) -> Unit,
-    onStrokesErased: (List<Stroke>) -> Unit,
+    onStrokesErased: (removed: List<Stroke>, added: List<Stroke>) -> Unit,
     onSelectionMoved: (List<Stroke>, List<TextBox>) -> Unit,
     onCameraSettled: () -> Unit,
     onPlayVideo: (String) -> Unit,
@@ -883,6 +956,12 @@ private fun handleRelease(
         DragState.Panning -> {
             state.dragState = DragState.None
             onCameraSettled()
+            return
+        }
+
+        is DragState.TurningSolid -> {
+            state.solidTurner?.finish(drag.containerId)
+            state.dragState = DragState.None
             return
         }
 
@@ -946,20 +1025,34 @@ private fun handleRelease(
     if (state.instrumentDragMode == InstrumentDrag.SWEEP) {
         commitCompassArc(state, onStrokeFinished)
     }
+    // The protractor's draw buttons act on release, as a button does.
+    when (state.instrumentDragMode) {
+        InstrumentDrag.DRAW_ANGLE -> commitProtractorInk(state, InstrumentGeometry.ProtractorInk.ANGLE, onStrokeFinished)
+        InstrumentDrag.DRAW_ARC -> commitProtractorInk(state, InstrumentGeometry.ProtractorInk.ARC, onStrokeFinished)
+        InstrumentDrag.DRAW_SECTOR -> commitProtractorInk(state, InstrumentGeometry.ProtractorInk.SECTOR, onStrokeFinished)
+        else -> Unit
+    }
 
     state.dragState = DragState.None
     state.snappingToInstrument = false
     state.instrumentDragMode = InstrumentDrag.NONE
     state.draggedInstrumentId = null
+    // Cleared whatever the tool now is: a tool switch mid-rub must not
+    // strand the disc on the board.
+    state.eraserAt = null
 
     if (tool == DrawTool.ERASER) {
         // The eraser never sets it, but a tool switch mid-gesture could leave
         // one behind, and a stale tap would focus the wrong node later.
         state.tappedCell = null
-        if (erasedThisDrag.isNotEmpty()) {
-            onStrokesErased(erasedThisDrag.toList())
-            erasedThisDrag.clear()
+        if (state.eraseLasso.isNotEmpty()) {
+            eraseInside(state, renderer, eraseDrag)
+            state.eraseLasso.clear()
         }
+        if (eraseDrag.removed.isNotEmpty()) {
+            onStrokesErased(eraseDrag.removed.toList(), eraseDrag.added.toList())
+        }
+        eraseDrag.clear()
         return
     }
 
@@ -1121,7 +1214,7 @@ private fun applyScaleFromOriginal(
         // A picture or video keeps its aspect ratio; the axis being dragged
         // further from 1 decides, so edge handles still shrink and grow it.
         // A table stretches freely, like the grid it is.
-        val keepAspect = original.kind == ContainerKind.IMAGE || original.kind == ContainerKind.VIDEO
+        val keepAspect = original.kind.isMedia
         val uniform = if (abs(scaleX - 1f) >= abs(scaleY - 1f)) scaleX else scaleY
         val sx = (if (keepAspect) uniform else scaleX).coerceAtLeast(MIN_CONTAINER_SCALE)
         val sy = (if (keepAspect) uniform else scaleY).coerceAtLeast(MIN_CONTAINER_SCALE)
@@ -1193,30 +1286,149 @@ private fun applyRotationFromOriginal(
 }
 
 /**
- * Removes every stroke under the eraser, accumulating them into [erasedThisDrag].
+ * The eraser itself, under the finger while it rubs, as on the reference
+ * board: a pale disc exactly the size of what it removes, so the teacher can
+ * see what is about to go rather than discovering it after.
+ */
+private fun DrawScope.drawEraserOverlay(state: BoardState) {
+    drawEraseLasso(state)
+    val at = state.eraserAt ?: return
+    val radius = state.eraserScreenRadius
+    drawCircle(Color(0xF2E8EDF2), radius, at)
+    drawCircle(
+        Color(0xFF9AA4AF),
+        radius - 3f,
+        at,
+        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f),
+    )
+}
+
+/**
+ * What one eraser drag has done so far.
  *
- * That accumulation is what makes an erase undoable AND saveable: the release
- * handler reports the list through `onStrokesErased`, which is the only place
- * that records [BoardCommand.EraseStrokes] and the only place that persists.
- * Without it the strokes were removed from the page, never written to history
- * and never written to disk — so they came back on reload and then vanished
- * again on the next unrelated save.
+ * [removed] holds strokes that were on the page before the drag; [added] the
+ * pieces cutting them left behind. A piece cut again in the same drag just
+ * leaves [added], so the release reports one clean before/after pair — which
+ * is what makes the erase a single Undo, and the only place it is persisted.
+ */
+class EraseDrag {
+    val removed = mutableListOf<Stroke>()
+    val added = mutableListOf<Stroke>()
+    var lastX = 0f
+    var lastY = 0f
+
+    fun clear() {
+        removed.clear()
+        added.clear()
+    }
+}
+
+/**
+ * Rubs out the ink under the eraser on its way from the last sample to
+ * (worldX, worldY).
+ *
+ * Freehand ink is cut, so only the rubbed part goes; a shape is one drawn
+ * object and goes whole, as a ruled line or circle has no "half" to keep.
+ * The path between samples is swept in steps, since a quick rub moves
+ * further than the eraser's width between two touch events and would
+ * otherwise leave islands of ink standing.
  */
 private fun eraseAt(
     state: BoardState,
     renderer: BoardRenderer,
     worldX: Float,
     worldY: Float,
-    erasedThisDrag: MutableList<Stroke>,
+    eraseDrag: EraseDrag,
 ) {
     val radius = state.camera.screenToWorldDistance(state.eraserScreenRadius)
-    val hits = state.strokes.filter { StrokeHitTest.intersects(it, worldX, worldY, radius) }
-    if (hits.isEmpty()) return
-
-    erasedThisDrag += hits
-    state.strokes.removeAll(hits)
+    val dx = worldX - eraseDrag.lastX
+    val dy = worldY - eraseDrag.lastY
+    val steps = (sqrt(dx * dx + dy * dy) / (radius * 0.5f)).toInt().coerceIn(1, 64)
+    var changed = false
+    for (step in 1..steps) {
+        val t = step.toFloat() / steps
+        changed = eraseCircle(state, eraseDrag.lastX + dx * t, eraseDrag.lastY + dy * t, radius, eraseDrag) || changed
+    }
+    eraseDrag.lastX = worldX
+    eraseDrag.lastY = worldY
+    if (!changed) return
     renderer.invalidateCache()
     state.markCommittedDirty()
+}
+
+private fun eraseCircle(state: BoardState, cx: Float, cy: Float, radius: Float, eraseDrag: EraseDrag): Boolean {
+    var changed = false
+    for (stroke in state.strokes.toList()) {
+        // Measured to the ink's edge, not its centreline: rubbing the side
+        // of a thick marker line has to take some of it.
+        val reach = radius + stroke.style.baseWidthPx / 2f
+        val pieces = if (stroke.tool.isShape) {
+            if (StrokeHitTest.intersects(stroke, cx, cy, reach)) emptyList() else null
+        } else {
+            StrokeHitTest.cut(stroke, cx, cy, reach, minLength = stroke.style.baseWidthPx * 0.5f)
+        } ?: continue
+
+        replaceStroke(state, stroke, pieces, eraseDrag)
+        changed = true
+    }
+    return changed
+}
+
+/** Swaps [stroke] for what is left of it, recording both for the drag's single Undo. */
+private fun replaceStroke(state: BoardState, stroke: Stroke, pieces: List<FloatArray>, eraseDrag: EraseDrag) {
+    val index = state.strokes.indexOf(stroke)
+    val made = pieces.map { stroke.copyWith(id = UUID.randomUUID().toString(), points = it) }
+    state.strokes.removeAt(index)
+    // In the stroke's own place, so cut ink keeps its layering.
+    state.strokes.addAll(index, made)
+    if (!eraseDrag.added.remove(stroke)) eraseDrag.removed += stroke
+    eraseDrag.added += made
+}
+
+/**
+ * The area eraser: everything inside the loop the teacher drew goes. Ink
+ * crossing the loop is cut at it, like the rub eraser, so writing just
+ * outside survives; a shape goes whole when its middle is inside.
+ */
+private fun eraseInside(state: BoardState, renderer: BoardRenderer, eraseDrag: EraseDrag) {
+    val poly = FloatArray(state.eraseLasso.size * 2)
+    state.eraseLasso.forEachIndexed { i, p -> poly[i * 2] = p.x; poly[i * 2 + 1] = p.y }
+    if (poly.size < 6) return
+
+    for (stroke in state.strokes.toList()) {
+        val pieces = if (stroke.tool.isShape) {
+            val b = stroke.bounds()
+            if (StrokeHitTest.insidePolygon((b[0] + b[2]) / 2f, (b[1] + b[3]) / 2f, poly)) emptyList() else null
+        } else {
+            StrokeHitTest.cutByPolygon(stroke, poly, minLength = stroke.style.baseWidthPx * 0.5f)
+        } ?: continue
+        replaceStroke(state, stroke, pieces, eraseDrag)
+    }
+    if (eraseDrag.removed.isEmpty()) return
+    renderer.invalidateCache()
+    state.markCommittedDirty()
+}
+
+/** The loop being drawn: a tinted fill inside a red dashed edge, as on the reference. */
+private fun DrawScope.drawEraseLasso(state: BoardState) {
+    if (state.eraseLasso.size < 2) return
+    val camera = state.camera
+    val path = Path()
+    state.eraseLasso.forEachIndexed { i, p ->
+        val x = camera.worldToScreenX(p.x)
+        val y = camera.worldToScreenY(p.y)
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    drawPath(path, Color(0x664A3AA8))
+    drawPath(
+        path,
+        Color(0xFFE5484D),
+        style = androidx.compose.ui.graphics.drawscope.Stroke(
+            width = 3f,
+            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(12f, 8f)),
+        ),
+    )
 }
 
 /** Live pointer telemetry for the Settings debug overlay. */
@@ -1370,6 +1582,40 @@ private fun commitCompassArc(state: BoardState, onStrokeFinished: (Stroke) -> Un
     state.replaceInstrument(instrument.copy(sweepStart = 0f, sweepEnd = 0f))
 }
 
+/**
+ * Puts the protractor's measured angle on the board in the current pen: its
+ * two rays, its arc, or the filled slice. Ordinary ink from then on, so it
+ * undoes, erases and saves like anything drawn by hand.
+ */
+private fun commitProtractorInk(
+    state: BoardState,
+    part: InstrumentGeometry.ProtractorInk,
+    onStrokeFinished: (Stroke) -> Unit,
+) {
+    val protractor = state.instrumentById(state.draggedInstrumentId) ?: return
+    // Nothing to draw at 0 degrees but the base line itself.
+    if (part != InstrumentGeometry.ProtractorInk.ANGLE && protractor.armRad < 0.01f) return
+    val xy = InstrumentGeometry.protractorInk(protractor, state.camera.zoom, part)
+    val points = FloatArray(xy.size / 2 * Stroke.STRIDE)
+    for (i in 0 until xy.size / 2) {
+        points[i * Stroke.STRIDE] = xy[i * 2]
+        points[i * Stroke.STRIDE + 1] = xy[i * 2 + 1]
+        points[i * Stroke.STRIDE + 2] = 1f
+    }
+    val tool = if (part == InstrumentGeometry.ProtractorInk.SECTOR) DrawTool.SECTOR else DrawTool.PEN
+    // Exact geometry: no shape snapping, no handwriting recognition.
+    state.suppressShapeSnap = true
+    onStrokeFinished(
+        Stroke(
+            id = UUID.randomUUID().toString(),
+            tool = tool,
+            style = state.currentStyle().copy(isPressureSensitive = false),
+            points = points,
+        ),
+    )
+    state.suppressShapeSnap = false
+}
+
 /** Roughly three degrees per sample: smooth at any radius a board can show. */
 private const val ARC_STEP_RAD = 0.05f
 private const val MAX_ARC_POINTS = 512
@@ -1399,9 +1645,6 @@ private fun normaliseAngle(angle: Float): Float {
 
 private const val PI = Math.PI.toFloat()
 
-/** How far the legs may open: closed enough to be useless, wide enough to splay. */
-private const val MIN_SPREAD_RAD = 0.12f
-private const val MAX_SPREAD_RAD = 2.4f
 
 /** Moves, turns or resizes the instrument for this pointer sample. */
 private fun applyInstrumentDrag(state: BoardState, change: PointerInputChange) {
@@ -1420,32 +1663,36 @@ private fun applyInstrumentDrag(state: BoardState, change: PointerInputChange) {
         }
 
         // Tracks the hand rather than accumulating deltas, so a fast turn
-        // cannot drift away from the finger. Turns about the anchor.
-        InstrumentDrag.ROTATE -> current.copy(
-            rotation = InstrumentGeometry.snapRotation(
-                atan2(change.position.y - ay, change.position.x - ax) + state.instrumentGrabAngle,
-            ),
-        )
+        // cannot drift away from the finger. Turns about the instrument's
+        // middle, so it spins in place instead of swinging off a corner.
+        InstrumentDrag.ROTATE -> {
+            val pivot = instrumentPivot(current, camera)
+            rotatedAboutPivot(
+                current,
+                InstrumentGeometry.snapRotation(
+                    atan2(change.position.y - pivot.y, change.position.x - pivot.x) + state.instrumentGrabAngle,
+                ),
+                camera,
+            )
+        }
 
         InstrumentDrag.RESIZE -> current.copy(
             lengthCm = resizedLengthCm(current, camera, change.position),
         )
 
-        // Opening the legs. Measured from the hinge, so the spread follows the
-        // hand the way the real hinge does.
-        InstrumentDrag.SPREAD -> {
-            val legPx = current.compassLegWorld * camera.zoom
-            val reach = hypot(change.position.x - ax, change.position.y - ay)
-            // The hand is on ONE leg, half the spread off the centre line.
-            val half = asin((reach / legPx).coerceIn(0f, 1f))
-            current.copy(
-                spreadRad = (half * 2f).coerceIn(MIN_SPREAD_RAD, MAX_SPREAD_RAD),
-                // A resized compass starts its arc afresh: the old sweep was
-                // drawn at a different radius and would not join up.
-                sweepStart = 0f,
-                sweepEnd = 0f,
-            )
+        // Into the protractor's own frame, then the angle above its base line.
+        InstrumentDrag.ARM -> {
+            val dx = change.position.x - ax
+            val dy = change.position.y - ay
+            val c = cos(-current.rotation)
+            val s = sin(-current.rotation)
+            current.copy(armRad = InstrumentGeometry.armAngle(dx * c - dy * s, dx * s + dy * c))
         }
+
+        // Opening the legs by the ↔ button, the needle staying planted.
+        InstrumentDrag.SPREAD -> compassSpreadTo(current, camera, change.position, state.instrumentGrabAlong)
+        InstrumentDrag.SPREAD_NEEDLE ->
+            compassSpreadTo(current, camera, change.position, state.instrumentGrabAlong, byNeedleLeg = true)
 
         // Sweeping the pencil round the needle. The compass ROTATES about the
         // needle rather than the hinge, which is what keeps the needle — and
@@ -1482,7 +1729,8 @@ private fun applyInstrumentDrag(state: BoardState, change: PointerInputChange) {
             )
         }
 
-        InstrumentDrag.NONE -> current
+        InstrumentDrag.NONE, InstrumentDrag.CLOSE, InstrumentDrag.SWAP,
+        InstrumentDrag.DRAW_ANGLE, InstrumentDrag.DRAW_ARC, InstrumentDrag.DRAW_SECTOR -> current
     }
     state.replaceInstrument(updated)
 }

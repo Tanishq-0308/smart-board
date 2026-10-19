@@ -9,6 +9,14 @@ package com.smartboard.teach.domain.model
  * `MindmapLayout` rather than in two parallel models.
  */
 enum class ContainerKind {
+    /**
+     * A live 3D Maths solid. [Container.mediaPath] is its scene file (the
+     * solids' recipe and viewing angle); what the board draws is a picture of
+     * it rendered beside that file, re-rendered as the teacher turns it. So
+     * it moves, resizes, saves and exports exactly like [IMAGE].
+     */
+    SOLID3D,
+
     TABLE,
     MINDMAP,
 
@@ -37,7 +45,7 @@ enum class ContainerKind {
     ;
 
     /** True when the cell is filled with media rather than drawn as a frame. */
-    val isMedia: Boolean get() = this == IMAGE || this == VIDEO
+    val isMedia: Boolean get() = this == IMAGE || this == VIDEO || this == SOLID3D
 }
 
 /**

@@ -60,8 +60,9 @@
     <!-- Whiteboard: page strip and split panes -->
     <string name="board_split_view">Split view</string>
     <string name="board_close_split_view">Close split view</string>
-    <string name="board_add_pane">Add pane (%1$d of %2$d)</string>
+    <string name="board_split_count">%1$d split</string>
     <string name="board_add_page">Add page</string>
+    <string name="board_swap_sides">Move toolbar to the other side</string>
     <string name="board_previous_page">Previous page</string>
     <string name="board_next_page">Next page</string>
     <string name="board_delete_page">Delete page</string>
@@ -75,6 +76,17 @@
     <!-- Where a page on the board came from, e.g. "Chapter 4, page 2" -->
     <string name="document_page_label">%1$s, page %2$d</string>
     <string name="board_clear_page">Clear page</string>
+    <string name="board_slide_clear">Clear</string>
+    <string name="board_insert_area">Area</string>
+    <string name="board_edit_in_maths3d">Edit in 3D Maths</string>
+    <string name="area_badminton">Badminton court</string>
+    <string name="area_baseball">Baseball field</string>
+    <string name="area_basketball">Basketball court</string>
+    <string name="area_go">Go</string>
+    <string name="area_handball">Handball court</string>
+    <string name="area_ice_rink">Ice rink</string>
+    <string name="board_eraser_rub">Rub out</string>
+    <string name="board_eraser_area">Erase an area</string>
     <string name="board_delete_page_title">Delete this page?</string>
     <string name="board_delete_page_body">Everything on it will be removed. This cannot be undone.</string>
     <string name="board_delete_page_confirm">Delete page</string>

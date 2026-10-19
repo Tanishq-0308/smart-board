@@ -967,11 +967,7 @@ class WhiteboardViewModel @Inject constructor(
                         content.containers
                             .filter { it.kind.isMedia && it.mediaPath != null }
                             .mapNotNull { c ->
-                                val path = if (c.kind == ContainerKind.VIDEO) {
-                                    posterPathFor(c.mediaPath!!)
-                                } else {
-                                    c.mediaPath!!
-                                }
+                                val path = drawnPathFor(c)
                                 BitmapUtils.decodeSampled(path, LESSON_EXPORT_MEDIA_EDGE_PX)
                                     ?.let { c.id to it }
                             }
@@ -1193,45 +1189,64 @@ class WhiteboardViewModel @Inject constructor(
     private val paneSlots = mutableListOf<PaneSlot>()
 
     /**
+     * Shows [panes] panes in total, primary included, adding or closing extra
+     * panes from the right to get there.
+     *
+     * Panes are added one after another in a single coroutine so two new
+     * panes cannot both pick the same free page. [onLoaded] gets the pane
+     * index and its content.
+     */
+    fun setPaneCount(panes: Int, onLoaded: (Int, PageContentSnapshot) -> Unit) {
+        viewModelScope.launch {
+            val extra = (panes - 1).coerceIn(0, MAX_PANES - 1)
+            if (extra < paneSlots.size) {
+                paneSlots.subList(extra, paneSlots.size).forEach { writePaneNow(it) }
+                paneSlots.subList(extra, paneSlots.size).clear()
+                _secondaryPageIds.value = paneSlots.map { it.pageId }
+            }
+            while (paneSlots.size < extra) {
+                val index = paneSlots.size
+                if (!addSecondaryPane { onLoaded(index, it) }) break
+            }
+        }
+    }
+
+    /**
      * Adds one more pane, on the first page no other pane is showing.
      *
      * Picking an unused page means each added pane shows something different
      * rather than a second copy of what is already on screen; a new page is
      * created when the lesson has run out, since duplicate panes look broken.
      */
-    fun addSecondaryPane(onLoaded: (PageContentSnapshot) -> Unit) {
-        viewModelScope.launch {
-            val current = _state.value
-            val taken = buildSet {
-                current.currentPageId?.let { add(it) }
-                addAll(_secondaryPageIds.value)
-            }
-
-            val free = current.pages.firstOrNull { it.id !in taken }
-            if (free != null) {
-                addPaneOn(free.id, onLoaded)
-                return@launch
-            }
-
-            val sessionId = current.sessionId ?: return@launch
-            val page = boardRepository.createPage(
-                sessionId = sessionId,
-                pageIndex = current.pages.size,
-                widthPx = boardWidthPx,
-                heightPx = boardHeightPx,
-            )
-            _state.update { it.copy(pages = it.pages + page) }
-            addPaneOn(page.id, onLoaded)
+    private suspend fun addSecondaryPane(onLoaded: (PageContentSnapshot) -> Unit): Boolean {
+        val current = _state.value
+        val taken = buildSet {
+            current.currentPageId?.let { add(it) }
+            addAll(_secondaryPageIds.value)
         }
+
+        val free = current.pages.firstOrNull { it.id !in taken }
+        if (free != null) return addPaneOn(free.id, onLoaded)
+
+        val sessionId = current.sessionId ?: return false
+        val page = boardRepository.createPage(
+            sessionId = sessionId,
+            pageIndex = current.pages.size,
+            widthPx = boardWidthPx,
+            heightPx = boardHeightPx,
+        )
+        _state.update { it.copy(pages = it.pages + page) }
+        return addPaneOn(page.id, onLoaded)
     }
 
-    private suspend fun addPaneOn(pageId: String, onLoaded: (PageContentSnapshot) -> Unit) {
-        val content = boardRepository.loadPage(pageId) ?: return
+    private suspend fun addPaneOn(pageId: String, onLoaded: (PageContentSnapshot) -> Unit): Boolean {
+        val content = boardRepository.loadPage(pageId) ?: return false
         val slot = PaneSlot(pageId)
         paneSlots.add(slot)
         fillSlot(slot, content)
         _secondaryPageIds.value = paneSlots.map { it.pageId }
         onLoaded(content.toSnapshot())
+        return true
     }
 
     /** Closes every extra pane, flushing whatever they hold. */
@@ -1460,11 +1475,7 @@ class WhiteboardViewModel @Inject constructor(
             media.forEach { container ->
                 // A VIDEO container's mediaPath is the VIDEO; what the board
                 // draws is the poster frame saved beside it at import.
-                val path = if (container.kind == ContainerKind.VIDEO) {
-                    posterPathFor(container.mediaPath!!)
-                } else {
-                    container.mediaPath!!
-                }
+                val path = drawnPathFor(container)
                 // Capped: a 12 MP photo decoded at full size is ~48 MB. Media is
                 // drawn into its container rect, so the cap costs no layout.
                 val bitmap = withContext(Dispatchers.IO) {
@@ -1848,3 +1859,13 @@ data class PageContentSnapshot(
 )
 
 internal fun documentTitle(pdf: File): String = com.smartboard.teach.domain.lessonpack.pdfTitle(pdf)
+
+/**
+ * The picture a media object is drawn from: an image is its own file, a video
+ * its poster frame, a 3D solid the view rendered beside its scene.
+ */
+internal fun drawnPathFor(container: Container): String = when (container.kind) {
+    ContainerKind.VIDEO -> posterPathFor(container.mediaPath!!)
+    ContainerKind.SOLID3D -> com.smartboard.teach.feature.maths3d.SolidSceneFiles.posterPathFor(container.mediaPath!!)
+    else -> container.mediaPath!!
+}

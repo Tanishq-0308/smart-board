@@ -110,4 +110,62 @@ class StrokeHitTestTest {
         val s = stroke(0f, 0f, 100f, 100f)
         assertTrue(StrokeHitTest.intersects(s, 60f, 40f, 30f))
     }
+
+    @Test
+    fun `rubbing the middle of a line leaves both ends`() {
+        val pieces = StrokeHitTest.cut(stroke(0f, 0f, 100f, 0f), 50f, 0f, 10f)!!
+        assertEquals(2, pieces.size)
+        // Cut exactly at the eraser's edge, not at the nearest sampled point.
+        assertEquals(40f, pieces[0][3], 0.01f)
+        assertEquals(60f, pieces[1][0], 0.01f)
+        assertEquals(100f, pieces[1][3], 0.01f)
+    }
+
+    @Test
+    fun `rubbing one end leaves the rest`() {
+        val pieces = StrokeHitTest.cut(stroke(0f, 0f, 50f, 0f, 100f, 0f), 100f, 0f, 10f)!!
+        assertEquals(1, pieces.size)
+        assertEquals(0f, pieces[0][0], 0.01f)
+        assertEquals(90f, pieces[0][pieces[0].size - 3], 0.01f)
+    }
+
+    @Test
+    fun `an eraser covering the whole stroke leaves nothing`() {
+        assertEquals(0, StrokeHitTest.cut(stroke(0f, 0f, 5f, 0f), 2f, 0f, 20f)!!.size)
+    }
+
+    @Test
+    fun `a miss leaves the stroke alone`() {
+        assertEquals(null, StrokeHitTest.cut(stroke(0f, 0f, 100f, 0f), 50f, 300f, 10f))
+    }
+
+    @Test
+    fun `crumbs shorter than the minimum are dropped`() {
+        // Leaves 1px at the start: too short to keep.
+        val pieces = StrokeHitTest.cut(stroke(0f, 0f, 100f, 0f), 30f, 0f, 29f, minLength = 2f)!!
+        assertEquals(1, pieces.size)
+        assertEquals(59f, pieces[0][0], 0.01f)
+    }
+
+    private val square = floatArrayOf(40f, -10f, 60f, -10f, 60f, 10f, 40f, 10f)
+
+    @Test
+    fun `a point is inside a loop only when it is`() {
+        assertTrue(StrokeHitTest.insidePolygon(50f, 0f, square))
+        assertFalse(StrokeHitTest.insidePolygon(70f, 0f, square))
+    }
+
+    @Test
+    fun `an area erase keeps the ink either side of the loop`() {
+        val s = stroke(0f, 0f, 20f, 0f, 45f, 0f, 55f, 0f, 80f, 0f, 100f, 0f)
+        val pieces = StrokeHitTest.cutByPolygon(s, square)!!
+        assertEquals(2, pieces.size)
+        assertEquals(20f, pieces[0][3], 0.01f)
+        assertEquals(80f, pieces[1][0], 0.01f)
+    }
+
+    @Test
+    fun `an area erase misses ink outside the loop`() {
+        assertEquals(null, StrokeHitTest.cutByPolygon(stroke(0f, 50f, 100f, 50f), square))
+    }
 }

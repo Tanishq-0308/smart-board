@@ -1,5 +1,20 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import android.graphics.BitmapFactory
+import com.smartboard.teach.feature.maths3d.SCENE_POSTER_WIDTH
+import com.smartboard.teach.feature.maths3d.renderScene
+import com.smartboard.teach.feature.maths3d.SolidSceneFiles
+import com.smartboard.teach.feature.maths3d.SolidScene
+import com.smartboard.teach.domain.model.StrokeStyle
+import androidx.compose.ui.graphics.luminance
+import com.smartboard.teach.feature.whiteboard.instruments.MAX_LENGTH_CM
+import com.smartboard.teach.feature.whiteboard.instruments.MIN_LENGTH_CM
+import com.smartboard.teach.feature.whiteboard.instruments.setSquareRatio
+import com.smartboard.teach.feature.whiteboard.instruments.isSetSquare
 import com.smartboard.teach.feature.whiteboard.container.TableSketch
 import com.smartboard.teach.domain.engine.BoardLanguage
 import com.smartboard.teach.core.ui.theme.ErrorRed
@@ -30,6 +45,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +104,13 @@ fun WhiteboardScreen(
     /** A PNG path handed back by 3D Maths "Insert on board". */
     pendingInsertImage: String? = null,
     onInsertConsumed: () -> Unit = {},
+    /** A 3D Maths scene file to put on the board as a live solid. */
+    pendingSolid: String? = null,
+    /** When set, the solid being edited: the scene replaces its contents. */
+    pendingSolidReplace: String? = null,
+    onSolidConsumed: () -> Unit = {},
+    /** Reopens a board solid in 3D Maths: its scene file and its id. */
+    onEditSolid: (scenePath: String, containerId: String) -> Unit = { _, _ -> },
     onOpenNotes: () -> Unit = {},
     /** Opens one note (a lesson pack's review). */
     onOpenNote: (String) -> Unit = {},
@@ -320,6 +343,7 @@ fun WhiteboardScreen(
             pane.highlighterColor = state.highlighterColor
             pane.highlighterWidth = state.highlighterWidth
             pane.eraserScreenRadius = state.eraserScreenRadius
+            pane.eraseByArea = state.eraseByArea
             pane.stylusOnlyMode = state.stylusOnlyMode
             pane.honourEraserButton = state.honourEraserButton
         }
@@ -336,6 +360,17 @@ fun WhiteboardScreen(
 
     /** Whether the right-edge tools drawer is open. */
     var showToolsDrawer by remember { mutableStateOf(false) }
+
+    /** Whether Insert → Area's picker is open. */
+    var showAreaPicker by remember { mutableStateOf(false) }
+
+    /** Scenes of the 3D solids turned so far, read from their files on first turn. */
+    val solidScenes = remember { mutableMapOf<String, SolidScene>() }
+
+    /** True puts the toolbar bottom-right and the page strip and zoom bottom-left. */
+    var toolsOnRight by rememberSaveable { mutableStateOf(false) }
+    val toolsCorner = if (toolsOnRight) Alignment.BottomEnd else Alignment.BottomStart
+    val pagesCorner = if (toolsOnRight) Alignment.BottomStart else Alignment.BottomEnd
 
     // What the selection looked like when a chrome drag began, so the whole
     // move is one undo step.
@@ -423,6 +458,74 @@ fun WhiteboardScreen(
     // 3D Maths hands back a snapshot. Placed only once the page is loaded and
     // sized: placeMedia centres on the viewport, and a page load landing after
     // it would replace the containers list and drop the image.
+    // Turning a board solid: each move re-renders it at a reduced size (a
+    // drag runs at frame rate on a 2019 board), and letting go renders it in
+    // full and writes the new angle beside the scene.
+    val turnScope = rememberCoroutineScope()
+    DisposableEffect(state) {
+        state.solidTurner = object : SolidTurner {
+            override fun turn(containerId: String, dx: Float, dy: Float) {
+                val path = state.containerById(containerId)?.mediaPath ?: return
+                val scene = solidScenes[containerId] ?: SolidSceneFiles.read(path) ?: return
+                val turned = scene.copy(
+                    yaw = scene.yaw - dx * SOLID_TURN_PER_PX,
+                    // Short of straight up/down, where "up" is undefined.
+                    pitch = (scene.pitch + dy * SOLID_TURN_PER_PX).coerceIn(-1.5f, 1.5f),
+                )
+                solidScenes[containerId] = turned
+                renderScene(turned, context.resources, context.packageName, SOLID_LIVE_WIDTH)?.let {
+                    state.putMedia(containerId, it)
+                    renderer.invalidateCache()
+                }
+            }
+
+            override fun finish(containerId: String) {
+                val scene = solidScenes[containerId] ?: return
+                val path = state.containerById(containerId)?.mediaPath ?: return
+                turnScope.launch {
+                    val poster = withContext(Dispatchers.Default) {
+                        renderScene(scene, context.resources, context.packageName, SCENE_POSTER_WIDTH)
+                    } ?: return@launch
+                    withContext(Dispatchers.IO) { SolidSceneFiles.write(context, scene, poster, path) }
+                    state.putMedia(containerId, poster)
+                    renderer.invalidateCache()
+                    state.markCommittedDirty()
+                }
+            }
+        }
+        onDispose { state.solidTurner = null }
+    }
+
+    // A solid from 3D Maths: a new live object, or the one sent there to be
+    // edited, updated in place so it keeps its spot and size on the board.
+    LaunchedEffect(pendingSolid, pageApplied, state.viewportWidth > 0f) {
+        val path = pendingSolid ?: return@LaunchedEffect
+        if (!pageApplied || state.viewportWidth <= 0f) return@LaunchedEffect
+        val replace = pendingSolidReplace
+        val poster = withContext(Dispatchers.IO) {
+            BitmapFactory.decodeFile(SolidSceneFiles.posterPathFor(path))
+        }
+        // Consumed only once decoded: clearing the key changes this effect's
+        // key, which cancels it — clearing first cancelled the decode, and
+        // the solid never arrived.
+        onSolidConsumed()
+        if (poster == null) return@LaunchedEffect
+        val index = state.containers.indexOfFirst { it.id == replace }
+        if (index >= 0) {
+            state.containers[index] = state.containers[index].copy(mediaPath = path)
+            solidScenes.remove(replace)
+            state.putMedia(replace!!, poster)
+            renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+            state.markCommittedDirty()
+            persist()
+        } else {
+            placeMedia(
+                Container(id = UUID.randomUUID().toString(), kind = ContainerKind.SOLID3D, x = 0f, y = 0f, mediaPath = path),
+                poster,
+            )
+        }
+    }
+
     LaunchedEffect(pendingInsertImage, pageApplied, state.viewportWidth > 0f) {
         val path = pendingInsertImage ?: return@LaunchedEffect
         if (!pageApplied || state.viewportWidth <= 0f) return@LaunchedEffect
@@ -567,7 +670,10 @@ fun WhiteboardScreen(
                 // the snap presses undo once and the board is clear.
                 // Text-pen ink is NOT shape-snapped: a handwritten "O" would
                 // become a circle before it ever reached the recognizer.
-                val stroke = if (state.textPenActive) drawn else maybeSnapToShape(state, drawn)
+                // Instrument ink (compass arcs, protractor angles) is exact
+                // geometry, never handwriting, whichever pen is selected.
+                val asText = state.textPenActive && !state.suppressShapeSnap
+                val stroke = if (asText) drawn else maybeSnapToShape(state, drawn)
                 state.strokes.add(stroke)
                 renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
                 state.markCommittedDirty()
@@ -575,7 +681,7 @@ fun WhiteboardScreen(
                 state.refreshHistoryFlags()
                 persist()
 
-                if (state.textPenActive) {
+                if (asText) {
                     state.pendingTextStrokes.add(stroke)
                     // Handed to the recognizer in SCREEN coordinates: the model
                     // was trained on writing at a natural on-screen size, so
@@ -591,8 +697,8 @@ fun WhiteboardScreen(
                     }
                 }
             },
-            onStrokesErased = { erased ->
-                state.history.record(BoardCommand.EraseStrokes(erased))
+            onStrokesErased = { erased, added ->
+                state.history.record(BoardCommand.EraseStrokes(erased, added))
                 state.refreshHistoryFlags()
                 renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
                 state.markCommittedDirty()
@@ -634,7 +740,7 @@ fun WhiteboardScreen(
 
         if (isSplit) {
             // The extra panes share the board's remaining width evenly, so
-            // three panes are thirds and six are sixths. The Row is sized to
+            // three panes are thirds and four are quarters. The Row is sized to
             // everything the primary canvas left over.
             Row(
                 modifier = Modifier
@@ -898,6 +1004,7 @@ fun WhiteboardScreen(
                 ) { TableGrid.withRowInserted(it, at) }
                 persist()
             },
+            onEditSolid = { solid -> solid.mediaPath?.let { onEditSolid(it, solid.id) } },
             onInsertColumn = { at ->
                 val cols = state.selectedContainerId
                     ?.let(state::containerById)?.cols ?: return@ObjectChrome
@@ -910,7 +1017,56 @@ fun WhiteboardScreen(
             },
         )
 
+        /**
+         * Puts a ready-made layout on the board, fitted to the view, as one
+         * Undo. Lines are white on a dark board and dark on a light one, so
+         * the layout shows whatever the paper.
+         */
+        fun insertArea(template: AreaTemplate) {
+            val camera = state.camera
+            val dark = Color(state.canvasStyle.colorArgb).luminance() < 0.5f
+            val ink = if (dark) android.graphics.Color.WHITE else 0xFF1F2933.toInt()
+            val width = AREA_LINE_PX / camera.zoom
+            val strokes = AreaTemplates.place(
+                template,
+                cx = camera.screenToWorldX(state.viewportWidth / 2f),
+                // A little above centre: the toolbar takes the bottom edge.
+                cy = camera.screenToWorldY(state.viewportHeight * 0.46f),
+                maxW = state.viewportWidth * 0.8f / camera.zoom,
+                maxH = state.viewportHeight * 0.68f / camera.zoom,
+            ).map { mark ->
+                val points = FloatArray(mark.xy.size / 2 * Stroke.STRIDE)
+                for (i in 0 until mark.xy.size / 2) {
+                    points[i * Stroke.STRIDE] = mark.xy[i * 2]
+                    points[i * Stroke.STRIDE + 1] = mark.xy[i * 2 + 1]
+                    points[i * Stroke.STRIDE + 2] = 1f
+                }
+                Stroke(
+                    id = java.util.UUID.randomUUID().toString(),
+                    tool = mark.tool,
+                    style = StrokeStyle(colorArgb = ink, baseWidthPx = width * mark.weight, isPressureSensitive = false),
+                    points = points,
+                )
+            }
+            state.strokes.addAll(strokes)
+            // Recorded as an add of many strokes, so one Undo takes the whole
+            // layout away again.
+            state.history.record(BoardCommand.DuplicateSelection(strokes, emptyList()))
+            state.refreshHistoryFlags()
+            renderer.rebuildCache(state.strokes, state.camera, state.containers, state.mediaBitmaps)
+            state.markCommittedDirty()
+            persist()
+        }
+
+        if (showAreaPicker) {
+            AreaPicker(
+                onPick = { showAreaPicker = false; insertArea(it) },
+                onDismiss = { showAreaPicker = false },
+            )
+        }
+
         ToolPalette(
+            onInsertArea = { showAreaPicker = true },
             state = state,
             onAddCustomColor = viewModel::addCustomPenColor,
             textLanguage = BoardLanguage.fromCode(inputSettings.textPenLanguage),
@@ -960,6 +1116,10 @@ fun WhiteboardScreen(
                     kind = kind,
                     x = 0f,
                     y = 0f,
+                    // A compass opens about 5cm wide at its default legs, as
+                    // on the reference — 0.42 rad gave a circle barely a
+                    // thumb across.
+                    spreadRad = 0.9f,
                     rotation = if (kind == InstrumentKind.COMPASS) {
                         (Math.PI / 2).toFloat()
                     } else {
@@ -968,12 +1128,24 @@ fun WhiteboardScreen(
                     // A full 11cm leg ran off the bottom of a high-density
                     // panel, under the toolbar, leaving the needle and pencil
                     // unreachable. Legs take 40% of the board height, leaving room for the circle.
-                    lengthCm = if (kind == InstrumentKind.COMPASS) {
+                    lengthCm = if (kind == InstrumentKind.PROTRACTOR) {
+                        // Big enough for its two scales and its row of five
+                        // buttons to be read and hit: a radius of 38% of the
+                        // board height (radius is 0.4cm per cm of length).
+                        (state.viewportHeight * 0.38f / (0.4f * InstrumentGeometry.pxPerCm))
+                            .coerceIn(MIN_LENGTH_CM, MAX_LENGTH_CM)
+                    } else if (kind == InstrumentKind.COMPASS) {
                         minOf(
                             COMPASS_LEG_CM,
                             state.viewportHeight * 0.4f /
                                 (InstrumentGeometry.pxPerCm * state.camera.zoom),
                         )
+                    } else if (kind.isSetSquare) {
+                        // A 10cm 45 set square is 10cm TALL as well, and on a
+                        // high-density panel that runs under the toolbar and
+                        // hides its close button. Fit it in 60% of the height.
+                        (state.viewportHeight * 0.6f / (InstrumentGeometry.pxPerCm * kind.setSquareRatio))
+                            .coerceIn(MIN_LENGTH_CM, 10f)
                     } else {
                         10f
                     },
@@ -1136,10 +1308,14 @@ fun WhiteboardScreen(
             // the top edge is where content goes and the bottom edge is where
             // the hand already is. A top-centre toolbar sits exactly where a
             // lesson heading belongs and forces a reach up to a 1080px-tall
-            // panel for every tool change.
+            // panel for every tool change. The swap button trades corners
+            // with the page strip for a left-handed teacher, or one standing
+            // on the other side of the panel.
+            alignEnd = toolsOnRight,
+            onSwapSides = { toolsOnRight = !toolsOnRight },
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = dimens.gutterSmall, bottom = dimens.gutter),
+                .align(toolsCorner)
+                .padding(start = dimens.gutterSmall, end = dimens.gutterSmall + rightInset, bottom = dimens.gutter),
         )
 
         ZoomControls(
@@ -1175,8 +1351,9 @@ fun WhiteboardScreen(
             // now the toolbar's, and zoom is a glance-and-adjust control
             // rather than one reached mid-sentence.
             modifier = Modifier
-                .align(Alignment.BottomEnd)
+                .align(pagesCorner)
                 .padding(
+                    start = dimens.gutterSmall,
                     end = dimens.gutterSmall + rightInset,
                     bottom = dimens.chromeButton + dimens.gutter * 2,
                 ),
@@ -1232,27 +1409,21 @@ fun WhiteboardScreen(
                 if (hasContent) confirmDeletePage = true else deletePageNow()
             },
             paneCount = paneCount,
-            // One tap adds a pane; the tap past the last one closes the split
-            // and returns the board to a single full-width canvas.
-            onCycleSplit = {
-                if (splitTapAddsPane(paneCount)) {
-                    val next = secondaryPageIds.size
-                    viewModel.addSecondaryPane { snapshot ->
-                        applyToPane(paneStates[next], paneRenderers[next], snapshot)
-                    }
-                } else {
-                    viewModel.closeSecondaryPanes()
+            onSetPaneCount = { count ->
+                viewModel.setPaneCount(count) { index, snapshot ->
+                    applyToPane(paneStates[index], paneRenderers[index], snapshot)
                 }
             },
             onCloseSplit = { viewModel.closeSecondaryPanes() },
             // BOTTOM-RIGHT, opposite the toolbar, as on the reference panel.
             // Page navigation is a between-topics action, not a mid-sentence
             // one, so it sits at the far end from the tools.
+            onRight = !toolsOnRight,
             modifier = Modifier
-                .align(Alignment.BottomEnd)
+                .align(pagesCorner)
                 // Extra bottom padding clears the system gesture bar, which
                 // sits over the window even with safeDrawing insets applied.
-                .padding(end = dimens.gutterSmall + rightInset, bottom = dimens.gutter),
+                .padding(start = dimens.gutterSmall, end = dimens.gutterSmall + rightInset, bottom = dimens.gutter),
         )
 
         // Inside the Box so it can align to the chrome, and anchored TopEnd
@@ -1462,7 +1633,10 @@ internal fun performUndo(state: BoardState, renderer: BoardRenderer) {
     when (val command = state.history.undo()) {
         is BoardCommand.AddStroke -> state.strokes.remove(command.stroke)
 
-        is BoardCommand.EraseStrokes -> state.strokes.addAll(command.strokes)
+        is BoardCommand.EraseStrokes -> {
+            state.strokes.removeAll(command.added)
+            state.strokes.addAll(command.strokes)
+        }
 
         is BoardCommand.ClearPage -> {
             state.strokes.addAll(command.strokes)
@@ -1543,7 +1717,10 @@ internal fun performRedo(state: BoardState, renderer: BoardRenderer) {
     when (val command = state.history.redo()) {
         is BoardCommand.AddStroke -> state.strokes.add(command.stroke)
 
-        is BoardCommand.EraseStrokes -> state.strokes.removeAll(command.strokes)
+        is BoardCommand.EraseStrokes -> {
+            state.strokes.removeAll(command.strokes)
+            state.strokes.addAll(command.added)
+        }
 
         is BoardCommand.ClearPage -> {
             state.strokes.clear()
@@ -2302,3 +2479,12 @@ private const val SCREEN_TIME_TICK_MS = 2_000L
 
 /** A lesson-pack part's long edge: legible handwriting, well inside the ERP's 6 MB image cap. */
 private const val PART_MAX_EDGE_PX = 2048
+
+/** Line width of an inserted Area layout, in screen px. */
+private const val AREA_LINE_PX = 3.5f
+
+/** Radians a 3D solid turns per screen px dragged, as in 3D Maths. */
+private const val SOLID_TURN_PER_PX = 0.008f
+
+/** Width a solid is re-rendered at while being turned: smooth beats sharp mid-drag. */
+private const val SOLID_LIVE_WIDTH = 560

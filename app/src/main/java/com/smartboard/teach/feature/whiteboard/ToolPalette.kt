@@ -1,5 +1,16 @@
 package com.smartboard.teach.feature.whiteboard
 
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.filled.AutoFixHigh
@@ -41,6 +52,7 @@ import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.TextFields
@@ -59,6 +71,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.smartboard.teach.core.ui.component.BoardAreaEraserIcon
 import com.smartboard.teach.core.ui.component.BoardEraserIcon
 import com.smartboard.teach.core.ui.component.NibBrushIcon
 import com.smartboard.teach.core.ui.component.NibShapeIcon
@@ -119,6 +132,7 @@ fun ToolPalette(
     onInsertVideo: () -> Unit,
     onShowTimer: () -> Unit,
     onShowGame: (com.smartboard.teach.feature.whiteboard.games.Game) -> Unit,
+    onInsertArea: () -> Unit = {},
     onBackgroundSettings: () -> Unit,
     onLessons: () -> Unit,
     onInsertImage: () -> Unit,
@@ -132,6 +146,10 @@ fun ToolPalette(
     onLookupSelection: () -> Unit,
     onExportSelection: () -> Unit,
     modifier: Modifier = Modifier,
+    /** True when the bar sits bottom-right: popovers then line up with its right edge. */
+    alignEnd: Boolean = false,
+    /** Swaps the toolbar and the page strip between the bottom corners. */
+    onSwapSides: () -> Unit = {},
 ) {
     val dimens = SmartBoardTheme.dimens
     var panel by remember { mutableStateOf(OpenPanel.NONE) }
@@ -145,11 +163,11 @@ fun ToolPalette(
     val eraserActive = isDrawing && state.tool == DrawTool.ERASER
     val shapeActive = isDrawing && state.tool.isTwoPointShape
 
-    Column(modifier, horizontalAlignment = Alignment.Start) {
+    Column(modifier, horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start) {
 
         // --- popovers, above the bar ---
         if (panel != OpenPanel.NONE) {
-            Box(Modifier.padding(bottom = dimens.gutterSmall)) {
+            Box(Modifier.padding(bottom = dimens.gutterSmall * 1.5f)) {
                 when (panel) {
                     OpenPanel.PEN -> PenPopover(
                         state = state,
@@ -158,7 +176,10 @@ fun ToolPalette(
                         textLanguage = textLanguage,
                         onTextLanguage = onTextLanguage,
                     )
-                    OpenPanel.ERASER -> EraserSizePopover(state = state)
+                    OpenPanel.ERASER -> EraserPopover(
+                        state = state,
+                        onClear = { panel = OpenPanel.NONE; onClear() },
+                    )
                     OpenPanel.SHAPES -> ShapesPopover(
                         state = state,
                         onPicked = { panel = OpenPanel.NONE },
@@ -186,7 +207,7 @@ fun ToolPalette(
                         onVideo = { panel = OpenPanel.NONE; onInsertVideo() },
                         onTimer = { panel = OpenPanel.NONE; onShowTimer() },
                         onGame = { panel = OpenPanel.NONE; onShowGame(it) },
-                        onClearPage = { panel = OpenPanel.NONE; onClear() },
+                        onArea = { panel = OpenPanel.NONE; onInsertArea() },
                         onText = {
                             panel = OpenPanel.NONE
                             state.clearSelection()
@@ -209,19 +230,29 @@ fun ToolPalette(
 
         // --- the eight buttons ---
         Row(horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall * 0.6f)) {
+            // The side switch sits in the bar's outer corner, as on the
+            // reference panel, so it is never between the teacher and a tool.
+            val swap: @Composable () -> Unit = {
+                BarButton(Icons.Filled.SwapHoriz, stringResource(R.string.board_swap_sides), false) {
+                    panel = OpenPanel.NONE
+                    onSwapSides()
+                }
+            }
+            if (!alignEnd) swap()
 
             // 1. Pen — tapping when already active opens the panel, so the
             //    common case (just draw) is one tap and styling is two.
             BarButton(
-                // Shows the ACTIVE nib, so the bar answers "which pen am I
-                // holding?" without opening the panel.
+                // A pen whose cap is the current ink, as on the reference,
+                // so the bar answers "what will this draw?" at a glance.
                 icon = state.penType.nibIcon(),
                 label = stringResource(state.penType.label),
                 selected = penActive,
-                tint = state.colorFor(state.penType),
+                ink = state.colorFor(state.penType),
                 // The Text pen shows the language it reads, so the teacher can
                 // see at a glance whether writing will become English or Hindi.
                 badge = if (state.textPenActive) stringResource(textLanguage.badge) else null,
+                caret = panel == OpenPanel.PEN,
             ) {
                 if (penActive) {
                     toggle(OpenPanel.PEN)
@@ -234,7 +265,13 @@ fun ToolPalette(
 
             // 2. Eraser — an eraser block, never a waste bin: a bin reads as
             //    "delete everything", which is the opposite of a correction.
-            BarButton(BoardEraserIcon, stringResource(R.string.board_eraser), eraserActive) {
+            // Shows the eraser's current mode, as the reference bar does.
+            BarButton(
+                if (state.eraseByArea) BoardAreaEraserIcon else BoardEraserIcon,
+                stringResource(R.string.board_eraser),
+                eraserActive,
+                caret = panel == OpenPanel.ERASER,
+            ) {
                 if (eraserActive) {
                     toggle(OpenPanel.ERASER)
                 } else {
@@ -259,10 +296,19 @@ fun ToolPalette(
                 // geometry — so the bar says what the next drag will produce.
                 tool = if (shapeActive) state.tool else DrawTool.RECT,
                 selected = shapeActive,
+                caret = panel == OpenPanel.SHAPES,
             ) { toggle(OpenPanel.SHAPES) }
 
             // 5. Insert
-            BarButton(Icons.Filled.Add, stringResource(R.string.board_insert), panel == OpenPanel.INSERT) {
+            BarButton(
+                Icons.Filled.Add,
+                stringResource(R.string.board_insert),
+                panel == OpenPanel.INSERT,
+                // Not for the table and geometry pickers: they are narrower
+                // than the bar up to this button, so a caret here would hang
+                // in mid-air beside them.
+                caret = panel == OpenPanel.INSERT,
+            ) {
                 toggle(OpenPanel.INSERT)
             }
 
@@ -317,6 +363,8 @@ fun ToolPalette(
                 BarButton(Icons.Filled.Save, stringResource(R.string.board_save_as_image_or_pdf), false) { onExportSelection() }
                 BarButton(Icons.Filled.DeleteOutline, stringResource(R.string.board_delete), false) { onDeleteSelection() }
             }
+
+            if (alignEnd) swap()
         }
     }
 }
@@ -345,33 +393,32 @@ private fun BarButton(
     label: String,
     selected: Boolean,
     enabled: Boolean = true,
-    tint: Color? = null,
+    /** Set for the pen: draws the pen picture with this ink instead of [icon]. */
+    ink: Color? = null,
     badge: String? = null,
+    caret: Boolean = false,
     onClick: () -> Unit,
 ) {
     val dimens = SmartBoardTheme.dimens
-    Box(contentAlignment = Alignment.TopEnd) {
+    Box(Modifier.popoverCaret(caret), contentAlignment = Alignment.TopEnd) {
     Box(
         modifier = Modifier
-            .size(dimens.chromeButton + dimens.gutterSmall)
-            .clip(RoundedCornerShape(dimens.cornerRadius * 0.75f))
-            .background(if (selected) Accent else IslandSurface)
+            .barTile(selected)
             .alpha(if (enabled) 1f else 0.35f)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            // A selected pen shows its own ink colour, so the bar answers
-            // "what will this draw?" without opening anything.
-            tint = when {
-                selected && tint != null -> contrastingInk(tint)
-                selected -> TextOnChrome
-                else -> TextOnChromeMuted
-            },
-            modifier = Modifier.size(dimens.chromeIcon),
-        )
+        if (ink != null) {
+            PenGlyph(ink, Modifier.size(dimens.chromeIcon * 1.5f))
+        } else {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (selected) Accent else TextOnChrome,
+                // Large, as on the reference: read from across a classroom.
+                modifier = Modifier.size(dimens.chromeIcon * 1.3f),
+            )
+        }
     }
     if (badge != null) {
         Text(
@@ -425,25 +472,65 @@ private fun PopoverRow(icon: ImageVector, label: String, onClick: () -> Unit) {
     }
 }
 
+/**
+ * The pointer from an open popover down to the button that opened it, as on
+ * the reference panel: with four buttons able to open one, it says which.
+ *
+ * Drawn behind the button and outside its bounds, in the gap the popover
+ * leaves above the bar, so no layout has to know where the button is.
+ */
 @Composable
-private fun EraserSizePopover(state: BoardState, modifier: Modifier = Modifier) {
+private fun Modifier.popoverCaret(show: Boolean): Modifier {
+    if (!show) return this
+    val gap = SmartBoardTheme.dimens.gutterSmall
+    return drawBehind {
+        val h = gap.toPx()
+        val top = -gap.toPx() * 1.5f - 1f
+        drawPath(
+            Path().apply {
+                moveTo(size.width / 2 - h, top)
+                lineTo(size.width / 2 + h, top)
+                lineTo(size.width / 2, top + h)
+                close()
+            },
+            IslandSurface,
+        )
+    }
+}
+
+/**
+ * The eraser panel, modelled on the reference: option tiles, then a
+ * slide-to-clear.
+ *
+ * Clearing is a slide rather than a tap because it wipes the whole page: a
+ * tap is too easy to land by accident on a board people lean against.
+ */
+@Composable
+private fun EraserPopover(state: BoardState, onClear: () -> Unit, modifier: Modifier = Modifier) {
     val dimens = SmartBoardTheme.dimens
-    FloatingIsland(modifier = modifier, contentPadding = PaddingValues(dimens.gutterSmall)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.board_eraser),
-                color = TextOnChromeMuted,
-                fontSize = dimens.labelSize,
-                modifier = Modifier.padding(horizontal = dimens.gutterSmall),
-            )
-            ERASER_RADII.forEach { radius ->
+    FloatingIsland(modifier = modifier, contentPadding = PaddingValues(dimens.gutter)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(dimens.gutter),
+        ) {
+            EraserModeTile(BoardEraserIcon, stringResource(R.string.board_eraser_rub), !state.eraseByArea) {
+                state.eraseByArea = false
+            }
+            EraserModeTile(BoardAreaEraserIcon, stringResource(R.string.board_eraser_area), state.eraseByArea) {
+                state.eraseByArea = true
+            }
+            // Size only means something to the rubbing eraser.
+            if (!state.eraseByArea) ERASER_RADII.forEach { radius ->
                 val selected = state.eraserScreenRadius == radius
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 3.dp)
-                        .size(dimens.chromeButton)
-                        .clip(RoundedCornerShape(dimens.cornerRadius * 0.6f))
-                        .background(if (selected) Accent else Color.Transparent)
+                        .size(dimens.chromeButton + dimens.gutterSmall)
+                        .clip(RoundedCornerShape(dimens.cornerRadius * 0.75f))
+                        .border(
+                            width = if (selected) 2.dp else 1.dp,
+                            color = if (selected) Accent else ChromeBorder,
+                            shape = RoundedCornerShape(dimens.cornerRadius * 0.75f),
+                        )
                         .clickable { state.eraserScreenRadius = radius },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -451,13 +538,84 @@ private fun EraserSizePopover(state: BoardState, modifier: Modifier = Modifier) 
                     // sizes compare against each other at a glance.
                     Box(
                         Modifier
-                            .size((radius / 3f).dp + 8.dp)
+                            .size((radius / 5f).dp + 8.dp)
                             .clip(CircleShape)
-                            .background(if (selected) TextOnChrome else TextOnChromeMuted),
+                            .background(if (selected) Accent else TextOnChromeMuted),
                     )
                 }
             }
+            SlideToClear(onClear)
         }
+    }
+}
+
+/** One of the eraser's modes: a bordered tile, outlined and blue when chosen. */
+@Composable
+private fun EraserModeTile(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+    val dimens = SmartBoardTheme.dimens
+    val shape = RoundedCornerShape(dimens.cornerRadius * 0.75f)
+    Box(
+        modifier = Modifier
+            .size(dimens.chromeButton + dimens.gutterSmall)
+            .clip(shape)
+            .border(if (selected) 2.dp else 1.dp, if (selected) Accent else ChromeBorder, shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (selected) Accent else TextOnChrome,
+            modifier = Modifier.size(dimens.chromeIcon * 1.3f),
+        )
+    }
+}
+
+/** A thumb dragged to the far end of its track fires [onClear]; let go early and it springs back. */
+@Composable
+private fun SlideToClear(onClear: () -> Unit) {
+    val dimens = SmartBoardTheme.dimens
+    val thumb = dimens.chromeButton
+    val inset = 4.dp
+    val trackWidth = thumb * 3.6f
+    val maxPx = with(LocalDensity.current) { (trackWidth - thumb - inset * 2).toPx() }
+    var dragPx by remember { mutableStateOf(0f) }
+    val shape = RoundedCornerShape(dimens.cornerRadius * 0.75f)
+
+    Box(
+        Modifier
+            .width(trackWidth)
+            .height(thumb + dimens.gutterSmall)
+            .border(1.dp, ChromeBorder, shape)
+            .padding(inset),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(
+            Modifier
+                .align(Alignment.Center)
+                .padding(start = thumb)
+                .alpha(1f - dragPx / maxPx),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(dimens.gutterSmall),
+        ) {
+            Text("»", color = TextOnChromeMuted, fontSize = dimens.bodySize)
+            Text(stringResource(R.string.board_slide_clear), color = TextOnChrome, fontSize = dimens.bodySize)
+        }
+        Box(
+            Modifier
+                .offset { IntOffset(dragPx.roundToInt(), 0) }
+                .size(thumb)
+                .clip(RoundedCornerShape(dimens.cornerRadius * 0.5f))
+                .background(Color.White)
+                .draggable(
+                    state = rememberDraggableState { dragPx = (dragPx + it).coerceIn(0f, maxPx) },
+                    orientation = Orientation.Horizontal,
+                    onDragStopped = {
+                        if (dragPx >= maxPx * 0.9f) onClear()
+                        dragPx = 0f
+                    },
+                ),
+        )
     }
 }
 
@@ -493,19 +651,58 @@ private fun selectDrawTool(state: BoardState, tool: DrawTool) {
     state.tool = tool
 }
 
-/** Small, medium and large — a slider is fiddly for a control used mid-sentence. */
-private val ERASER_RADII = listOf(20f, 30f, 60f)
+/**
+ * Small, medium and large, in screen px — a slider is fiddly for a control
+ * used mid-sentence. Sized for a hand rubbing a wall-sized board, as on the
+ * reference: the old 20/30/60 left a disc smaller than the fingertip on it.
+ */
+private val ERASER_RADII = listOf(30f, 60f, 100f)
 
 /**
- * Keeps a selected pen's icon legible on the accent fill.
- *
- * The pen's own colour is used where it reads, but a near-black or deep blue
- * nib on the blue accent would vanish, so those fall back to white.
+ * A bar button's tile. Selected keeps the dark tile and adds a blue outline,
+ * as on the reference, rather than flooding it blue: a blue fill drowned the
+ * pen's ink colour, which is the one thing that button exists to show.
  */
-private fun contrastingInk(color: Color): Color {
-    val luminance = 0.299f * color.red + 0.587f * color.green + 0.114f * color.blue
-    return if (luminance < 0.45f) Color.White else color
+@Composable
+private fun Modifier.barTile(selected: Boolean): Modifier {
+    val dimens = SmartBoardTheme.dimens
+    val shape = RoundedCornerShape(dimens.cornerRadius * 0.75f)
+    return size(dimens.chromeButton + dimens.gutterSmall)
+        .clip(shape)
+        .background(IslandSurface)
+        .then(if (selected) Modifier.border(2.dp, Accent, shape) else Modifier)
 }
+
+/**
+ * The pen on the bar, as the reference draws it: a white pen lying corner to
+ * corner, its cap in the ink it will draw with.
+ */
+@Composable
+private fun PenGlyph(ink: Color, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier) {
+        val u = size.minDimension / 24f
+        fun at(x: Float, y: Float) = Offset(x * u, y * u)
+        // Barrel.
+        drawLine(Color.White, at(7.2f, 16.8f), at(18f, 6f), strokeWidth = 3.6f * u, cap = StrokeCap.Round)
+        // Cap: ink inside a white rim, so black or navy ink still shows on
+        // the dark tile.
+        drawLine(Color.White, at(17.5f, 6.5f), at(20f, 4f), strokeWidth = 3.6f * u, cap = StrokeCap.Round)
+        drawLine(ink, at(17.6f, 6.4f), at(20f, 4f), strokeWidth = 2.4f * u, cap = StrokeCap.Round)
+        // Cone down to the point.
+        drawPath(
+            Path().apply {
+                moveTo(8.5f * u, 18.1f * u)
+                lineTo(5.9f * u, 15.5f * u)
+                lineTo(3.6f * u, 20.4f * u)
+                close()
+            },
+            Color(0xFFC9CED6),
+        )
+        // The writing point, in the ink too.
+        drawLine(ink, at(4.9f, 19.1f), at(3.6f, 20.4f), strokeWidth = 1.6f * u, cap = StrokeCap.Round)
+    }
+}
+
 
 /** Each nib gets its own silhouette, on the bar and in the panel alike. */
 internal fun PenType.nibIcon() = when (this) {
@@ -529,19 +726,19 @@ internal fun PenType.nibIcon() = when (this) {
 private fun ShapeBarButton(
     tool: DrawTool,
     selected: Boolean,
+    caret: Boolean = false,
     onClick: () -> Unit,
 ) {
     val dimens = SmartBoardTheme.dimens
     Box(
         modifier = Modifier
-            .size(dimens.chromeButton + dimens.gutterSmall)
-            .clip(RoundedCornerShape(dimens.cornerRadius * 0.75f))
-            .background(if (selected) Accent else IslandSurface)
+            .popoverCaret(caret)
+            .barTile(selected)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         androidx.compose.foundation.Canvas(Modifier.size(dimens.chromeIcon)) {
-            drawShapeGlyph(tool, if (selected) TextOnChrome else TextOnChromeMuted)
+            drawShapeGlyph(tool, if (selected) Accent else TextOnChrome)
         }
     }
 }

@@ -49,11 +49,29 @@ fun AppRoot(
 
     var menuOpen by remember { mutableStateOf(false) }
 
-    // The board's menu button lives in its own bottom-right page bar, so the
-    // board needs a handle on this state. Published through a composition
-    // local rather than threaded through the NavHost, which would mean a
-    // parameter on every destination that does not want one.
-    
+    val navigate: (Dest) -> Unit = { dest ->
+        val boardOnStack = runCatching {
+            navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_DOCUMENT)
+        }.isSuccess
+        if (dest == Dest.Whiteboard && boardOnStack) {
+            // The board is the root of the stack: go BACK to it. Navigating
+            // with restoreState could bring back the stack just popped —
+            // Notes opened from a snapshot — and leave the teacher on Notes.
+            navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_DOCUMENT, inclusive = false)
+        } else if (currentRoute != dest.route) {
+            navController.navigate(dest.route) {
+                popUpTo(Dest.Whiteboard.route) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+    val logout: () -> Unit = {
+        shellViewModel.logout()
+        navController.navigate(Dest.Whiteboard.route) {
+            popUpTo(0) { inclusive = true }
+        }
+    }
 
     // The whiteboard is the one screen that wants every pixel. Other screens
     // are dense content (a 40-student roster, a PDF page) and read better with
@@ -70,7 +88,17 @@ fun AppRoot(
         // Content fills the window. Screens other than the board draw their
         // own headers and take the full area.
         CompositionLocalProvider(
-            LocalOpenBoardMenu provides { menuOpen = true },
+            // The board's ☰ lives in its bottom-right page bar and pops the
+            // same items up from there, so it needs the rail's contents.
+            LocalBoardMenu provides { dismiss ->
+                Sidebar(
+                    authState = authState,
+                    currentRoute = currentRoute,
+                    onNavigate = { navigate(it); dismiss() },
+                    onLogout = { logout(); dismiss() },
+                    fillHeight = false,
+                )
+            },
             LocalHideClock provides hideClock,
         ) {
             AppNavHost(
@@ -107,33 +135,11 @@ fun AppRoot(
             isOpen = menuOpen,
             authState = authState,
             currentRoute = currentRoute,
-            onNavigate = { dest ->
-                val boardOnStack = runCatching {
-                    navController.getBackStackEntry(DetailRoutes.WHITEBOARD_WITH_DOCUMENT)
-                }.isSuccess
-                if (dest == Dest.Whiteboard && boardOnStack) {
-                    // The board is the root of the stack: go BACK to it. Navigating
-                    // with restoreState could bring back the stack just popped —
-                    // Notes opened from a snapshot — and leave the teacher on Notes.
-                    navController.popBackStack(DetailRoutes.WHITEBOARD_WITH_DOCUMENT, inclusive = false)
-                } else if (currentRoute != dest.route) {
-                    navController.navigate(dest.route) {
-                        popUpTo(Dest.Whiteboard.route) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
-            },
-            onLogout = {
-                shellViewModel.logout()
-                navController.navigate(Dest.Whiteboard.route) {
-                    popUpTo(0) { inclusive = true }
-                }
-            },
+            onNavigate = navigate,
+            onLogout = logout,
             onDismiss = { menuOpen = false },
-            // The board dropped its ☰ from the page bar, so the edge handle
-            // is how a teacher reaches Notes, Classes and the rest from it.
-            // Other screens keep their top-left menu button.
+            // The board also has a ☰ in its page bar; the edge handle stays as
+            // a second way in. Other screens keep their top-left menu button.
             showHandle = isBoard,
             onOpen = { menuOpen = true },
         )
@@ -141,13 +147,13 @@ fun AppRoot(
 }
 
 /**
- * Opens the navigation sidebar from inside a destination.
+ * The navigation rail's contents, for the board's ☰ popup.
  *
- * The board puts its menu button in the bottom-right page bar rather than the
- * top-left corner, so it needs to reach the shell's menu state. A composition
- * local keeps that out of every other destination's signature.
+ * The board shows them from its bottom-right page bar rather than the left
+ * drawer. A composition local keeps the auth state and nav controller out of
+ * every destination's signature. The lambda is handed a dismiss callback.
  */
-val LocalOpenBoardMenu = staticCompositionLocalOf<() -> Unit> { {} }
+val LocalBoardMenu = staticCompositionLocalOf<@Composable (dismiss: () -> Unit) -> Unit> { {} }
 
 /**
  * Lets the board hide the clock island.

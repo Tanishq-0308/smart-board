@@ -50,6 +50,25 @@ class Maths3DViewModel : ViewModel() {
 
     fun preset(p: Preset) = setShape(p.shape, p.mode, p.h)
 
+    /** Every piece on screen, the selected one last — what a board scene saves. */
+    fun pieces(): List<Piece> = others + listOfNotNull(current())
+
+    /**
+     * Opens a scene sent back from the board: the last piece becomes the
+     * selected one, and Multi is on when there is more than one.
+     */
+    fun loadPieces(pieces: List<Piece>) {
+        val last = pieces.lastOrNull() ?: return
+        record()
+        others = pieces.dropLast(1)
+        multi = pieces.size > 1
+        shape = last.shape
+        mode = last.mode
+        height = last.height
+        message = describe(last.shape)
+        growKey++
+    }
+
     fun clear() = setShape(null)
 
     fun toggleMulti() {

@@ -56,6 +56,8 @@ fun Sidebar(
     onNavigate: (Dest) -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
+    /** False sizes the rail to its items, for the board's ☰ popup. */
+    fillHeight: Boolean = true,
 ) {
     val dimens = SmartBoardTheme.dimens
     val isAuthed = authState is AuthState.Authenticated
@@ -63,14 +65,14 @@ fun Sidebar(
 
     Column(
         modifier = modifier
-            .fillMaxHeight()
+            .then(if (fillHeight) Modifier.fillMaxHeight() else Modifier)
             .width(dimens.sidebarWidth)
             .background(ChromeDark)
             .padding(vertical = dimens.gutterSmall),
     ) {
         Column(
             modifier = Modifier
-                .weight(1f)
+                .weight(1f, fill = fillHeight)
                 .verticalScroll(rememberScrollState()),
         ) {
             Dest.sidebarItems.forEach { dest ->

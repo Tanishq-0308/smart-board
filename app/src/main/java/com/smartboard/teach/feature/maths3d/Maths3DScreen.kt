@@ -108,9 +108,17 @@ fun Maths3DScreen(
     modifier: Modifier = Modifier,
     /** A board 3-D figure to open on ("cube", "cylinder", …); see presetFor. */
     initialSolid: String? = null,
+    /** A board 3D object's scene file, opened to edit it. */
+    initialScene: String? = null,
     viewModel: Maths3DViewModel = viewModel(),
 ) {
     LaunchedEffect(initialSolid) { presetFor(initialSolid)?.let(viewModel::preset) }
+    val appContext = LocalContext.current
+    LaunchedEffect(initialScene) {
+        val path = initialScene ?: return@LaunchedEffect
+        val scene = withContext(Dispatchers.IO) { SolidSceneFiles.read(path) } ?: return@LaunchedEffect
+        viewModel.loadPieces(scene.pieces.mapNotNull { it.toPiece(appContext.resources, appContext.packageName) })
+    }
     val dimens = SmartBoardTheme.dimens
     val shape = viewModel.shape
     val mode = viewModel.mode
@@ -192,14 +200,27 @@ fun Maths3DScreen(
                 onMode = viewModel::selectMode,
                 onHeight = viewModel::changeHeight,
                 onGrow = viewModel::grow,
+                // Sends the scene itself, not a picture of it: the board draws
+                // it live, so it can be turned there and reopened here.
                 onInsert = {
                     if (sheet == null || inserting) return@Controls
                     inserting = true
+                    val res = context.resources
+                    val scene = SolidScene(
+                        pieces = viewModel.pieces().map { it.toScene(res) },
+                        yaw = camera.yaw,
+                        pitch = camera.pitch,
+                        pi = viewModel.pi,
+                    )
                     scope.launch {
                         try {
-                            val image = layer.toImageBitmap().asAndroidBitmap()
-                            val file = withContext(Dispatchers.IO) { saveSnapshot(context, image, sheet) }
-                            onInsert(file.absolutePath)
+                            val path = withContext(Dispatchers.Default) {
+                                val poster = renderScene(scene, res, context.packageName, SCENE_POSTER_WIDTH)
+                                    ?: return@withContext null
+                                withContext(Dispatchers.IO) { SolidSceneFiles.write(context, scene, poster) }
+                                    .also { poster.recycle() }
+                            }
+                            path?.let(onInsert)
                         } finally {
                             inserting = false
                         }
@@ -601,46 +622,8 @@ private fun DrawScope.drawShape(
     }
 }
 
-// --- snapshot -------------------------------------------------------------------
-
-/**
- * The 3D view plus a caption strip (solid name and headline answers), saved
- * as a PNG for the whiteboard to import. Lives in cache: the board's importer
- * copies it into its own media store.
- */
-private fun saveSnapshot(context: Context, view: Bitmap, sheet: Sheet): File {
-    val res = context.resources
-    // A hardware bitmap cannot be drawn into a software canvas; copy first.
-    val src = view.copy(Bitmap.Config.ARGB_8888, false)
-    val w = src.width
-    val textSize = (w / 34f).coerceAtLeast(18f)
-    val captionH = (textSize * 3.4f).toInt()
-    val out = Bitmap.createBitmap(w, src.height + captionH, Bitmap.Config.ARGB_8888)
-    val canvas = android.graphics.Canvas(out)
-    canvas.drawColor(ChromeDark.toArgb())
-    canvas.drawBitmap(src, 0f, 0f, null)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        this.textSize = textSize
-        typeface = Typeface.DEFAULT_BOLD
-        color = SolidAmber.toArgb()
-    }
-    val x = textSize * 0.8f
-    canvas.drawText(sheet.name.resolve(res), x, src.height + textSize * 1.3f, paint)
-    paint.typeface = Typeface.DEFAULT
-    paint.textSize = textSize * 0.8f
-    paint.color = DimTeal.toArgb()
-    val summary = sheet.summary.joinToString("   ") { (label, answer) ->
-        res.getString(R.string.m3d_caption_item, res.getString(label), answer)
-    }
-    canvas.drawText(summary, x, src.height + textSize * 2.6f, paint)
-    src.recycle()
-
-    val dir = File(context.cacheDir, "maths3d").apply { mkdirs() }
-    val file = File(dir, "${UUID.randomUUID()}.png")
-    file.outputStream().use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
-    out.recycle()
-    return file
-}
+/** Width of the picture a board 3D object is drawn from, in px. */
+internal const val SCENE_POSTER_WIDTH = 1200
 
 // --- text -----------------------------------------------------------------------
 
